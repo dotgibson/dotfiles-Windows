@@ -1,120 +1,113 @@
 {
-    "$help": "https://aka.ms/terminal-documentation",
-    "$schema": "https://aka.ms/terminal-profiles-schema",
-    "actions": [],
-    "copyFormatting": "none",
-    "copyOnSelect": true,
-    "defaultProfile": "{574e775e-4f2a-5b96-ac1e-a2962a402336}",
-    "initialCols": 120,
-    "initialRows": 32,
-    "keybindings": 
-    [
-        {
-            "id": "Terminal.MoveFocusDown",
-            "keys": "alt+down"
-        },
-        {
-            "id": "Terminal.SplitPaneRight",
-            "keys": "alt+shift+plus"
-        },
-        {
-            "id": "Terminal.SplitPaneDown",
-            "keys": "alt+shift+minus"
-        },
-        {
-            "id": "Terminal.FindText",
-            "keys": "ctrl+shift+f"
-        },
-        {
-            "id": "Terminal.MoveFocusUp",
-            "keys": "alt+up"
-        },
-        {
-            "id": "Terminal.MoveFocusRight",
-            "keys": "alt+right"
-        },
-        {
-            "id": "Terminal.ClosePane",
-            "keys": "ctrl+shift+w"
-        },
-        {
-            "id": "Terminal.MoveFocusLeft",
-            "keys": "alt+left"
-        }
-    ],
-    "newTabMenu": 
-    [
-        {
-            "type": "remainingProfiles"
-        }
-    ],
-    "profiles": 
+  "$help": "https://aka.ms/terminal-documentation",
+  "$schema": "https://aka.ms/terminal-profiles-schema",
+  "actions": [],
+  "copyFormatting": "none",
+  "copyOnSelect": true,
+  "defaultProfile": "{574e775e-4f2a-5b96-ac1e-a2962a402336}",
+  "initialCols": 120,
+  "initialRows": 32,
+  "keybindings": [
     {
-        "defaults": 
-        {
-            "antialiasingMode": "cleartype",
-            "colorScheme": "Tokyo Night",
-            "cursorShape": "bar",
-            "font": 
-            {
-                "face": "JetBrainsMono Nerd Font",
-                "size": 11
-            },
-            "opacity": 90,
-            "padding": "8",
-            "scrollbarState": "hidden",
-            "snapOnInput": true,
-            "useAcrylic": true
-        },
-        "list": 
-        [
-            {
-                "commandline": "pwsh.exe -NoLogo",
-                "guid": "{574e775e-4f2a-5b96-ac1e-a2962a402336}",
-                "hidden": false,
-                "icon": "ms-appx:///ProfileIcons/{61c54bbd-c2c6-5271-96e7-009a87ff44bf}.png",
-                "name": "PowerShell",
-                "source": "Windows.Terminal.PowershellCore",
-                "startingDirectory": "%USERPROFILE%"
-            },
-            {
-                "guid": "{0caa0dad-35be-5f56-a8ff-afceeeaa6101}",
-                "hidden": true,
-                "name": "Command Prompt"
-            },
-            {
-                "guid": "{61c54bbd-c2c6-5271-96e7-009a87ff44bf}",
-                "hidden": true,
-                "name": "Windows PowerShell"
-            }
-        ]
+      "id": "Terminal.MoveFocusDown",
+      "keys": "alt+down"
     },
-    "schemes": 
-    [
-        {
-            "background": "#1A1B26",
-            "black": "#414868",
-            "blue": "#7AA2F7",
-            "brightBlack": "#414868",
-            "brightBlue": "#7AA2F7",
-            "brightCyan": "#7DCFFF",
-            "brightGreen": "#9ECE6A",
-            "brightPurple": "#BB9AF7",
-            "brightRed": "#F7768E",
-            "brightWhite": "#C0CAF5",
-            "brightYellow": "#E0AF68",
-            "cursorColor": "#C0CAF5",
-            "cyan": "#7DCFFF",
-            "foreground": "#A9B1D6",
-            "green": "#9ECE6A",
-            "name": "Tokyo Night",
-            "purple": "#BB9AF7",
-            "red": "#F7768E",
-            "selectionBackground": "#28344A",
-            "white": "#C0CAF5",
-            "yellow": "#E0AF68"
-        }
-    ],
-    "themes": [],
-    "useAcrylicInTabRow": true
+    {
+      "id": "Terminal.SplitPaneRight",
+      "keys": "alt+shift+plus"
+    },
+    {
+      "id": "Terminal.SplitPaneDown",
+      "keys": "alt+shift+minus"
+    },
+    {
+      "id": "Terminal.FindText",
+      "keys": "ctrl+shift+f"
+    },
+    {
+      "id": "Terminal.MoveFocusUp",
+      "keys": "alt+up"
+    },
+    {
+      "id": "Terminal.MoveFocusRight",
+      "keys": "alt+right"
+    },
+    {
+      "id": "Terminal.ClosePane",
+      "keys": "ctrl+shift+w"
+    },
+    {
+      "id": "Terminal.MoveFocusLeft",
+      "keys": "alt+left"
+    }
+  ],
+  "newTabMenu": [
+    {
+      "type": "remainingProfiles"
+    }
+  ],
+  "profiles": {
+    "defaults": {
+      "antialiasingMode": "cleartype",
+      "colorScheme": "Tokyo Night",
+      "cursorShape": "bar",
+      "font": {
+        "face": "JetBrainsMono Nerd Font",
+        "size": 14
+      },
+      "opacity": 80,
+      "padding": "5",
+      "scrollbarState": "hidden",
+      "snapOnInput": true,
+      "useAcrylic": true
+    },
+    "list": [
+      {
+        "commandline": "pwsh.exe -NoLogo",
+        "guid": "{574e775e-4f2a-5b96-ac1e-a2962a402336}",
+        "hidden": false,
+        "icon": "ms-appx:///ProfileIcons/{61c54bbd-c2c6-5271-96e7-009a87ff44bf}.png",
+        "name": "PowerShell",
+        "source": "Windows.Terminal.PowershellCore",
+        "startingDirectory": "%USERPROFILE%"
+      },
+      {
+        "guid": "{0caa0dad-35be-5f56-a8ff-afceeeaa6101}",
+        "hidden": true,
+        "name": "Command Prompt"
+      },
+      {
+        "guid": "{61c54bbd-c2c6-5271-96e7-009a87ff44bf}",
+        "hidden": true,
+        "name": "Windows PowerShell"
+      }
+    ]
+  },
+  "schemes": [
+    {
+      "background": "#1A1B26",
+      "black": "#414868",
+      "blue": "#7AA2F7",
+      "brightBlack": "#414868",
+      "brightBlue": "#7AA2F7",
+      "brightCyan": "#7DCFFF",
+      "brightGreen": "#9ECE6A",
+      "brightPurple": "#BB9AF7",
+      "brightRed": "#F7768E",
+      "brightWhite": "#C0CAF5",
+      "brightYellow": "#E0AF68",
+      "cursorColor": "#C0CAF5",
+      "cyan": "#7DCFFF",
+      "foreground": "#A9B1D6",
+      "green": "#9ECE6A",
+      "name": "Tokyo Night",
+      "purple": "#BB9AF7",
+      "red": "#F7768E",
+      "selectionBackground": "#28344A",
+      "white": "#C0CAF5",
+      "yellow": "#E0AF68"
+    }
+  ],
+  "themes": [],
+  "useAcrylicInTabRow": true
 }
