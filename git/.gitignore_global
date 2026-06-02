@@ -1,0 +1,32 @@
+# ~/.gitignore_global  (Windows host)
+# Wired via: git config --global core.excludesfile ~/.gitignore_global
+
+# Windows cruft
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Editors
+.vscode/
+*.swp
+*.swo
+.idea/
+
+# Build / deps
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Secrets / local — never commit these
+*.local
+*.pem
+*.key
+.env
+.env.*
+local.ps1
+.gitconfig.local
+

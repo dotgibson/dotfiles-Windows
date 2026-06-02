@@ -1,0 +1,35 @@
+# windows.wslconfig.example
+# -> copy to  %USERPROFILE%\.wslconfig  (then `wsl --shutdown` to apply)
+#
+# This is the CANONICAL home for the host-side WSL2 config that your Kali repo
+# references. Mirrored networking is the key setting: it makes the host and the
+# WSL distro share the host's network interfaces, so a service bound inside WSL
+# is reachable at the host's LAN IP. Without it, WSL2 sits behind a NAT and
+# inbound to the distro requires portproxy gymnastics.
+
+[wsl2]
+# Mirrored networking (Windows 11 22H2+). The big one.
+networkingMode=mirrored
+
+# Let the host firewall apply to WSL, and allow localhost relay both ways.
+firewall=true
+localhostForwarding=true
+
+# Cap WSL resource use so a heavy scan in the distro doesn't starve the host.
+memory=8GB
+processors=4
+swap=4GB
+
+[experimental]
+# Reclaim memory back to the host as the distro frees it.
+autoMemoryReclaim=gradual
+# Auto-mirror the host's DNS into the distro.
+hostAddressLoopback=true
+
+# ----------------------------------------------------------------------------
+# After editing %USERPROFILE%\.wslconfig:
+#     wsl --shutdown
+# then reopen your distro. Verify with `ip a` inside WSL — the distro should
+# now show the host's interface addresses under mirrored mode.
+# ----------------------------------------------------------------------------
+

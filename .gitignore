@@ -1,0 +1,20 @@
+# dotfiles-Windows :: repo .gitignore
+
+# Machine-local layers — never commit
+powershell/local.ps1
+.gitconfig.local
+
+# Secrets
+*.pem
+*.key
+*.ppk
+.env
+.env.*
+
+# Backups created by install.ps1
+*.bak
+*.*.bak
+
+# OS cruft
+Thumbs.db
+Desktop.ini

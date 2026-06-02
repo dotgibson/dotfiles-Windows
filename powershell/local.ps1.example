@@ -1,0 +1,18 @@
+# ============================================================================
+#  local.ps1.example  —  copy to local.ps1 for machine-specific settings.
+#  local.ps1 is gitignored. This is where secrets, host-specific paths, and
+#  per-machine overrides go — never in the committed layers.
+# ============================================================================
+
+# Example: machine-specific PATH addition
+# $env:PATH += ';C:\tools\custom'
+
+# Example: per-host proxy
+# $env:HTTP_PROXY  = 'http://127.0.0.1:8080'
+# $env:HTTPS_PROXY = 'http://127.0.0.1:8080'
+
+# Example: override the default WSL distro for the bridge functions
+# function kali { wsl -d kali-linux @args }
+
+# Example: a machine-specific alias
+# function work { Set-Location 'C:\path\to\project' }

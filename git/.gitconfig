@@ -1,0 +1,203 @@
+# ~/.gitconfig  (Windows host)
+# ──────────────────────────────────────────────────────────────────────────────
+# Synced with Core's git/gitconfig (2026 refresh). The PORTABLE settings below are
+# identical to the rest of the fleet; the Windows-specific bits are marked inline:
+#   • autocrlf = true        (check out CRLF, commit LF — avoids PR whitespace churn)
+#   • longpaths = true       (Windows MAX_PATH workaround)
+#   • credential.helper      (Git Credential Manager, ships with Git for Windows)
+#   • excludesfile           (Windows path to the global gitignore)
+# There is intentionally NO ControlMaster equivalent here (that's an ssh thing,
+# and Windows OpenSSH doesn't support it — see ssh/config).
+# Set user.name/user.email in a gitignored ~/.gitconfig.local (included at bottom).
+# ──────────────────────────────────────────────────────────────────────────────
+
+[init]
+	defaultBranch = main
+
+[core]
+	editor = nvim
+	pager = delta
+	autocrlf = true               # WINDOWS: checkout CRLF, commit LF
+	longpaths = true              # WINDOWS: allow > 260-char paths
+	ignorecase = false            # force case-sensitivity (NTFS is not, by default)
+	preloadindex = true
+	commitGraph = true
+	whitespace = fix,-indent-with-non-tab,trailing-space,cr-at-eol
+	fsmonitor = true              # background file-system monitor — fast status on big repos
+	untrackedCache = true         # cache untracked-file scans (pairs with fsmonitor)
+	excludesfile = C:\\Users\\Garrett\\.gitignore_global
+
+[commit]
+	verbose = true
+	# gpgsign = true              # enable after setting a signingkey in .gitconfig.local
+
+# ── Diff ──────────────────────────────────────────────────────────────────────
+[diff]
+	algorithm = histogram
+	colorMoved = default
+	mnemonicPrefix = true
+	renames = copies
+	submodule = log
+	tool = nvimdiff
+[difftool]
+	prompt = false
+[difftool "nvimdiff"]
+	cmd = nvim -d \"$LOCAL\" \"$REMOTE\"
+
+# ── Merge ─────────────────────────────────────────────────────────────────────
+[merge]
+	conflictstyle = zdiff3        # shows the base block in conflicts (git >= 2.35)
+	tool = nvimdiff
+	autoStash = true
+[mergetool]
+	prompt = false
+	keepBackup = false
+[mergetool "nvimdiff"]
+	cmd = nvim -d \"$LOCAL\" \"$MERGED\" \"$REMOTE\" -c '$wincmd w' -c 'wincmd J'
+
+[rerere]
+	enabled = true                # record conflict resolutions and auto-replay them
+	autoupdate = true
+
+# ── Pull / Push / Fetch / Rebase ──────────────────────────────────────────────
+[pull]
+	rebase = true
+[push]
+	default = current
+	autoSetupRemote = true
+	followTags = true
+[fetch]
+	prune = true
+	pruneTags = false
+	parallel = 0                  # let git decide
+[rebase]
+	autoStash = true
+	autosquash = true             # fixup!/squash! commits reorder automatically
+	updateRefs = true             # keep stacked-branch refs in sync on rebase (git >= 2.38)
+
+# ── Branch / Tag / Log / Status ───────────────────────────────────────────────
+[branch]
+	sort = -committerdate
+[tag]
+	sort = version:refname
+[log]
+	date = iso
+	abbrevCommit = true
+	follow = true
+[status]
+	branch = true
+	short = false
+	showStash = true
+	showUntrackedFiles = all
+[column]
+	ui = auto
+[help]
+	autocorrect = prompt
+
+# ── Submodule / LFS / Maintenance ─────────────────────────────────────────────
+[submodule]
+	recurse = true
+	fetchJobs = 4
+[maintenance]
+	auto = false
+	strategy = incremental
+	# Enable background maintenance per-repo with: git maintenance start
+[filter "lfs"]
+	clean = git-lfs clean -- %f
+	smudge = git-lfs smudge -- %f
+	process = git-lfs filter-process
+	required = true
+
+# ── delta pager ───────────────────────────────────────────────────────────────
+[interactive]
+	diffFilter = delta --color-only --features=interactive
+[delta]
+	features = decorations
+	navigate = true               # n/N to move between diff sections
+	light = false
+	line-numbers = true
+	side-by-side = false          # toggle on the fly with --side-by-side
+	syntax-theme = TwoDark
+	hyperlinks = true
+	true-color = always           # Windows Terminal is truecolor
+	tabs = 2
+	width = "variable"
+[delta "decorations"]
+	commit-decoration-style = bold yellow box ul
+	file-decoration-style = bold yellow ul
+	file-style = bold yellow
+	hunk-header-style = bold cyan ul
+	hunk-header-decoration-style = cyan box
+	minus-style = syntax "#3f1f1f"
+	minus-emph-style = syntax "#8a2a2a"
+	plus-style = syntax "#1f3f1f"
+	plus-emph-style = syntax "#2a8a2a"
+[delta "interactive"]
+	keep-plus-minus-markers = false
+
+# ── URL rewrites — push via SSH, clone via HTTPS ──────────────────────────────
+[url "git@github.com:"]
+	pushInsteadOf = https://github.com/
+
+# ── Credentials (WINDOWS) ─────────────────────────────────────────────────────
+[credential]
+	helper = manager              # Git Credential Manager (ships with Git for Windows)
+
+# ── Aliases (fleet parity) ────────────────────────────────────────────────────
+[alias]
+	# status / log
+	st = status -sb
+	lg = log --graph --abbrev-commit --decorate --format=format:'%C(bold blue)%h%C(reset) - %C(bold cyan)%aD%C(reset) %C(bold green)(%ar)%C(reset)%C(auto)%d%C(reset)%n''          %C(white)%s%C(reset) %C(dim white)- %an%C(reset)' --all
+	ll = log --stat --oneline
+	last = log -1 HEAD --stat
+	graph = log --graph --oneline --decorate --all
+	aliases = config --get-regexp alias
+	# diff / show
+	d = diff
+	ds = diff --stat
+	dc = diff --cached
+	dw = diff --word-diff
+	# branch / commit
+	co = checkout
+	br = branch -vv
+	brs = branch --sort=-committerdate --format='%(committerdate:short) %(refname:short)'
+	cm = commit -m
+	ca = commit --amend
+	can = commit --amend --no-edit
+	fix = commit --fixup           # pairs with rebase.autosquash above
+	wip = !git add -A && git commit -m 'wip'
+	unwip = reset HEAD~1
+	# reset / undo
+	undo = reset --soft HEAD~1
+	uncommit = reset --mixed HEAD~1
+	discard = checkout --
+	clean-all = clean -fdx
+	nuke = !git clean -fd && git reset --hard
+	# remote
+	pushf = push --force-with-lease
+	# stash
+	sl = stash list
+	sp = stash pop
+	ss = stash save
+	save = stash push -m
+	# find
+	find = !git ls-files | grep -i
+	grep-log = log --all --source --remotes --pretty=format:'%h %s' --grep
+	# worktrees
+	wt = worktree
+	wa = worktree add
+	wlist = worktree list
+	# stats
+	contributors = shortlog --summary --numbered --email
+	mine = !git log --author=\"$(git config user.email)\" --oneline
+
+# ── Per-directory work identity (create the file; missing = silently ignored) ─
+[includeIf "gitdir:~/work/"]
+	path = ~/.config/git/config-work
+[includeIf "gitdir:~/clients/"]
+	path = ~/.config/git/config-work
+
+# ── Private identity (name/email/signingkey) — gitignored, NEVER tracked ──────
+[include]
+	path = ~/.gitconfig.local
+

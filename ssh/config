@@ -1,0 +1,40 @@
+# ~/.ssh/config  (Windows host — %USERPROFILE%\.ssh\config)
+#
+# NOTE: Windows OpenSSH does NOT support ControlMaster/ControlPath connection
+# multiplexing the way the Fedora/Linux config does. Those lines are omitted
+# here on purpose. Everything else mirrors the fleet's hardened defaults.
+#
+# Put real per-host secrets/keys in entries here or in a gitignored include.
+
+Host *
+    AddKeysToAgent yes
+    ServerAliveInterval 60
+    ServerAliveCountMax 3
+    HashKnownHosts yes
+    # Modern, hardened crypto (parity with the Linux repos)
+    KexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group16-sha512
+    Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes256-ctr
+    MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com
+
+# --- templates (copy + fill in) ----------------------------------------------
+# Host github.com
+#     HostName github.com
+#     User git
+#     IdentityFile ~/.ssh/id_ed25519
+
+# Host bastion
+#     HostName bastion.example.com
+#     User youruser
+#     IdentityFile ~/.ssh/id_ed25519
+
+# Host lab
+#     HostName 10.10.10.10
+#     User operator
+#     IdentityFile ~/.ssh/id_ed25519_lab
+
+# Host vps
+#     HostName your.vps.ip
+#     User youruser
+#     Port 22
+#     IdentityFile ~/.ssh/id_ed25519
+

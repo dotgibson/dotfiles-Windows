@@ -1,0 +1,15 @@
+{
+  "packages": [
+    "Microsoft.WindowsTerminal",
+    "Microsoft.PowerShell",
+    "Microsoft.VisualStudioCode",
+    "Microsoft.WSL",
+    "Git.Git",
+    "Mozilla.Firefox",
+    "WiresharkFoundation.Wireshark",
+    "Obsidian.Obsidian",
+    "AgileBits.1Password",
+    "AgileBits.1Password.CLI"
+  ]
+}
+
