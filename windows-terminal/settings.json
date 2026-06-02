@@ -55,7 +55,7 @@
         "face": "JetBrainsMono Nerd Font",
         "size": 14
       },
-      "opacity": 80,
+      "opacity": 70,
       "padding": "5",
       "scrollbarState": "hidden",
       "snapOnInput": true,
