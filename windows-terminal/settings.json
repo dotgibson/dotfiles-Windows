@@ -53,10 +53,10 @@
       "cursorShape": "filledBox",
       "font": {
         "face": "CaskaydiaCove Nerd Font",
-        "size": 15
+        "size": 14
       },
-      "opacity": 30,
-      "padding": "5",
+      "opacity": 20,
+      "padding": "2",
       "scrollbarState": "hidden",
       "snapOnInput": true,
       "useAcrylic": true
