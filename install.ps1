@@ -106,6 +106,9 @@ Link-Item -Target (Join-Path $RepoRoot 'git\.gitignore_global') -Link (Join-Path
 # ssh
 Link-Item -Target (Join-Path $RepoRoot 'ssh\config') -Link (Join-Path $HOME '.ssh\config')
 
+# psmux (native Windows tmux) — reads ~/.tmux.conf. Same file psmux/pmux/tmux use.
+Link-Item -Target (Join-Path $RepoRoot 'psmux\.tmux.conf') -Link (Join-Path $HOME '.tmux.conf')
+
 # Windows Terminal settings (Store install path)
 $wtDir = Join-Path $env:LOCALAPPDATA 'Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState'
 if (Test-Path $wtDir) {
@@ -143,4 +146,3 @@ git config --global core.excludesfile (Join-Path $HOME '.gitignore_global')
 Write-Host ''
 Write-Host 'Bootstrap complete. Open a NEW PowerShell window (pwsh) to load the profile.' -ForegroundColor Green
 Write-Host 'Then: set your name/email in ~/.gitconfig.local, review ~/.wslconfig, and run `wsl --shutdown`.' -ForegroundColor Green
-

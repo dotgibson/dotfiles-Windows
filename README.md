@@ -6,13 +6,13 @@ scoop/winget package layer, and the bridge to my Linux distros running under
 WSL2.
 
 It deliberately does **not** configure WSL distros. Core, Debian, and Kali
-configure themselves from their own repos *inside* WSL. This repo's job is to
+configure themselves from their own repos _inside_ WSL. This repo's job is to
 make the host excellent and then get out of the way.
 
 ```
                 ┌─────────────────────────────────────────┐
    this repo →  │  Windows host: pwsh + Terminal + scoop    │
-                │  + WSL bridge (.wslconfig, mirrored net)  │
+                │  + psmux (native tmux) + WSL bridge        │
                 └───────────────────┬───────────────────────┘
                                     │  wsl
                 ┌───────────────────▼───────────────────────┐
@@ -29,7 +29,7 @@ in order:
    fuzzy nav (fzf/zoxide), update nudge, 1Password helpers, general helpers.
    Same feel as zsh everywhere.
 2. **os/** — Windows-native: scoop/winget helpers, clipboard, the WSL bridge,
-   scheduled maintenance.
+   psmux multiplexer helper, scheduled maintenance.
 3. **local.ps1** — machine-specific, gitignored. Secrets and per-host overrides.
 
 There is intentionally **no offensive layer** here. The offensive role is unique
@@ -54,16 +54,18 @@ cd dotfiles-Windows
 ```
 
 Then:
+
 1. Open a **new** PowerShell window to load the profile.
 2. Set your name/email in `~/.gitconfig.local`.
 3. Review `~/.wslconfig` and run `wsl --shutdown` to apply mirrored networking.
 4. (Optional) `maint-install` to register the daily maintenance task.
+5. (Optional) `mux` to drop into a persistent psmux session.
 
 ## First-run troubleshooting
 
 - **"cannot be loaded ... not digitally signed"** — execution policy. `install.ps1`
   now sets `RemoteSigned` for your user and unblocks the repo files automatically,
-  but if you hit this *before* the script can even start, do it once by hand:
+  but if you hit this _before_ the script can even start, do it once by hand:
   `Set-ExecutionPolicy RemoteSigned -Scope CurrentUser`, then
   `Get-ChildItem -Recurse -File | Unblock-File`. If `Get-ExecutionPolicy -List`
   shows `MachinePolicy`/`UserPolicy` set, that's Group Policy (managed/gov
@@ -88,14 +90,15 @@ dotfiles-Windows/
 │   ├── profile.ps1              loader (core→os→local)
 │   ├── core/                    aliases, tools init, functions, update, op
 │   │     00-aliases  10-tools  15-update  20-functions  40-op
-│   ├── os/                      windows helpers + wsl bridge + maintenance
-│   │     30-windows  31-wsl-bridge  40-maint
+│   ├── os/                      windows helpers + wsl bridge + psmux + maint
+│   │     30-windows  31-wsl-bridge  32-psmux  40-maint
 │   └── local.ps1.example        copy to local.ps1 (gitignored)
 ├── maint/Maintenance.ps1        unattended daily maint runner (Task Scheduler)
 ├── windows-terminal/settings.json
 ├── starship/starship.toml       same prompt as the fleet (tokyonight-storm)
 ├── git/ (.gitconfig, .gitignore_global)
 ├── ssh/config                   hardened (no ControlMaster on Win OpenSSH)
+├── psmux/.tmux.conf             native host tmux (psmux), symlinked to ~/.tmux.conf
 ├── nvim/                        symlinked to %LOCALAPPDATA%\nvim (vendor Core)
 ├── wsl/windows.wslconfig.example  canonical host WSL2 config (mirrored net)
 ├── packages/ (scoopfile.json, winget.json, Install-Packages.ps1)
@@ -104,29 +107,31 @@ dotfiles-Windows/
 
 ## Daily-driver cheatsheet
 
-| Command | Does |
-|---------|------|
-| `ll` / `la` / `lt` | eza listings (long / all / tree) |
-| `cat` / `catp` | bat (no-pager / paged) |
-| `z foo` | zoxide jump; `cd` is rebound to `z` |
-| `Ctrl+t` / `Ctrl+r` | fzf file picker / history search |
-| `http` / `dns` / `md` | xh / doggo / glow (guarded if installed) |
-| `lg` | lazygit |
-| `serve [port]` | HTTP server in the CWD, prints the host LAN URL |
-| `fif <term>` / `fbr` | find-in-files / fuzzy git-branch checkout |
-| `up` / `up -y` | apply scoop+winget updates (`-y` auto-confirms winget) |
-| `update-check` | force the "updates available" check now |
-| `maint-install [HH:MM]` | register the daily maintenance task |
-| `maint-run` / `maint-log -f` / `maint-status` | run now / follow log / next-run |
-| `opsecret` / `optoken` / `openv` / `opssh` | 1Password CLI helpers |
-| `kali` / `cdwsl` | jump into Kali / into Kali at the current dir |
-| `wsls` / `hostip` | WSL distro status / host LAN IP |
-| `tools` | open the host tool docs |
+| Command                                       | Does                                                   |
+| --------------------------------------------- | ------------------------------------------------------ |
+| `ll` / `la` / `lt`                            | eza listings (long / all / tree)                       |
+| `cat` / `catp`                                | bat (no-pager / paged)                                 |
+| `z foo`                                       | zoxide jump; `cd` is rebound to `z`                    |
+| `Ctrl+t` / `Ctrl+r`                           | fzf file picker / history search                       |
+| `http` / `dns` / `md`                         | xh / doggo / glow (guarded if installed)               |
+| `lg`                                          | lazygit                                                |
+| `serve [port]`                                | HTTP server in the CWD, prints the host LAN URL        |
+| `fif <term>` / `fbr`                          | find-in-files / fuzzy git-branch checkout              |
+| `tmux` / `psmux` / `pmux`                     | native host multiplexer (psmux; reads `~/.tmux.conf`)  |
+| `mux [session]`                               | attach-or-create a psmux session (defaults to `main`)  |
+| `up` / `up -y`                                | apply scoop+winget updates (`-y` auto-confirms winget) |
+| `update-check`                                | force the "updates available" check now                |
+| `maint-install [HH:MM]`                       | register the daily maintenance task                    |
+| `maint-run` / `maint-log -f` / `maint-status` | run now / follow log / next-run                        |
+| `opsecret` / `optoken` / `openv` / `opssh`    | 1Password CLI helpers                                  |
+| `kali` / `cdwsl`                              | jump into Kali / into Kali at the current dir          |
+| `wsls` / `hostip`                             | WSL distro status / host LAN IP                        |
+| `tools`                                       | open the host tool docs                                |
 
 ## Scope note
 
 This repo is the **host/productivity layer only** — no offensive tooling is
 installed or configured here. That role lives on the **Kali station** (its own
 repo, inside WSL). The bridge functions (`kali`, `cdwsl`) are just how you get
-there from the host shell.
-
+there from the host shell. psmux gives you tmux-style multiplexing _on the host_;
+the genuine tmux for Linux work still lives in WSL.
