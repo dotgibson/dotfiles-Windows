@@ -22,15 +22,15 @@
 # ──────────────────────────────────────────────────────────────────────────────
 
 format = """
-[](fg:color_srf1)\
+[](fg:color_srf1)\
 $os\
 $username\
-[](fg:color_srf1 bg:color_srf2)\
+[](fg:color_srf1 bg:color_srf2)\
 $directory\
-[](fg:color_srf2 bg:color_srf1)\
+[](fg:color_srf2 bg:color_srf1)\
 $git_branch\
 $git_status\
-[](fg:color_srf1 bg:color_srf2)\
+[](fg:color_srf1 bg:color_srf2)\
 $c\
 $cpp\
 $rust\
@@ -42,13 +42,13 @@ $java\
 $kotlin\
 $haskell\
 $python\
-[](fg:color_srf2 bg:color_srf1)\
+[](fg:color_srf2 bg:color_srf1)\
 $docker_context\
 $conda\
 $pixi\
-[](fg:color_srf1 bg:color_srf2)\
+[](fg:color_srf1 bg:color_srf2)\
 $time\
-[](fg:color_srf2)\
+[ ](fg:color_srf2)\
 $line_break$character"""
 
 palette = 'tokyonight_storm'
@@ -197,7 +197,7 @@ format = '[[ $symbol( $version)( $environment) ](fg:color_purple bg:color_srf1)]
 disabled = false
 time_format = "%R"
 style = "bg:color_srf2"
-format = '[[  $time ](fg:color_fg_dark bg:color_srf2)]($style)'
+format = '[[  $time ](fg:color_fg_dark bg:color_srf2)]($style)'
 
 [line_break]
 disabled = false
