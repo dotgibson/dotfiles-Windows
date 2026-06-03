@@ -50,12 +50,12 @@
     "defaults": {
       "antialiasingMode": "cleartype",
       "colorScheme": "Tokyo Night",
-      "cursorShape": "bar",
+      "cursorShape": "filledBox",
       "font": {
         "face": "JetBrainsMono Nerd Font",
-        "size": 14
+        "size": 12
       },
-      "opacity": 70,
+      "opacity": 40,
       "padding": "5",
       "scrollbarState": "hidden",
       "snapOnInput": true,
