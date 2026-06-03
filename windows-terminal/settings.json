@@ -52,10 +52,10 @@
       "colorScheme": "Tokyo Night",
       "cursorShape": "filledBox",
       "font": {
-        "face": "JetBrainsMono Nerd Font",
-        "size": 12
+        "face": "CaskaydiaCove Nerd Font",
+        "size": 15
       },
-      "opacity": 40,
+      "opacity": 30,
       "padding": "5",
       "scrollbarState": "hidden",
       "snapOnInput": true,
