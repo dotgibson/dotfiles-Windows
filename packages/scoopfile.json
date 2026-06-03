@@ -49,6 +49,7 @@
     { "Name": "carapace-bin", "Source": "extras" },
     { "Name": "python", "Source": "main" },
     { "Name": "sysinternals", "Source": "extras" },
-    { "Name": "JetBrainsMono-NF", "Source": "nerd-fonts" }
+    { "Name": "JetBrainsMono-NF", "Source": "nerd-fonts" },
+    { "Name": "win32yank", "Source": "main" }
   ]
 }
