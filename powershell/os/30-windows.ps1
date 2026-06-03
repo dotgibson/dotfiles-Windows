@@ -48,3 +48,10 @@ function admin {
 # --- env var helpers ----------------------------------------------------------
 function setenv  { param($Name,$Value) [Environment]::SetEnvironmentVariable($Name,$Value,'User'); Set-Item "env:$Name" $Value }
 function getenv  { param($Name) [Environment]::GetEnvironmentVariable($Name,'User') }
+
+# --- Start PSmux Session ------------------------------------------------------
+# Prevent psmux from launching if it is already running in the current session
+if (-not $env:TMUX) {
+    # Optional: Automatically attach to an existing session, or create a new one
+    psmux attach -t main 2>$null || psmux new-session -s main
+  }

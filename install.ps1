@@ -107,7 +107,8 @@ Link-Item -Target (Join-Path $RepoRoot 'git\.gitignore_global') -Link (Join-Path
 Link-Item -Target (Join-Path $RepoRoot 'ssh\config') -Link (Join-Path $HOME '.ssh\config')
 
 # psmux (native Windows tmux) — reads ~/.tmux.conf. Same file psmux/pmux/tmux use.
-Link-Item -Target (Join-Path $RepoRoot 'psmux\.tmux.conf') -Link (Join-Path $HOME '.tmux.conf')
+Link-Item -Target (Join-Path $RepoRoot 'psmux\psmux.conf') -Link (Join-Path $HOME '.config\psmux\psmux.conf')
+Link-Item -Target (Join-Path $RepoRoot 'psmux\psmux.reset.conf') -Link (Join-Path $HOME '.config\psmux\psmux.reset.conf')
 
 # Windows Terminal settings (Store install path)
 $wtDir = Join-Path $env:LOCALAPPDATA 'Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState'
