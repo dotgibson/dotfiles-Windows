@@ -12,7 +12,7 @@ if (Get-Module -ListAvailable PSReadLine) {
     Set-PSReadLineOption -HistorySearchCursorMovesToEnd
     try {
         Set-PSReadLineOption -PredictionSource HistoryAndPlugin
-        Set-PSReadLineOption -PredictionViewStyle InlineView
+        Set-PSReadLineOption -PredictionViewStyle ListView
       } catch {
           # predictions unavailable in this host - carry on
         }
