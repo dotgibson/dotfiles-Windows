@@ -8,20 +8,6 @@
 -- ================================================================================================
 return {
 	{
-		"xiyaowong/nvim-transparent",
-		lazy = false,
-		priority = 1000,
-		opts = {
-			extra_groups = {
-				"NvimTreeNormal",
-				"NvimTreeNormalNC",
-				"NvimTreeSignColumn",
-				"NvimTreeEndOfBuffer",
-				"NvimTreeWinSeparator",
-			},
-		},
-	},
-	{
 		"folke/tokyonight.nvim",
 		lazy = false,
 		priority = 1000,
@@ -29,7 +15,7 @@ return {
 			require("tokyonight").setup({
 				style = "storm",
 				transparent = true,
-				styles = { sidebars = "transparent", floats = "transparent" },
+				styles = { sidebars = "normal", floats = "normal" },
 				on_highlights = function(hl, c)
 					hl.Visual = { bg = c.bg_visual }
 					hl.Comment = { fg = c.comment, italic = true }
