@@ -1,7 +1,7 @@
 # tmux-scratch.ps1 — prefix+T scratch-terminal popup (psmux port of core/tmux-scratch.sh).
 # A throwaway pwsh in a floating popup, backed by a persistent hidden session so
 # its contents survive between opens. Invoked from psmux.conf via:
-#   bind T display-popup -EE -w 80% -h 80% "pwsh -NoProfile -File ~/.config/psmux/scripts/tmux-scratch.ps1"
+#   bind T display-popup -E -w 80% -h 80% "pwsh -NoProfile -File ~/.config/psmux/scripts/tmux-scratch.ps1"
 #
 # The bash original also flipped key-table/prefix tricks; those are tmux-internals
 # that psmux may not expose, so this sticks to the portable subset (create-if-
