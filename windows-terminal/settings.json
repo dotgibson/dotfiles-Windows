@@ -53,13 +53,13 @@
       "cursorShape": "filledBox",
       "font": {
         "face": "CaskaydiaCove Nerd Font",
-        "size": 14
+        "size": 13
       },
-      "opacity": 20,
+      "opacity": 90,
       "padding": "2",
       "scrollbarState": "hidden",
       "snapOnInput": true,
-      "useAcrylic": true
+      "useAcrylic": false
     },
     "list": [
       {
@@ -109,5 +109,5 @@
     }
   ],
   "themes": [],
-  "useAcrylicInTabRow": true
+  "useAcrylicInTabRow": false
 }
