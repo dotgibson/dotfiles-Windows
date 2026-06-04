@@ -10,8 +10,12 @@ if (Get-Module -ListAvailable PSReadLine) {
     Set-PSReadLineOption -EditMode Emacs
     Set-PSReadLineOption -HistoryNoDuplicates
     Set-PSReadLineOption -HistorySearchCursorMovesToEnd
-    Set-PSReadLineOption -PredictionSource HistoryAndPlugin   # needs PS 7.2+
-    Set-PSReadLineOption -PredictionViewStyle ListView
+    try {
+        Set-PSReadLineOption -PredictionSource HistoryAndPlugin
+        Set-PSReadLineOption -PredictionViewStyle ListView
+      } catch {
+          # predictions unavailable in this host - carry on
+        }
     Set-PSReadLineOption -MaximumHistoryCount 50000
 
     # Never persist obviously sensitive one-liners to the history file. This is
