@@ -49,9 +49,13 @@ function admin {
 function setenv  { param($Name,$Value) [Environment]::SetEnvironmentVariable($Name,$Value,'User'); Set-Item "env:$Name" $Value }
 function getenv  { param($Name) [Environment]::GetEnvironmentVariable($Name,'User') }
 
-# --- Start PSmux Session ------------------------------------------------------
-# Prevent psmux from launching if it is already running in the current session
-if (-not $env:TMUX) {
-    # Optional: Automatically attach to an existing session, or create a new one
-    psmux attach -t main 2>$null || psmux new-session -s main
-  }
+# --- Start psmux session (top-level interactive shell only) -------------------
+# $inMux must list every marker psmux sets inside a pane. Confirm with:
+#   Get-ChildItem env: | Where-Object Name -match 'mux'
+# and add whatever you find. The sentinel is a fallback in case psmux
+# doesn't export a marker into pane shells.
+$inMux = $env:TMUX -or $env:TMUX_PANE -or $env:PSMUX -or $env:PSMUX_PANE
+if ((Test-Cmd psmux) -and -not $inMux -and -not $env:PSMUX_AUTOLAUNCHED) {
+    $env:PSMUX_AUTOLAUNCHED = '1'
+    psmux new-session -A -s main
+}
