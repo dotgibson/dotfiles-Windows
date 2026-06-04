@@ -109,6 +109,28 @@ Link-Item -Target (Join-Path $RepoRoot 'ssh\config') -Link (Join-Path $HOME '.ss
 # psmux (native Windows tmux) — reads ~/.tmux.conf. Same file psmux/pmux/tmux use.
 Link-Item -Target (Join-Path $RepoRoot 'psmux\psmux.conf') -Link (Join-Path $HOME '.config\psmux\psmux.conf')
 Link-Item -Target (Join-Path $RepoRoot 'psmux\psmux.reset.conf') -Link (Join-Path $HOME '.config\psmux\psmux.reset.conf')
+Link-Item -Target (Join-Path $RepoRoot 'psmux\scripts') -Link (Join-Path $HOME '.config\psmux\scripts')
+
+# --- ppm (psmux plugin manager) -------------------------------------------------
+# Mirrors psmux's documented install: clone the psmux-plugins monorepo to a temp
+# dir, copy ONLY the ppm subfolder into ~/.psmux/plugins/ppm. The other @plugins
+# declared in psmux.conf are fetched later by `prefix + I` inside psmux.
+$ppmDir = Join-Path $HOME '.config\psmux\plugins\ppm'
+if (-not (Test-Path $ppmDir)) {
+    $tmp = Join-Path $env:TEMP ('psmux-plugins-' + [guid]::NewGuid().ToString('N'))
+    try {
+        git clone --depth 1 https://github.com/psmux/psmux-plugins.git $tmp
+        if ($LASTEXITCODE -eq 0) {
+            New-Item -ItemType Directory -Force -Path (Split-Path $ppmDir) | Out-Null
+            Copy-Item (Join-Path $tmp 'ppm') $ppmDir -Recurse -Force
+            Write-Host "  installed ppm -> $ppmDir" -ForegroundColor Green
+        } else {
+            Write-Warning 'ppm clone failed — clone psmux-plugins by hand, copy ppm\ to ~\.psmux\plugins\ppm'
+        }
+    } finally {
+        if (Test-Path $tmp) { Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+}
 
 # Windows Terminal settings (Store install path)
 $wtDir = Join-Path $env:LOCALAPPDATA 'Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState'

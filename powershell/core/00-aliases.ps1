@@ -74,4 +74,4 @@ function mkcd  { param($p) New-Item -ItemType Directory -Force -Path $p | Out-Nu
 function which { param($n) (Get-Command $n -ErrorAction SilentlyContinue).Source }
 function reload { . $PROFILE; Write-Host 'profile reloaded' -ForegroundColor Green }
 function dotfiles { Set-Location $global:DOTFILES }
-
+function vim { nvim }
