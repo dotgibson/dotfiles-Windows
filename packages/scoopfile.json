@@ -47,6 +47,7 @@
     { "Name": "openssh", "Source": "main" },
     { "Name": "atuin", "Source": "main" },
     { "Name": "carapace-bin", "Source": "extras" },
+    { "Name": "television", "Source": "extras" },
     { "Name": "python", "Source": "main" },
     { "Name": "sysinternals", "Source": "extras" },
     { "Name": "JetBrainsMono-NF", "Source": "nerd-fonts" },

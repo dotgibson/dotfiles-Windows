@@ -36,6 +36,7 @@ repo for the offensive catalog.
 | sd    | sed         | `sd`       | —                | intuitive find/replace; own verb (never shadows sed)       |
 | gron  | —           | `gron`     | —                | greppable JSON                                             |
 | gum   | —           | `gum`      | —                | shell-script UI widgets (Charm)                            |
+| tv    | —           | `television` (extras) | `tvim` `ttext` `tcd` `trepo` `tbranch` `tenv` | television fuzzy finder; wrappers in `core/25-television.ps1`. NOT given Ctrl+R (atuin owns it) — named verbs only. Channel availability (`dirs` etc.) depends on tv's cable config. |
 
 Aliases are **guarded** (`if (Test-Cmd ...)`) the same way the zsh aliases are —
 on a box where a tool isn't installed, the classic command is untouched.

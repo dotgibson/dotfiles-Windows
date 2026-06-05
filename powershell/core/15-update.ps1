@@ -79,7 +79,10 @@ $script:PkgUpCountSb = {
 }
 
 # --- startup hook: throttle + background the check, then show cached nudge ----
-if ($env:DOTFILES_UPDATE_CHECK -eq '1' -and
+# FAST_START suppresses the startup nudge and background spawn (but `up` /
+# `update-check` are still defined below, so a fast shell can apply on demand).
+if ($env:FAST_START -ne '1' -and
+    $env:DOTFILES_UPDATE_CHECK -eq '1' -and
     ((Get-Command scoop -ErrorAction SilentlyContinue) -or
      (Get-Command winget -ErrorAction SilentlyContinue))) {
 

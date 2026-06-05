@@ -7,6 +7,16 @@
 # Example: machine-specific PATH addition
 # $env:PATH += ';C:\tools\custom'
 
+# Fast-start: skip the heavy prompt/history/completion init in core/10-tools.ps1
+# and the update-check startup nudge. The shell still gets aliases + functions,
+# just the stock prompt with no starship/zoxide/atuin/carapace.
+#
+# NOTE: FAST_START is read from the environment when the profile loads, which is
+# BEFORE this file (local.ps1 loads last). Setting $env:FAST_START here will NOT
+# lighten the current session. Use one of these instead:
+#   lean child shell:    $env:FAST_START='1'; pwsh
+#   always lean here:    [Environment]::SetEnvironmentVariable('FAST_START','1','User')
+
 # Example: per-host proxy
 # $env:HTTP_PROXY  = 'http://127.0.0.1:8080'
 # $env:HTTPS_PROXY = 'http://127.0.0.1:8080'
