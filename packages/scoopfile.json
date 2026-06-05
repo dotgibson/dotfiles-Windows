@@ -51,15 +51,15 @@
     { "Name": "sysinternals", "Source": "extras" },
     { "Name": "JetBrainsMono-NF", "Source": "nerd-fonts" },
     { "Name": "win32yank", "Source": "main" },
-    { "Name": "mise", "Source": "main" }
-    { "Name": "dust",       "Source": "main" },
-    { "Name": "procs",      "Source": "main" },
-    { "Name": "ouch",       "Source": "main" },
-    { "Name": "viddy",      "Source": "extras" },
-    { "Name": "navi",       "Source": "main" },
-    { "Name": "tokei",      "Source": "main" },
-    { "Name": "age",        "Source": "main" },
-    { "Name": "croc",       "Source": "main" },
-    { "Name": "hexyl",      "Source": "main" }
+    { "Name": "mise", "Source": "main" },
+    { "Name": "dust", "Source": "main" },
+    { "Name": "procs", "Source": "main" },
+    { "Name": "ouch", "Source": "main" },
+    { "Name": "viddy", "Source": "extras" },
+    { "Name": "navi", "Source": "main" },
+    { "Name": "tokei", "Source": "main" },
+    { "Name": "age", "Source": "main" },
+    { "Name": "croc", "Source": "main" },
+    { "Name": "hexyl", "Source": "main" }
   ]
 }
