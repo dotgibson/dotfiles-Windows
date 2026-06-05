@@ -19,13 +19,9 @@ if (Test-Cmd winget) {
 }
 
 # --- full host update in one shot ---------------------------------------------
-function update-host {
-    Write-Host '== scoop ==' -ForegroundColor Cyan
-    if (Test-Cmd scoop)  { scoop update; scoop update *; scoop cleanup * }
-    Write-Host '== winget ==' -ForegroundColor Cyan
-    if (Test-Cmd winget) { winget upgrade --all --include-unknown }
-    Write-Host 'done.' -ForegroundColor Green
-}
+# Delegates to `up` (core/15-update.ps1) which also clears the nudge cache.
+# Kept as a muscle-memory alias; `up` is the canonical implementation.
+function update-host { up @args }
 
 # --- PATH inspection ----------------------------------------------------------
 function path { $env:PATH -split ';' | Where-Object { $_ } }

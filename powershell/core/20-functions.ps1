@@ -12,18 +12,36 @@ function localips  {
 }
 
 # --- extract: one command for any archive -------------------------------------
+# Delegates to ouch when available (handles 20+ formats, including .tar.xz,
+# .zst, .rar, .lzma). Falls back to the built-in switch for the common cases
+# so the function still works on a fresh bootstrap before ouch is installed.
 function extract {
     param([Parameter(Mandatory)][string]$Path)
     if (-not (Test-Path $Path)) { Write-Error "no such file: $Path"; return }
+    if (Test-Cmd ouch) { ouch d $Path; return }
+    # fallback: built-in handlers for the most common formats
     $full = (Resolve-Path $Path).Path
     switch -Regex ($full) {
         '\.zip$'              { Expand-Archive -Path $full -DestinationPath . -Force; break }
-        '\.(tar\.gz|tgz)$'    { tar -xzf $full; break }
-        '\.(tar\.bz2|tbz)$'   { tar -xjf $full; break }
-        '\.tar$'              { tar -xf  $full; break }
-        '\.7z$'               { if (Test-Cmd 7z) { 7z x $full } else { Write-Error '7z not installed (scoop install 7zip)' }; break }
-        default               { Write-Error "don't know how to extract: $full" }
+        '\.(tar\.gz|tgz)$'   { tar -xzf $full; break }
+        '\.(tar\.bz2|tbz)$'  { tar -xjf $full; break }
+        '\.tar$'             { tar -xf  $full; break }
+        '\.7z$'              { if (Test-Cmd 7z) { 7z x $full } else { Write-Error '7z not installed (scoop install 7zip)' }; break }
+        default              { Write-Error "don't know how to extract: $full (install ouch for broader format support)" }
     }
+}
+
+# --- compress: create an archive from files/dirs ------------------------------
+# Requires ouch. Format is inferred from the output extension:
+#   compress src/ output.tar.gz
+#   compress a.txt b.txt bundle.zip
+function compress {
+    param(
+        [Parameter(Mandatory, ValueFromRemainingArguments)][string[]]$Targets
+    )
+    if (-not (Test-Cmd ouch)) { Write-Error 'compress needs ouch (scoop install ouch)'; return }
+    if ($Targets.Count -lt 2) { Write-Error 'usage: compress <source...> <output-archive>'; return }
+    ouch c @Targets
 }
 
 # --- mkbak: timestamped backup of a file --------------------------------------
@@ -66,7 +84,7 @@ function serve {
 function fif {
     param([Parameter(Mandatory)][string]$Term)
     if (-not (Test-Cmd rg) -or -not (Test-Cmd fzf)) { Write-Error 'fif needs rg + fzf'; return }
-    $preview = 'bat --style=numbers --color=always "{}"'
+    $preview = 'bat --style=numbers --color=always "{}"'  # quotes needed for paths with spaces on Windows
     $file = rg --files-with-matches --no-messages $Term |
         fzf --height 80% --layout=reverse --border --prompt 'Text Match > ' `
             --preview $preview --preview-window 'right:65%:wrap'
@@ -86,4 +104,3 @@ function fbr {
     $branch = $branches | fzf --preview 'git log --oneline --color=always -20 {}'
     if ($branch) { git checkout $branch.Trim() }
 }
-

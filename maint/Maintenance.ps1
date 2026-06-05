@@ -99,6 +99,13 @@ try {
         }
     }
 
+    # --- navi cheatsheet repos -----------------------------------------------
+    # `navi repo update` refreshes community cheatsheets. Silent - a network
+    # blip here should never interrupt the rest of maintenance.
+    if (Have navi) {
+        Step 'navi repo update' { navi repo update }
+    }
+
     # --- PowerShell modules ---------------------------------------------------
     foreach ($m in 'PSReadLine','Terminal-Icons','PSFzf','CompletionPredictor') {
         if (Get-Module -ListAvailable $m) {
@@ -121,4 +128,3 @@ try {
 finally {
     Remove-Item $Lock -Recurse -Force -ErrorAction SilentlyContinue
 }
-

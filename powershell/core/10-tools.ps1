@@ -87,6 +87,15 @@ if ((Test-Cmd fzf) -and (Get-Module -ListAvailable PSFzf)) {
     if (Test-Cmd fd) { $env:FZF_DEFAULT_COMMAND = 'fd --type f --hidden --follow --exclude .git' }
 }
 
+# --- mise (runtime/tool version manager; shims + path setup) ------------------
+# `mise activate` injects shims and a prompt hook that keeps the active tool
+# versions consistent with the nearest .mise.toml / .tool-versions file. This is
+# the Windows equivalent of the Core zsh `mise activate zsh` call.
+if ((Test-Cmd mise) -and -not $global:DotfilesInit.Mise) {
+    Invoke-Expression (& { (mise activate pwsh | Out-String) })
+    $global:DotfilesInit.Mise = $true
+}
+
 # --- atuin (shell history sync/search; optional, if installed) ----------------
 if ((Test-Cmd atuin) -and -not $global:DotfilesInit.Atuin) {
     Invoke-Expression (& { (atuin init powershell | Out-String) })
@@ -100,3 +109,11 @@ if ((Test-Cmd carapace) -and -not $global:DotfilesInit.Carapace) {
     $global:DotfilesInit.Carapace = $true
 }
 
+# --- navi (interactive cheatsheet; Ctrl+G to open the widget) -----------------
+# navi's shell widget binds Ctrl+G to open an interactive cheatsheet picker.
+# We deliberately do NOT bind Ctrl+T/Ctrl+R (those belong to PSFzf/atuin above).
+# If Ctrl+G conflicts with something in your local.ps1, wire it there instead.
+if ((Test-Cmd navi) -and -not $global:DotfilesInit.Navi) {
+    try { Invoke-Expression (& { (navi widget powershell | Out-String) }); $global:DotfilesInit.Navi = $true }
+    catch { Write-Warning "navi widget init failed (older navi may not support powershell): $_" }
+}

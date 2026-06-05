@@ -33,7 +33,9 @@ if (Test-Cmd bat) {
     Remove-Item Alias:cat -ErrorAction SilentlyContinue
     function cat { bat --paging=never @args }
     function catp { bat @args }                         # paged view
-    $env:BAT_THEME = 'ansi'                             # follow the terminal palette (Tokyo Night)
+    $env:BAT_THEME = 'ansi'   # follow the terminal palette (Tokyo Night)
+    # NOTE: MANPAGER is intentionally NOT set here — `sh` doesn't exist on the
+    # native Windows host. Wire it inside WSL/git-bash contexts instead.
 }
 
 # --- find / grep --------------------------------------------------------------
@@ -43,10 +45,28 @@ if (Test-Cmd rg) { function grep { rg --smart-case @args } }
 # --- 2026 modern stack additions (all guarded; classics untouched) ------------
 # Parity with Core's aliases.zsh. Each is a distinct verb so it never shadows the
 # classic tool in scripts.
-if (Test-Cmd xh)    { function http { xh @args }; function https { xh --https @args } }  # Rust HTTPie — poke APIs/web targets
-if (Test-Cmd glow)  { function md   { glow --pager @args } }                             # render markdown (engagement notes/READMEs)
-if (Test-Cmd doggo) { function dns  { doggo @args } }                                    # modern dig (DNS recon)
+if (Test-Cmd xh)    { function http  { xh @args }; function https { xh --https @args } }  # Rust HTTPie — poke APIs/web targets
+if (Test-Cmd glow)  { function md    { glow --pager @args } }                              # render markdown (engagement notes/READMEs)
+if (Test-Cmd doggo) { function dns   { doggo @args } }                                     # modern dig (DNS recon)
 # gron / sd are their own commands (no alias — never shadow sed/jq usage in scripts).
+
+# --- 2026 batch 2: system inspection & utilities (all guarded) ----------------
+# dust: visual disk-usage tree (du replacement).
+if (Test-Cmd dust)  { function du    { dust @args } }
+
+# procs: colorized, searchable process viewer (ps replacement).
+# PowerShell's `ps` alias points at Get-Process; we use `pss` (process-search) to
+# avoid shadowing it — `pss nvim`, `pss --tree` etc.
+if (Test-Cmd procs) { function pss   { procs @args } }
+
+# viddy: modern `watch` — Windows has no native watch. `watch -n 2 'git status'`.
+if (Test-Cmd viddy) { function watch { viddy @args } }
+
+# hexyl: colored hex viewer. `hex binary-file`.
+if (Test-Cmd hexyl) { function hex   { hexyl @args } }
+
+# tokei: lines-of-code counter by language. `loc` for muscle memory.
+if (Test-Cmd tokei) { function loc   { tokei @args } }
 
 # --- git shorthands (parity with the fleet) -----------------------------------
 function g    { git @args }
@@ -74,5 +94,5 @@ function which { param($n) (Get-Command $n -ErrorAction SilentlyContinue).Source
 function reload { . $PROFILE; Write-Host 'profile reloaded' -ForegroundColor Green }
 function dotfiles { Set-Location $global:DOTFILES }
 
-# --- Neovim -------------------------------------------------------------------
+# --- Neovim ----------------------------------------------------------------
 Set-Alias vim nvim
