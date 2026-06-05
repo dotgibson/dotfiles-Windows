@@ -21,7 +21,7 @@ if (Test-Cmd winget) {
 # --- full host update in one shot ---------------------------------------------
 function update-host {
     Write-Host '== scoop ==' -ForegroundColor Cyan
-    if (Test-Cmd scoop)  { scoop update *; scoop cleanup * }
+    if (Test-Cmd scoop)  { scoop update; scoop update *; scoop cleanup * }
     Write-Host '== winget ==' -ForegroundColor Cyan
     if (Test-Cmd winget) { winget upgrade --all --include-unknown }
     Write-Host 'done.' -ForegroundColor Green

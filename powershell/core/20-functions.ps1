@@ -66,7 +66,7 @@ function serve {
 function fif {
     param([Parameter(Mandatory)][string]$Term)
     if (-not (Test-Cmd rg) -or -not (Test-Cmd fzf)) { Write-Error 'fif needs rg + fzf'; return }
-    $preview = "bat --style=numbers --color=always {}"
+    $preview = 'bat --style=numbers --color=always "{}"'
     $file = rg --files-with-matches --no-messages $Term |
         fzf --height 80% --layout=reverse --border --prompt 'Text Match > ' `
             --preview $preview --preview-window 'right:65%:wrap'

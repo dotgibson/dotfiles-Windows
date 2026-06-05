@@ -34,7 +34,6 @@ if (Test-Cmd bat) {
     function cat { bat --paging=never @args }
     function catp { bat @args }                         # paged view
     $env:BAT_THEME = 'ansi'                             # follow the terminal palette (Tokyo Night)
-    $env:MANPAGER  = "sh -c 'col -bx | bat -l man -p'"  # used inside WSL/git-bash
 }
 
 # --- find / grep --------------------------------------------------------------
