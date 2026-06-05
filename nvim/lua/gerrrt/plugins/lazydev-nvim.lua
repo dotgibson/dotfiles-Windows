@@ -8,9 +8,11 @@
 --         types, your installed plugins, and (via luvit-meta) vim.uv, dynamically as you edit.
 --         It is folke's successor to neodev.nvim, which he deprecated for Neovim >= 0.10.
 -- NOTE  : Because lazydev now manages the workspace library, servers/lua_ls.lua no longer hand-
---         lists $VIMRUNTIME/lua, and the `---@diagnostic disable-next-line: undefined-field`
---         line above the vim.uv call in config/lazy.lua is no longer needed (vim.uv.fs_stat now
---         resolves). Loads only on lua files, so there's no startup cost elsewhere.
+--         lists $VIMRUNTIME/lua. The `---@diagnostic disable-next-line: undefined-field` in
+--         config/lazy.lua is kept on purpose: lazydev resolves vim.uv, but the call site is
+--         `(vim.uv or vim.loop).fs_stat` and the vim.loop side of that union can still flag
+--         undefined-field — the pragma is a harmless belt-and-suspenders. Loads only on lua
+--         files, so there's no startup cost elsewhere.
 -- ================================================================================================
 return {
 	{

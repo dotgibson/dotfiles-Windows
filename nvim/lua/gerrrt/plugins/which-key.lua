@@ -17,6 +17,8 @@ return {
 			{ "<leader>S", group = "search & replace" },
 			{ "<leader>x", group = "trouble / lists" },
 			{ "<leader><tab>", group = "tabs" },
+			-- non-leader: mini.surround moved here off `s` so flash owns `s` (see mini-nvim.lua)
+			{ "gs", group = "surround", mode = { "n", "x" } },
 		},
 	},
 	keys = {

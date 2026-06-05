@@ -38,7 +38,7 @@ return {
 				-- Powerline separators (universally present in Nerd Fonts):
 				section_separators = { left = "\u{e0b0}", right = "\u{e0b2}" }, -- e0b0  / e0b2
 				component_separators = { left = "\u{e0b1}", right = "\u{e0b3}" }, -- e0b1  / e0b3
-				disabled_filetypes = { statusline = { "NvimTree", "neo-tree", "dapui_scopes", "dapui_breakpoints" } },
+				disabled_filetypes = { statusline = { "NvimTree", "dapui_scopes", "dapui_breakpoints" } },
 			},
 			sections = {
 				lualine_a = {

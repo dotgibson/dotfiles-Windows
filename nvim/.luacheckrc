@@ -26,4 +26,3 @@ max_line_length = false
 ignore = {
 	"212", -- unused argument (very common in callbacks like on_attach(event))
 }
-

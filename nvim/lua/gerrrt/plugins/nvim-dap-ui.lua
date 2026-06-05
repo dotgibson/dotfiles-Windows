@@ -114,7 +114,8 @@ return {
 
 		require("mason-nvim-dap").setup({
 			ensure_installed = { "python", "codelldb" },
-			automatic_installation = true,
+			-- No auto-download of debug adapters on engagement boxes (DOTFILES_OFFLINE=1). See globals.lua.
+			automatic_installation = not vim.g.dotfiles_offline,
 			handlers = {}, -- sensible defaults; Python is overridden below to be uv-aware
 		})
 

@@ -25,6 +25,16 @@ M.on_attach = function(event)
 		client.server_capabilities.hoverProvider = false
 	end
 
+	-- bash-language-server formats by shelling out to shfmt, which mangles zsh. We attach
+	-- bashls to zsh files for completion, but must NOT let it format them — otherwise the
+	-- conform lsp_format="fallback" path (and <leader>cf) would re-introduce the corruption
+	-- we removed from conform. sh/bash are unaffected: conform formats those with shfmt
+	-- directly, so the LSP fallback never runs for them anyway.
+	if client.name == "bashls" then
+		client.server_capabilities.documentFormattingProvider = false
+		client.server_capabilities.documentRangeFormattingProvider = false
+	end
+
 	-- Neovim 0.11+/0.12 ships default LSP maps grn/gra/grr/gri. Our `gr`=references
 	-- below is a *complete* mapping, so leaving these in place makes `gr` wait
 	-- timeoutlen (500ms) before firing. We have <leader>rn / <leader>ca / gr / gi
@@ -63,7 +73,7 @@ M.on_attach = function(event)
 	keymap("n", "<leader>fw", "<cmd>FzfLua lsp_workspace_symbols<CR>", opts("Workspace symbols"))
 
 	-- ── Organize imports (if the server supports it) ─────────────────────────
-	if client:supports_method("textDocument/codeAction", bufnr) then
+	if client:supports_method("textDocument/codeAction", { bufnr = bufnr }) then
 		keymap("n", "<leader>oi", function()
 			vim.lsp.buf.code_action({
 				context = { only = { "source.organizeImports" }, diagnostics = {} },

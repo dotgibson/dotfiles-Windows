@@ -12,16 +12,32 @@ return {
 	config = function()
 		require("mini.ai").setup({})
 		require("mini.move").setup({})
-		require("mini.surround").setup({})
-		require("mini.cursorword").setup({})
-		require("mini.indentscope").setup({
-			draw = {
-				animation = require("mini.indentscope").gen_animation.none(),
+		-- mini.surround on the `gs` prefix (gsa/gsd/gsr/gsf/gsF/gsh/gsn) instead of the default
+		-- `s*`. flash.nvim owns `s` (jump); with surround also living on `s*`, every `s` press had
+		-- to wait out `timeoutlen` (500ms) to disambiguate `s` from `sa`/`sd`/`sr`/... Moving
+		-- surround to `gs` frees `s` to fire flash instantly. (`gs` only shadows the near-useless
+		-- `:sleep` default — swap to a `gz` prefix if you ever want plain `gs` back.)
+		require("mini.surround").setup({
+			mappings = {
+				add = "gsa", -- add surround (normal: gsaiw" ; visual: select then gsa")
+				delete = "gsd", -- delete surround (gsd")
+				replace = "gsr", -- replace surround (gsr"' )
+				find = "gsf", -- find surround to the right
+				find_left = "gsF", -- find surround to the left
+				highlight = "gsh", -- highlight surround
+				update_n_lines = "gsn", -- update n_lines used for search
 			},
 		})
+		require("mini.cursorword").setup({})
+		require("mini.indentscope").setup({})
 		require("mini.pairs").setup({})
 		require("mini.trailspace").setup({})
 		require("mini.bufremove").setup({})
 		require("mini.notify").setup({})
+		-- setup() alone does NOT replace vim.notify — without this line mini.notify is configured
+		-- but unused, and vim.notify(...) calls (e.g. harpoon's "added" toast) still hit Neovim's
+		-- built-in notifier. make_notify() returns a drop-in replacement. (No competing notifier
+		-- like noice/fidget is installed, so there's nothing to clash with.)
+		vim.notify = require("mini.notify").make_notify()
 	end,
 }

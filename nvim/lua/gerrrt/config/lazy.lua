@@ -51,7 +51,9 @@ require("lazy").setup({
 	rocks = {
 		enabled = false,
 	},
-	-- Auto-check for updates, but don't spam notifications on every startup.
-	checker = { enabled = true, notify = false },
+	-- Auto-check for plugin updates, but don't spam notifications on every startup.
+	-- Disabled when DOTFILES_OFFLINE=1 (engagement boxes) — the checker does background
+	-- `git fetch` of plugin repos, which we don't want phoning home unattended. See globals.lua.
+	checker = { enabled = not vim.g.dotfiles_offline, notify = false },
 	change_detection = { notify = false },
 })

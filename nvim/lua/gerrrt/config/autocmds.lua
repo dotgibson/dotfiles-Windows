@@ -38,6 +38,14 @@ vim.api.nvim_create_autocmd("BufWritePre", {
 	group = lsp_fmt_group,
 	callback = function(args)
 		require("mini.trailspace").trim()
+		-- Never auto-format zsh. shfmt (whether reached through conform OR through the
+		-- lsp_format="fallback" path via bash-language-server, which shells out to shfmt)
+		-- parses zsh as bash and silently corrupts zsh-only syntax. Skipping by FILETYPE
+		-- (not a single filename) protects every zsh file in Core, not just plugins.zsh.
+		-- Trailing-whitespace trim above already ran, so zsh still gets that.
+		if vim.bo[args.buf].filetype == "zsh" then
+			return
+		end
 		require("conform").format({ bufnr = args.buf, lsp_format = "fallback", timeout_ms = 1500 })
 	end,
 })
@@ -50,7 +58,7 @@ vim.api.nvim_create_autocmd("LspAttach", {
 })
 
 -- custom options for text/markdown files
-local markdown_options = vim.api.nvim_create_augroup("MardownOptions", {})
+local markdown_options = vim.api.nvim_create_augroup("MarkdownOptions", {})
 vim.api.nvim_create_autocmd("FileType", {
 	group = markdown_options,
 	pattern = { "markdown", "text", "gitcommit" },
@@ -62,5 +70,7 @@ vim.api.nvim_create_autocmd("FileType", {
 		vim.opt_local.cursorline = false
 		vim.opt_local.colorcolumn = ""
 		vim.opt_local.signcolumn = "no"
+		vim.opt_local.conceallevel = 2 -- conceal markup (link/bold markers); moved here from global options
+		vim.opt_local.concealcursor = "" -- still show markup on the cursor line
 	end,
 })
