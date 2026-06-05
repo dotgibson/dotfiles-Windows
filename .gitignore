@@ -3,6 +3,7 @@
 # Machine-local layers — never commit
 powershell/local.ps1
 .gitconfig.local
+.claude/
 
 # Secrets
 *.pem
