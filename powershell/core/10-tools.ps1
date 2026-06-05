@@ -58,7 +58,13 @@ if (Get-Module -ListAvailable PSReadLine) {
 }
 
 # --- Terminal-Icons (file/dir glyphs for Get-ChildItem output) ----------------
-if (Get-Module -ListAvailable Terminal-Icons) { Import-Module Terminal-Icons }
+# Wrap in try/catch: the manifest can exist (ListAvailable returns true) while
+# the .psm1 it references is missing (corrupted/partial install). If that
+# happens the warning tells you exactly how to fix it.
+if (Get-Module -ListAvailable Terminal-Icons) {
+    try   { Import-Module Terminal-Icons -ErrorAction Stop }
+    catch { Write-Warning "Terminal-Icons failed to load — reinstall with: Install-Module Terminal-Icons -Scope CurrentUser -Force -AllowClobber" }
+}
 
 # --- starship prompt (cross-shell - same starship.toml as the fleet) ----------
 # Force the repo config to win over any inherited/persistent STARSHIP_CONFIG.
@@ -112,8 +118,14 @@ if ((Test-Cmd carapace) -and -not $global:DotfilesInit.Carapace) {
 # --- navi (interactive cheatsheet; Ctrl+G to open the widget) -----------------
 # navi's shell widget binds Ctrl+G to open an interactive cheatsheet picker.
 # We deliberately do NOT bind Ctrl+T/Ctrl+R (those belong to PSFzf/atuin above).
-# If Ctrl+G conflicts with something in your local.ps1, wire it there instead.
+# Guard: only invoke if the widget output is non-empty. The current scoop build
+# of navi does not support `widget powershell` and returns nothing — in that
+# case we skip silently rather than erroring. `navi` itself still works as a
+# standalone command; you just won't get the Ctrl+G keybind.
 if ((Test-Cmd navi) -and -not $global:DotfilesInit.Navi) {
-    try { Invoke-Expression (& { (navi widget powershell | Out-String) }); $global:DotfilesInit.Navi = $true }
-    catch { Write-Warning "navi widget init failed (older navi may not support powershell): $_" }
+    $naviWidget = navi widget powershell 2>$null | Out-String
+    if ($naviWidget.Trim()) {
+        Invoke-Expression $naviWidget
+        $global:DotfilesInit.Navi = $true
+    }
 }
