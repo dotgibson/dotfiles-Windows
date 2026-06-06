@@ -25,7 +25,7 @@
 	whitespace = fix,-indent-with-non-tab,trailing-space,cr-at-eol
 	fsmonitor = true              # background file-system monitor — fast status on big repos
   untrackedCache = true         # cache untracked-file scans (pairs with fsmonitor)
-  excludesfile = ~/.gitignore_global
+	excludesfile = C:\\Users\\Garrett\\.gitignore_global
 
 [commit]
 	verbose = true

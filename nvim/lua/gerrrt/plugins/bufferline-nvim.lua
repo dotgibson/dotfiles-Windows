@@ -52,9 +52,6 @@ return {
 			end,
 			desc = "Delete buffer (keep layout)",
 		},
-		-- Ergonomic but overrides native H/L (move to top/bottom of screen). Uncomment to use:
-		-- { "<S-l>", "<cmd>BufferLineCycleNext<cr>", desc = "Next buffer" },
-		-- { "<S-h>", "<cmd>BufferLineCyclePrev<cr>", desc = "Previous buffer" },
 	},
 	opts = {
 		options = {

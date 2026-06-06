@@ -32,4 +32,6 @@ if vim.fn.executable("clip") == 1 and vim.fn.executable("clip-paste") == 1 then
 		},
 		cache_enabled = 0,
 	}
+else
+	vim.notify("clip/clip-paste not found — clipboard (+) disabled", vim.log.levels.WARN)
 end

@@ -37,12 +37,6 @@ require("lazy").setup({
 	spec = {
 		{ import = "gerrrt.plugins" },
 	},
-	rtp = {
-		disabled_plugins = {
-			"netrw",
-			"netrwPlugin",
-		},
-	},
 	install = {
 		colorscheme = {
 			"tokyonight",
