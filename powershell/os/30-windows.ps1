@@ -50,8 +50,8 @@ function getenv  { param($Name) [Environment]::GetEnvironmentVariable($Name,'Use
 #   Get-ChildItem env: | Where-Object Name -match 'mux'
 # and add whatever you find. The sentinel is a fallback in case psmux
 # doesn't export a marker into pane shells.
-$inMux = $env:TMUX -or $env:TMUX_PANE -or $env:PSMUX -or $env:PSMUX_PANE
-if ((Test-Cmd psmux) -and -not $inMux -and -not $env:PSMUX_AUTOLAUNCHED) {
+$InMux = $env:TMUX -or $env:TMUX_PANE -or $env:PSMUX -or $env:PSMUX_PANE
+if ((Test-Cmd psmux) -and -not $InMux -and -not $env:PSMUX_AUTOLAUNCHED) {
     $env:PSMUX_AUTOLAUNCHED = '1'
     psmux new-session -A -s main
 }

@@ -45,7 +45,7 @@ if (Get-Module -ListAvailable PSReadLine) {
     # 'MemoryOnly' keeps it out of the saved file; 'None' would drop it entirely.
     Set-PSReadLineOption -AddToHistoryHandler {
         param([string]$line)
-        $sensitive = '(?i)(password|passwd|secret|token|api[_-]?key|-AsPlainText|ConvertTo-SecureString|op read|op item)'
+        $sensitive = '(?i)(password|passwd|pwd|pass|secret|token|api[_-]?key|bearer|authorization|credential|creds|-password|oauth|jwt)'
         if ($line -match $sensitive) { return [Microsoft.PowerShell.AddToHistoryOption]::MemoryOnly }
         return [Microsoft.PowerShell.AddToHistoryOption]::MemoryAndFile
     }

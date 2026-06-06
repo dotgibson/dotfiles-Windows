@@ -56,10 +56,7 @@ if (-not $SkipScoop) {
         }
         Write-Host "  -> $name" -ForegroundColor DarkGray
         scoop install $name
-        if (-not $?) {
-            Write-Warning "  $name reported errors - skipping it, continuing the batch"
-            $failed.Add("scoop:$name")
-        }
+        if ($LASTEXITCODE -ne 0) { $failed.Add("scoop:$name") }
     }
 }
 
