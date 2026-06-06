@@ -19,6 +19,24 @@
 $script:MaintTaskName = 'dotfiles-maint'
 $script:MaintScript   = if ($global:DOTFILES) { Join-Path $global:DOTFILES 'maint\Maintenance.ps1' } else { $null }
 $script:MaintLog      = Join-Path $env:LOCALAPPDATA 'dotfiles\maint\maint.log'
+$script:FollowArgs    = @('-f', '--follow')
+
+function Get-MaintRunnerPath {
+    if (-not $script:MaintScript -or -not (Test-Path $script:MaintScript)) {
+        Write-Error "maint: runner not found at $script:MaintScript"
+        return $null
+    }
+    return $script:MaintScript
+}
+
+function Get-PwshPath {
+    $pwshPath = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
+    if (-not $pwshPath) {
+        Write-Error 'maint: pwsh (PowerShell 7) not found on PATH'
+        return $null
+    }
+    return $pwshPath
+}
 
 function maint-install {
     param([string]$When = '13:00')
@@ -26,15 +44,14 @@ function maint-install {
     if ($When -notmatch '^([01]?\d|2[0-3]):[0-5]\d$') {
         Write-Error 'usage: maint-install [HH:MM]   (24h, e.g. 13:00)'; return
     }
-    if (-not $script:MaintScript -or -not (Test-Path $script:MaintScript)) {
-        Write-Error "maint: runner not found at $script:MaintScript"; return
-    }
+    $maintScript = Get-MaintRunnerPath
+    if (-not $maintScript) { return }
+    $pwshPath = Get-PwshPath
+    if (-not $pwshPath) { return }
 
-    $pwshPath = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
-    if (-not $pwshPath) { Write-Error 'maint: pwsh (PowerShell 7) not found on PATH'; return }
 
     $action  = New-ScheduledTaskAction -Execute $pwshPath `
-                 -Argument ('-NoProfile -ExecutionPolicy Bypass -File "{0}"' -f $script:MaintScript)
+                 -Argument ('-NoProfile -ExecutionPolicy Bypass -File "{0}"' -f $maintScript)
     $trigger = New-ScheduledTaskTrigger -Daily -At ([datetime]$When)
     $settings = New-ScheduledTaskSettingsSet `
                  -StartWhenAvailable `
@@ -57,20 +74,29 @@ function maint-install {
 }
 
 function maint-run {
-    if (-not $script:MaintScript -or -not (Test-Path $script:MaintScript)) {
-        Write-Error "maint: runner not found at $script:MaintScript"; return
-    }
-    Write-Host "running $script:MaintScript ..." -ForegroundColor Cyan
-    pwsh -NoProfile -ExecutionPolicy Bypass -File $script:MaintScript
+    $maintScript = Get-MaintRunnerPath
+    if (-not $maintScript) { return }
+    $pwshPath = Get-PwshPath
+    if (-not $pwshPath) { return }
+
+    Write-Host "running $maintScript ..." -ForegroundColor Cyan
+    & $pwshPath -NoProfile -ExecutionPolicy Bypass -File $maintScript
 }
 
 function maint-log {
     param($Arg = 50)
+
     if (-not (Test-Path $script:MaintLog)) { Write-Host "no log yet at $script:MaintLog"; return }
-    if ("$Arg" -in '-f','--follow') {
+
+    if ("$Arg" -in $script:FollowArgs) {
         Get-Content $script:MaintLog -Wait -Tail 20
     } else {
-        Get-Content $script:MaintLog -Tail ([int]$Arg)
+        $lineCount = 0
+        if (-not [int]::TryParse("$Arg", [ref]$lineCount) -or $lineCount -le 0) {
+            Write-Error 'usage: maint-log [N|-f]   (N must be a positive integer)'
+            return
+        }
+        Get-Content $script:MaintLog -Tail $lineCount
     }
 }
 
@@ -95,4 +121,3 @@ function maint-uninstall {
         Write-Host "nothing to remove (task '$script:MaintTaskName' not found)" -ForegroundColor DarkYellow
     }
 }
-

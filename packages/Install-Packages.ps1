@@ -20,6 +20,7 @@ param(
 $ErrorActionPreference = 'Continue'
 $here   = Split-Path -Parent $MyInvocation.MyCommand.Path
 $failed = [System.Collections.Generic.List[string]]::new()
+$script:MaintModuleNames = @('PSReadLine', 'Terminal-Icons', 'PSFzf', 'CompletionPredictor')
 
 # --- scoop --------------------------------------------------------------------
 if (-not $SkipScoop) {
@@ -89,7 +90,7 @@ if (-not $SkipWinget) {
 
 # --- PowerShell modules -------------------------------------------------------
 Write-Host 'Installing PowerShell modules...' -ForegroundColor Cyan
-foreach ($m in 'PSReadLine','Terminal-Icons','PSFzf','CompletionPredictor') {
+foreach ($m in $script:MaintModuleNames) {
     if (-not (Get-Module -ListAvailable $m)) {
         Write-Host "  -> $m" -ForegroundColor DarkGray
         try { Install-Module $m -Scope CurrentUser -Force -AllowClobber }
@@ -106,4 +107,3 @@ if ($failed.Count -eq 0) {
     $failed | ForEach-Object { Write-Host "  - $_" -ForegroundColor Yellow }
     Write-Host 'Re-run this script to retry them (already-installed apps are skipped).' -ForegroundColor Yellow
 }
-

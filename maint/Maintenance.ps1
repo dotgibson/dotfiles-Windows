@@ -24,6 +24,7 @@
 [CmdletBinding()] param()
 
 $ErrorActionPreference = 'Continue'
+$script:MaintModuleNames = @('PSReadLine', 'Terminal-Icons', 'PSFzf', 'CompletionPredictor')
 
 # --- env knobs ----------------------------------------------------------------
 if (-not $env:MAINT_ENABLED)        { $env:MAINT_ENABLED = '1' }
@@ -107,7 +108,7 @@ try {
     }
 
     # --- PowerShell modules ---------------------------------------------------
-    foreach ($m in 'PSReadLine','Terminal-Icons','PSFzf','CompletionPredictor') {
+    foreach ($m in $script:MaintModuleNames) {
         if (Get-Module -ListAvailable $m) {
             Step "module update: $m" { Update-Module $m -Scope CurrentUser -Force -ErrorAction Stop }
         }
