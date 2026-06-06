@@ -24,7 +24,7 @@
 [CmdletBinding()] param()
 
 $ErrorActionPreference = 'Continue'
-$script:MaintModuleNames = @('PSReadLine', 'Terminal-Icons', 'PSFzf', 'CompletionPredictor')
+. (Join-Path $PSScriptRoot '..\packages\modules.ps1')
 
 # --- env knobs ----------------------------------------------------------------
 if (-not $env:MAINT_ENABLED)        { $env:MAINT_ENABLED = '1' }

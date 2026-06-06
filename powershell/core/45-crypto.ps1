@@ -19,6 +19,7 @@
 if (Test-Cmd age) {
 
     $script:AgeKey = Join-Path $HOME '.age\key.txt'
+    $script:AgePubKey = $null
 
     # age-setup: generate a new key at the default location (idempotent)
     function age-setup {
@@ -52,7 +53,8 @@ if (Test-Cmd age) {
         )
         if (-not (Test-Path $File))           { Write-Error "file not found: $File"; return }
         if (-not (Test-Path $script:AgeKey))  { Write-Error "no key at $script:AgeKey — run age-setup"; return }
-        $pub = age-keygen -y $script:AgeKey 2>$null
+        if (-not $script:AgePubKey) { $script:AgePubKey = age-keygen -y $script:AgeKey 2>$null }
+        $pub = $script:AgePubKey
         if (-not $Out) { $Out = "$File.age" }
         age -r $pub -o $Out $File
         if ($LASTEXITCODE -eq 0) { Write-Host "encrypted -> $Out" -ForegroundColor Green }

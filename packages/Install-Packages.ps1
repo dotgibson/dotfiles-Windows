@@ -20,7 +20,7 @@ param(
 $ErrorActionPreference = 'Continue'
 $here   = Split-Path -Parent $MyInvocation.MyCommand.Path
 $failed = [System.Collections.Generic.List[string]]::new()
-$script:MaintModuleNames = @('PSReadLine', 'Terminal-Icons', 'PSFzf', 'CompletionPredictor')
+. (Join-Path $here 'modules.ps1')
 
 # --- scoop --------------------------------------------------------------------
 if (-not $SkipScoop) {

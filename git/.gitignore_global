@@ -30,3 +30,5 @@ venv/
 local.ps1
 .gitconfig.local
 
+
+**/.claude/settings.local.json
