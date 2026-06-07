@@ -108,9 +108,15 @@ try {
     }
 
     # --- PowerShell modules ---------------------------------------------------
+    # PSReadLine ships with PowerShell so Update-Module refuses to touch it;
+    # Install-Module -Force is the documented workaround for that module only.
     foreach ($m in $script:MaintModuleNames) {
         if (Get-Module -ListAvailable $m) {
-            Step "module update: $m" { Update-Module $m -Scope CurrentUser -Force -ErrorAction Stop }
+            if ($m -eq 'PSReadLine') {
+                Step "module update: $m" { Install-Module $m -Scope CurrentUser -Force -SkipPublisherCheck -ErrorAction Stop }
+            } else {
+                Step "module update: $m" { Update-Module $m -Scope CurrentUser -Force -ErrorAction Stop }
+            }
         }
     }
 
