@@ -32,6 +32,19 @@ if vim.fn.executable("clip") == 1 and vim.fn.executable("clip-paste") == 1 then
 		},
 		cache_enabled = 0,
 	}
-else
-	vim.notify("clip/clip-paste not found — clipboard (+) disabled", vim.log.levels.WARN)
+elseif vim.fn.executable("clip.exe") == 1 then
+	-- Windows-native fallback (psmux / no Core bootstrap)
+	local pwsh = vim.fn.executable("pwsh") == 1 and "pwsh" or "powershell"
+	vim.g.clipboard = {
+		name = "clip-windows",
+		copy = {
+			["+"] = "clip.exe",
+			["*"] = "clip.exe",
+		},
+		paste = {
+			["+"] = { pwsh, "-NoProfile", "-Command", "Get-Clipboard" },
+			["*"] = { pwsh, "-NoProfile", "-Command", "Get-Clipboard" },
+		},
+		cache_enabled = 0,
+	}
 end

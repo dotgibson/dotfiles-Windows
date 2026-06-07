@@ -77,6 +77,9 @@ vim.opt.iskeyword:append("-") -- Treat dash as part of a word
 vim.opt.path:append("**") -- Search into subfolders with `gf`
 vim.opt.selection = "inclusive" -- Use inclusive selection
 vim.opt.mouse = "a" -- Enable mouse support
+if vim.env.TMUX then
+	vim.keymap.set({ "n", "v" }, "<LeftDrag>", "<Nop>", { silent = true })
+end
 -- NOTE: system clipboard is handled in clipboard.lua via a custom provider and
 -- the "+ register (opt-in). We deliberately do NOT force unnamedplus here, so
 -- normal yanks/deletes stay in Neovim's registers (keeps <leader>p sane).
