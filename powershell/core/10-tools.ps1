@@ -123,9 +123,13 @@ if ((Test-Cmd carapace) -and -not $global:DotfilesInit.Carapace) {
 # case we skip silently rather than erroring. `navi` itself still works as a
 # standalone command; you just won't get the Ctrl+G keybind.
 if ((Test-Cmd navi) -and -not $global:DotfilesInit.Navi) {
-    $naviWidget = navi widget powershell 2>$null | Out-String
-    if ($naviWidget.Trim()) {
-        Invoke-Expression $naviWidget
-        $global:DotfilesInit.Navi = $true
-    }
+    try {
+        $naviWidget = (& navi widget powershell 2>$null) -join "`n"
+        # Filter out scoop shim noise before checking if output is usable
+        $naviWidget = ($naviWidget -split "`n" | Where-Object { $_ -notmatch '^Shim:' }) -join "`n"
+        if ($naviWidget.Trim()) {
+            Invoke-Expression $naviWidget
+            $global:DotfilesInit.Navi = $true
+        }
+    } catch { }
 }

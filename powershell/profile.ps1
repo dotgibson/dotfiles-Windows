@@ -26,8 +26,9 @@ foreach ($layer in @('core', 'os')) {
         Get-ChildItem -Path $dir -Filter '*.ps1' -ErrorAction SilentlyContinue |
             Sort-Object Name |
             ForEach-Object {
-                try   { . $_.FullName }
-                catch { Write-Warning "dotfiles: failed to load $($_.Name): $_" }
+                $fragment = $_
+                try   { . $fragment.FullName }
+                catch { Write-Warning "dotfiles: failed to load $($fragment.Name): $_" }
             }
     }
 }
