@@ -1,7 +1,7 @@
-# tmux-sesh.ps1 — prefix+f sessionizer (host port of core/tmux-sesh.sh).
+# psmux-sesh.ps1 — prefix+f sessionizer (host port of core/tmux-sesh.sh).
 # Pick a directory (zoxide frecency + common project roots), then attach-or-create
 # a psmux session named for it. Invoked via:
-#   bind f display-popup -E -w 55% -h 65% "pwsh -NoProfile -File ~/.config/psmux/scripts/tmux-sesh.ps1"
+#   bind f display-popup -E -w 55% -h 65% "pwsh ... -File ~/.config/psmux/scripts/psmux-sesh.ps1"
 #
 # NOTE: the fleet's `sesh` (joshmedeski/sesh) is a tmux-in-WSL tool and isn't on
 # the host, so this is the find+fzf fallback rebuilt natively — zoxide-aware, the

@@ -114,9 +114,12 @@ Link-Item -Target (Join-Path $RepoRoot 'psmux\scripts') -Link (Join-Path $HOME '
 
 # --- ppm (psmux plugin manager) -------------------------------------------------
 # Mirrors psmux's documented install: clone the psmux-plugins monorepo to a temp
-# dir, copy ONLY the ppm subfolder into ~/.config/psmux/plugins/ppm. The other
-# @plugins declared in psmux.conf are fetched later by `prefix + I` inside psmux.
-$ppmDir = Join-Path $HOME '.config\psmux\plugins\ppm'
+# dir, copy ONLY the ppm subfolder into ~/.psmux/plugins/ppm — psmux's standard
+# plugin path. That's the same ~/.psmux tree psmux uses for its own runtime files
+# (session port/key files, warm session) and where resurrect/continuum write their
+# saves, so everything plugin-related lives under one root. The other @plugins
+# declared in psmux.conf are fetched later by `prefix + I` inside psmux.
+$ppmDir = Join-Path $HOME '.psmux\plugins\ppm'
 if (-not (Test-Path $ppmDir)) {
     $tmp = Join-Path $env:TEMP ('psmux-plugins-' + [guid]::NewGuid().ToString('N'))
     try {

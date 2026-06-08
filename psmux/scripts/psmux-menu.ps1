@@ -1,6 +1,6 @@
-# tmux-menu.ps1 — prefix+w session/window switcher (host port of core/tmux-menu.sh).
+# psmux-menu.ps1 — prefix+w session/window switcher (host port of core/tmux-menu.sh).
 # Lists every session and its windows; fzf-pick jumps there. Invoked via:
-#   bind w display-popup -E -w 40% -h 50% "pwsh -NoProfile -File ~/.config/psmux/scripts/tmux-menu.ps1"
+#   bind w display-popup -E -w 40% -h 50% "pwsh ... -File ~/.config/psmux/scripts/psmux-menu.ps1"
 #
 # The bash original also surfaced an ~/engagements section — that's DROPPED here on
 # purpose: the Windows host is the productivity layer, engagements live on the Kali

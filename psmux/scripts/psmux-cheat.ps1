@@ -1,8 +1,9 @@
-# tmux-cheat.ps1 — prefix+? searchable cheatsheet (host port of core/tmux-cheat.sh).
+# psmux-cheat.ps1 — prefix+D searchable cheatsheet (host port of core/tmux-cheat.sh).
 # fzf-searchable list of THIS host's psmux keys, pwsh functions, aliases, and git
 # aliases. Enter copies the selected key/command to the clipboard (Set-Clipboard).
 # Invoked via:
-#   bind ? display-popup -E -w 78% -h 80% "pwsh -NoProfile -File ~/.config/psmux/scripts/tmux-cheat.ps1"
+#   bind D display-popup -w 78% -h 80% "pwsh ... -File ~/.config/psmux/scripts/psmux-cheat.ps1"
+# (prefix ? is left as psmux's built-in list-keys overlay.)
 #
 # This DOCUMENTS the config; it doesn't read it — keep it in sync by hand. Data is
 # tuned to the psmux host: prefix C-a, no vim-tmux-navigator (host), copy via
@@ -13,45 +14,48 @@ $ErrorActionPreference = 'SilentlyContinue'
 # group, key/command, description
 $rows = @(
     # ── psmux · prefix is C-a ────────────────────────────────────────────────
-    @('psmux', 'C-a',              'PREFIX  (double-tap = last window)')
+    @('psmux', 'C-a',              'PREFIX  (double-tap sends a literal C-a)')
     @('psmux', 'prefix r',         'reload psmux.conf')
     @('psmux', 'prefix c',         'new window (keeps path)')
     @('psmux', 'prefix ,',         'rename window')
     @('psmux', 'prefix &',         'kill window')
-    @('psmux', 'prefix S',         'choose session')
+    @('psmux', 'prefix n / p',     'next / previous window')
+    @('psmux', 'prefix l',         'last (previously active) window')
+    @('psmux', 'prefix 0-9',       'select window by number')
+    @('psmux', 'prefix s',         'choose session/window (choose-tree)')
     @('psmux', 'prefix d',         'detach')
-    @('psmux', 'prefix R',         'refresh client')
-    @('psmux', 'M-H / M-L',        'previous / next window (no prefix)')
-    @('psmux', 'S-Left / S-Right', 'previous / next window (no prefix)')
     @('psmux', 'prefix :',         'command prompt')
+    @('psmux', 'prefix ?',         'list-keys (built-in keybinding overlay)')
     @('psmux', 'prefix q',         'show pane numbers (type one to jump)')
     # ── pane ─────────────────────────────────────────────────────────────────
-    @('pane', 'prefix h/j/k/l',  'select pane  L/D/U/R')
+    @('pane', 'C-h/j/k/l',       'select pane L/D/U/R (no prefix)')
     @('pane', 'M-arrows',        'select pane (no prefix)')
     @('pane', 'prefix |',        'split vertical (keeps path)')
     @('pane', 'prefix -',        'split horizontal (keeps path)')
-    @('pane', 'prefix \',        'full-height vertical split')
-    @('pane', 'prefix _',        'full-width horizontal split')
+    @('pane', 'prefix \',        'full-height vertical split (pain-control)')
+    @('pane', 'prefix _',        'full-width horizontal split (pain-control)')
     @('pane', 'prefix H/J/K/L',  'resize pane (hold to repeat)')
-    @('pane', 'prefix m',        'zoom / maximize pane toggle')
+    @('pane', 'prefix z',        'zoom / maximize pane toggle')
     @('pane', 'prefix x',        'kill pane')
-    @('pane', 'prefix X',        'swap pane down')
-    @('pane', 'prefix P',        'toggle per-pane titles')
-    @('pane', 'prefix *',        'synchronize-panes (type into all)')
-    # NOTE: seamless C-h/j/k/l into nvim splits is NOT on the host (no
-    # vim-tmux-navigator); that lives in WSL. Use prefix h/j/k/l here.
+    @('pane', 'prefix { / }',    'swap pane up / down')
+    @('pane', 'prefix *',        'synchronize-panes toggle (type into all)')
+    # NOTE: C-h/j/k/l pane-select is bound at root (no prefix) to mirror the
+    # fleet's vim-tmux-navigator muscle memory. The host has no is_vim guard, so
+    # it's plain pane navigation — it won't pass through into nvim splits.
     # ── popups ─────────────────────────────────────────────────────────────────
     @('popup', 'prefix w', 'session/window switcher')
     @('popup', 'prefix T', 'scratch terminal')
     @('popup', 'prefix g', 'lazygit')
     @('popup', 'prefix f', 'sessionizer (dir -> session)')
-    @('popup', 'prefix ?', 'this cheatsheet')
+    @('popup', 'prefix D', 'this cheatsheet')
     # ── copy-mode (vi) ─────────────────────────────────────────────────────────
-    @('copy', 'prefix Enter', 'enter copy-mode')
-    @('copy', 'v',            'begin selection')
-    @('copy', 'C-v',          'rectangle/block toggle')
+    @('copy', 'prefix [',     'enter copy-mode')
+    @('copy', 'Space',        'begin selection')
+    @('copy', 'v / C-v',      'rectangle/block toggle')
+    @('copy', 'V',            'line selection')
     @('copy', 'y',            'copy selection -> Windows clipboard (clip.exe)')
-    @('copy', 'Escape',       'cancel copy-mode')
+    @('copy', '/ ? n N',      'search fwd / back / next / prev')
+    @('copy', 'Escape / q',   'cancel copy-mode')
     # ── shell · PSReadLine / PSFzf ─────────────────────────────────────────────
     @('key', 'Ctrl-t',     'fzf file picker -> insert path')
     @('key', 'Ctrl-r',     'fzf history search')
