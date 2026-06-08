@@ -4,23 +4,23 @@ The fleet's `PORTING-MATRIX.md` has a column per OS. Windows is the odd one out
 because it isn't a zsh/Unix target — it's a PowerShell host that also runs your
 Linux distros under WSL2. Here's the row, translated.
 
-| Matrix concept (Linux/Mac)                 | Windows equivalent                                                                                                       |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
-| Package manager block (`apt`/`dnf`/`brew`) | `scoop` (CLI) + `winget` (GUI) — `packages/`                                                                             |
-| Shell layer (`zsh`)                        | PowerShell 7 (`pwsh`) — `powershell/`                                                                                    |
-| Shell loader (sources core→os→local)       | `powershell/profile.ps1` (core→os→local)                                                                                 |
-| Clipboard (`pbcopy` / `clip` / `xclip`)    | `Set-Clipboard` / `Get-Clipboard` (aliased `pbcopy`/`pbpaste`)                                                           |
-| Prompt (`starship`)                        | `starship` — same `starship.toml`, cross-shell                                                                           |
-| Multiplexer (`tmux`)                       | **host:** psmux (native Windows tmux, reads `~/.tmux.conf`) + Windows Terminal panes · **WSL:** the real tmux, from Core |
-| Runtime manager (`mise`)                   | mise has Windows support but is secondary; scoop owns most CLI runtimes                                                  |
-| Editor (`nvim`)                            | nvim reads `%LOCALAPPDATA%\nvim`; vendor Core's config (see `nvim/`)                                                     |
-| SSH config                                 | same hardened defaults **minus ControlMaster** (unsupported on Win OpenSSH)                                              |
-| `update.zsh` (`up` + nudge)                | `powershell/core/15-update.ps1` (scoop/winget, no elevation)                                                             |
-| `maint.zsh` + `dotfiles-maint.sh`          | `powershell/os/40-maint.ps1` + `maint/Maintenance.ps1` (Task Scheduler)                                                  |
-| `op.zsh` (1Password helpers)               | `powershell/core/40-op.ps1` (`op` CLI is cross-platform)                                                                 |
-| `history.zsh` (`HISTORY_IGNORE`)           | PSReadLine `AddToHistoryHandler` in `10-tools.ps1`                                                                       |
-| MAC helpers (SELinux/AppArmor)             | n/a                                                                                                                      |
-| Offensive layer (Kali only)                | n/a here — offensive role stays on the Kali station                                                                      |
+| Matrix concept (Linux/Mac)                 | Windows equivalent                                                                                                                     |
+| ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Package manager block (`apt`/`dnf`/`brew`) | `scoop` (CLI) + `winget` (GUI) — `packages/`                                                                                           |
+| Shell layer (`zsh`)                        | PowerShell 7 (`pwsh`) — `powershell/`                                                                                                  |
+| Shell loader (sources core→os→local)       | `powershell/profile.ps1` (core→os→local)                                                                                               |
+| Clipboard (`pbcopy` / `clip` / `xclip`)    | `Set-Clipboard` / `Get-Clipboard` (aliased `pbcopy`/`pbpaste`)                                                                         |
+| Prompt (`starship`)                        | `starship` — same `starship.toml`, cross-shell                                                                                         |
+| Multiplexer (`tmux`)                       | **host:** psmux (native Windows tmux, reads `~/.config/psmux/psmux.conf`) + Windows Terminal panes · **WSL:** the real tmux, from Core |
+| Runtime manager (`mise`)                   | mise has Windows support but is secondary; scoop owns most CLI runtimes                                                                |
+| Editor (`nvim`)                            | nvim reads `%LOCALAPPDATA%\nvim`; vendor Core's config (see `nvim/`)                                                                   |
+| SSH config                                 | same hardened defaults **minus ControlMaster** (unsupported on Win OpenSSH)                                                            |
+| `update.zsh` (`up` + nudge)                | `powershell/core/15-update.ps1` (scoop/winget, no elevation)                                                                           |
+| `maint.zsh` + `dotfiles-maint.sh`          | `powershell/os/40-maint.ps1` + `maint/Maintenance.ps1` (Task Scheduler)                                                                |
+| `op.zsh` (1Password helpers)               | `powershell/core/40-op.ps1` (`op` CLI is cross-platform)                                                                               |
+| `history.zsh` (`HISTORY_IGNORE`)           | PSReadLine `AddToHistoryHandler` in `10-tools.ps1`                                                                                     |
+| MAC helpers (SELinux/AppArmor)             | n/a                                                                                                                                    |
+| Offensive layer (Kali only)                | n/a here — offensive role stays on the Kali station                                                                                    |
 
 ## Newly ported from Core (2026 sync)
 
@@ -41,8 +41,8 @@ Linux distros under WSL2. Here's the row, translated.
   bright accents are segment _text_ over two dark surface fills instead of
   glaring background bands (was a near-white-on-bright eye-strain prompt).
 - **psmux (native host tmux)** — NEW. tmux now has no-WSL home on the host:
-  scoop install (`psmux` bucket), config at `psmux/.tmux.conf` symlinked to
-  `~/.tmux.conf`, `mux` helper in `os/32-psmux.ps1`. See "Multiplexer" below.
+  scoop install (`psmux` bucket), config at `psmux/psmux.conf` symlinked to
+  `~/.config/psmux/`, `mux` helper in `os/32-psmux.ps1`. See "Multiplexer" below.
 - **git config** — picked up Core's 2026 additions (fsmonitor, untrackedCache,
   rerere, rebase.updateRefs/autosquash, maintenance, fuller delta, expanded
   aliases) while keeping the Windows bits (autocrlf=true, longpaths, GCM,
@@ -50,8 +50,8 @@ Linux distros under WSL2. Here's the row, translated.
 
 > The new `core/` and `os/` fragments load automatically — `profile.ps1` globs
 > each layer directory in name order, so no `install.ps1` change is needed for
-> them. (`install.ps1` _was_ touched once, to symlink `psmux/.tmux.conf` →
-> `~/.tmux.conf`, since psmux reads a real config file rather than being sourced.)
+> them. (`install.ps1` _was_ touched once, to symlink `psmux/psmux.conf` →
+> `~/.config/psmux/psmux.conf`, since psmux reads a real config file rather than being sourced.)
 > The maintenance runner is invoked by path, so it doesn't need a symlink either.
 
 ## Multiplexer: the host story changed
@@ -59,7 +59,7 @@ Linux distros under WSL2. Here's the row, translated.
 Previously this repo punted host-side multiplexing entirely to Windows Terminal
 panes and kept tmux strictly inside WSL. As of 2026 there's a native option:
 **psmux** is a Rust/ConPTY Windows multiplexer that speaks tmux's command
-language and reads `~/.tmux.conf`. So the host now has three layers of choice:
+language and reads `~/.config/psmux/psmux.conf`. So the host now has three layers of choice:
 
 1. **Windows Terminal panes** — zero install, GUI-native, still fine for quick
    splits (keybinds in `windows-terminal/settings.json`).
@@ -69,7 +69,7 @@ language and reads `~/.tmux.conf`. So the host now has three layers of choice:
 3. **tmux in WSL** — unchanged; the genuine article for Linux-side work, owned
    by Core/Kali.
 
-The vendored `psmux/.tmux.conf` sticks to portable tmux options so it can later
+The vendored `psmux/psmux.conf` sticks to portable tmux options so it can later
 be unified with Core's tmux config (same filename, same language). What does NOT
 carry to the host: the `vim-tmux-navigator` smart-pane script (Unix-shell
 `is_vim` detection) and any `clip`/xclip copy commands — host clipboard goes
@@ -97,12 +97,11 @@ through `set-clipboard on` (OSC52) instead.
   copy of `core/nvim/` → this repo's `nvim/`). `.luacheckrc` has been synced to
   Core's current version; the rest of the tree should follow the same way the
   Linux repos vendor it.
-- **Align `psmux/.tmux.conf` with Core's tmux config.** The host config is a
-  standalone, portable starter. When convenient, reconcile the prefix and
-  keybinds with Core (the file leaves the prefix at tmux's default `C-b` and
-  marks the remap to mirror) and decide whether to vendor Core's `.tmux.conf`
-  here outright — psmux reads the same filename, so it's a clean subtree/copy
-  the same way nvim is handled.
+- **Align `psmux/psmux.conf` with Core's tmux config.** The host config is a
+  standalone, portable starter that already remaps the prefix to `C-a`
+  (`psmux.reset.conf`). When convenient, reconcile the remaining keybinds with
+  Core. Note psmux reads `psmux.conf`, not `.tmux.conf`, so vendoring Core's
+  tmux tree here means a copy-with-rename rather than a same-filename subtree.
 
 ## Windows-only additions
 
@@ -110,7 +109,7 @@ through `set-clipboard on` (OSC52) instead.
   (mirrored networking) that the Kali repo references.
 - `powershell/os/31-wsl-bridge.ps1` — the host↔WSL seam (`kali`, `cdwsl`,
   `hostip`, `wsl-restart`).
-- `powershell/os/32-psmux.ps1` + `psmux/.tmux.conf` — native host multiplexer.
+- `powershell/os/32-psmux.ps1` + `psmux/psmux.conf` — native host multiplexer.
 - `powershell/os/40-maint.ps1` + `maint/Maintenance.ps1` — Task Scheduler maint.
 - Windows Terminal `settings.json`.
 

@@ -28,14 +28,14 @@ repo for the offensive catalog.
 
 ### 2026 additions (fleet parity with Core's `tools.zsh`)
 
-| Tool  | Replaces    | scoop name | Alias            | Notes                                                      |
-| ----- | ----------- | ---------- | ---------------- | ---------------------------------------------------------- |
-| xh    | curl/HTTPie | `xh`       | `http` / `https` | Rust HTTPie — poke APIs / web targets                      |
-| glow  | —           | `glow`     | `md`             | render markdown in the terminal (engagement notes/READMEs) |
-| doggo | dig         | `doggo`    | `dns`            | modern dig (DNS recon)                                     |
-| sd    | sed         | `sd`       | —                | intuitive find/replace; own verb (never shadows sed)       |
-| gron  | —           | `gron`     | —                | greppable JSON                                             |
-| gum   | —           | `gum`      | —                | shell-script UI widgets (Charm)                            |
+| Tool  | Replaces    | scoop name            | Alias                                         | Notes                                                                                                                                                                                |
+| ----- | ----------- | --------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| xh    | curl/HTTPie | `xh`                  | `http` / `https`                              | Rust HTTPie — poke APIs / web targets                                                                                                                                                |
+| glow  | —           | `glow`                | `md`                                          | render markdown in the terminal (engagement notes/READMEs)                                                                                                                           |
+| doggo | dig         | `doggo`               | `dns`                                         | modern dig (DNS recon)                                                                                                                                                               |
+| sd    | sed         | `sd`                  | —                                             | intuitive find/replace; own verb (never shadows sed)                                                                                                                                 |
+| gron  | —           | `gron`                | —                                             | greppable JSON                                                                                                                                                                       |
+| gum   | —           | `gum`                 | —                                             | shell-script UI widgets (Charm)                                                                                                                                                      |
 | tv    | —           | `television` (extras) | `tvim` `ttext` `tcd` `trepo` `tbranch` `tenv` | television fuzzy finder; wrappers in `core/25-television.ps1`. NOT given Ctrl+R (atuin owns it) — named verbs only. Channel availability (`dirs` etc.) depends on tv's cable config. |
 
 Aliases are **guarded** (`if (Test-Cmd ...)`) the same way the zsh aliases are —
@@ -46,19 +46,19 @@ on a box where a tool isn't installed, the classic command is untouched.
 The fleet runs tmux inside WSL, but the **host** now gets a real multiplexer too.
 [psmux](https://github.com/psmux/psmux) is a native Windows terminal multiplexer
 written in Rust: it drives Windows ConPTY directly, speaks the tmux command
-language, and reads a `~/.tmux.conf` — so panes, windows, and session
+language, and reads a `~/.config/psmux/psmux.conf` — so panes, windows, and session
 persistence work in **pwsh on the host** without WSL, Cygwin, or MSYS2. It ships
 `psmux`, `pmux`, and a `tmux` shim, so muscle memory carries straight over.
 
-| Item     | Detail                                                                        |
-| -------- | ----------------------------------------------------------------------------- |
-| Install  | scoop (`psmux` bucket → `psmux` app), in `packages/scoopfile.json`            |
-| Commands | `psmux` / `pmux` / `tmux` (identical)                                         |
-| Config   | `psmux/.tmux.conf`, symlinked to `~/.tmux.conf` by `install.ps1`              |
-| Helper   | `mux [session]` (in `os/32-psmux.ps1`) — attach-or-create; defaults to `main` |
-| Requires | Windows 10/11 + PowerShell 7 (already the host target)                        |
+| Item     | Detail                                                                                                  |
+| -------- | ------------------------------------------------------------------------------------------------------- |
+| Install  | scoop (`psmux` bucket → `psmux` app), in `packages/scoopfile.json`                                      |
+| Commands | `psmux` / `pmux` / `tmux` (identical)                                                                   |
+| Config   | `psmux/psmux.conf` (+ `psmux.reset.conf`, `scripts/`), symlinked to `~/.config/psmux/` by `install.ps1` |
+| Helper   | `mux [session]` (in `os/32-psmux.ps1`) — attach-or-create; defaults to `main`                           |
+| Requires | Windows 10/11 + PowerShell 7 (already the host target)                                                  |
 
-The vendored `psmux/.tmux.conf` is deliberately limited to **portable** tmux
+The vendored `psmux/psmux.conf` is deliberately limited to **portable** tmux
 options (prefix left at default pending Core alignment, mouse on, vi copy-mode,
 `base-index 1`, OSC52 clipboard, tokyonight-storm status bar) so the same file
 can later be shared with / vendored from Core the way the nvim tree is.

@@ -50,6 +50,7 @@
     { "Name": "python", "Source": "main" },
     { "Name": "sysinternals", "Source": "extras" },
     { "Name": "JetBrainsMono-NF", "Source": "nerd-fonts" },
+    { "Name": "CascadiaCode-NF", "Source": "nerd-fonts" },
     { "Name": "win32yank", "Source": "main" },
     { "Name": "mise", "Source": "main" },
     { "Name": "dust", "Source": "main" },

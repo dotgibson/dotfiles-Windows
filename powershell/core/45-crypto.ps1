@@ -32,7 +32,9 @@ if (Test-Cmd age) {
         }
         age-keygen -o $script:AgeKey
         Write-Host "key written to $script:AgeKey" -ForegroundColor Green
-        Write-Host "  store it in 1Password with: Get-Content $script:AgeKey | opsecret-set 'Personal/age/private-key'" -ForegroundColor DarkGray
+        Write-Host "  back it up in 1Password (create a 'Password'/'Secure Note' item, paste the file), e.g.:" -ForegroundColor DarkGray
+        Write-Host "    op item create --category 'Secure Note' --title 'age private key' notesPlain=`"`$(Get-Content $script:AgeKey -Raw)`"" -ForegroundColor DarkGray
+        Write-Host "  retrieve later with: opsecret 'Personal/age private key/notesPlain' > $script:AgeKey" -ForegroundColor DarkGray
     }
 
     # age-pubkey: show the public key for the default key (share this, not the key file)

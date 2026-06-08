@@ -106,15 +106,16 @@ Link-Item -Target (Join-Path $RepoRoot 'git\.gitignore_global') -Link (Join-Path
 # ssh
 Link-Item -Target (Join-Path $RepoRoot 'ssh\config') -Link (Join-Path $HOME '.ssh\config')
 
-# psmux (native Windows tmux) — reads ~/.tmux.conf. Same file psmux/pmux/tmux use.
+# psmux (native Windows tmux) — reads ~/.config/psmux/psmux.conf (NOT ~/.tmux.conf).
+# Same config psmux/pmux/tmux use. reset.conf + scripts are linked alongside it.
 Link-Item -Target (Join-Path $RepoRoot 'psmux\psmux.conf') -Link (Join-Path $HOME '.config\psmux\psmux.conf')
 Link-Item -Target (Join-Path $RepoRoot 'psmux\psmux.reset.conf') -Link (Join-Path $HOME '.config\psmux\psmux.reset.conf')
 Link-Item -Target (Join-Path $RepoRoot 'psmux\scripts') -Link (Join-Path $HOME '.config\psmux\scripts')
 
 # --- ppm (psmux plugin manager) -------------------------------------------------
 # Mirrors psmux's documented install: clone the psmux-plugins monorepo to a temp
-# dir, copy ONLY the ppm subfolder into ~/.psmux/plugins/ppm. The other @plugins
-# declared in psmux.conf are fetched later by `prefix + I` inside psmux.
+# dir, copy ONLY the ppm subfolder into ~/.config/psmux/plugins/ppm. The other
+# @plugins declared in psmux.conf are fetched later by `prefix + I` inside psmux.
 $ppmDir = Join-Path $HOME '.config\psmux\plugins\ppm'
 if (-not (Test-Path $ppmDir)) {
     $tmp = Join-Path $env:TEMP ('psmux-plugins-' + [guid]::NewGuid().ToString('N'))
@@ -164,7 +165,10 @@ if (-not (Test-Path $gcLocal)) {
 }
 
 # --- 6. global gitignore wiring ----------------------------------------------
-git config --global core.excludesfile (Join-Path $HOME '.gitignore_global')
+# Nothing to do: git\.gitconfig already sets `excludesfile = ~/.gitignore_global`,
+# and that file is symlinked to ~/.gitconfig above. Running `git config --global`
+# here would rewrite that line in-place with a machine-specific ABSOLUTE path,
+# silently dirtying the tracked repo file (it edits the symlink target).
 
 Write-Host ''
 Write-Host 'Bootstrap complete. Open a NEW PowerShell window (pwsh) to load the profile.' -ForegroundColor Green

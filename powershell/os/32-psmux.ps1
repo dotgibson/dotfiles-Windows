@@ -2,8 +2,8 @@
 #  os/32-psmux.ps1  -  psmux (native Windows tmux) convenience
 #
 #  psmux is installed via scoop (packages/scoopfile.json, psmux bucket) and puts
-#  `psmux`, `pmux`, and a `tmux` shim on PATH — all reading ~/.tmux.conf, which
-#  install.ps1 symlinks from this repo's psmux/.tmux.conf. So `tmux` already
+#  `psmux`, `pmux`, and a `tmux` shim on PATH — all reading ~/.config/psmux/psmux.conf,
+#  which install.ps1 symlinks from this repo's psmux/psmux.conf. So `tmux` already
 #  "just works" on the host; this fragment only adds the one ergonomic verb the
 #  rest of the fleet has muscle memory for.
 #
@@ -21,4 +21,3 @@ function mux {
     param([string]$Session = 'main')
     psmux new-session -A -s $Session
 }
-

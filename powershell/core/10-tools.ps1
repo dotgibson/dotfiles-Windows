@@ -31,6 +31,12 @@ if (Get-Module -ListAvailable PSReadLine) {
     Set-PSReadLineOption -EditMode Emacs
     Set-PSReadLineOption -HistoryNoDuplicates
     Set-PSReadLineOption -HistorySearchCursorMovesToEnd
+    # CompletionPredictor (managed in packages/modules.ps1) registers itself as a
+    # PSReadLine predictor plugin on import. Without this import the "Plugin" half
+    # of HistoryAndPlugin below has no source and only history predictions show.
+    if (Get-Module -ListAvailable CompletionPredictor) {
+        try { Import-Module CompletionPredictor -ErrorAction Stop } catch { }
+    }
     try {
         Set-PSReadLineOption -PredictionSource HistoryAndPlugin
         Set-PSReadLineOption -PredictionViewStyle ListView
