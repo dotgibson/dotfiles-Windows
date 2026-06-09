@@ -36,7 +36,6 @@
     { "Name": "neovim", "Source": "main" },
     { "Name": "7zip", "Source": "main" },
     { "Name": "curl", "Source": "main" },
-    { "Name": "wget", "Source": "main" },
     { "Name": "xh", "Source": "main" },
     { "Name": "doggo", "Source": "main" },
     { "Name": "sd", "Source": "main" },

@@ -9,7 +9,7 @@
     "WiresharkFoundation.Wireshark",
     "Obsidian.Obsidian",
     "AgileBits.1Password",
-    "AgileBits.1Password.CLI"
+    "AgileBits.1Password.CLI",
+    "GnuWin32.Wget"
   ]
 }
-
