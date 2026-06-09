@@ -29,6 +29,8 @@ $username\
 $directory\
 [](fg:color_srf2 bg:color_srf1)\
 $git_branch\
+$git_commit\
+$git_state\
 $git_status\
 [](fg:color_srf1 bg:color_srf2)\
 $c\
@@ -42,14 +44,18 @@ $java\
 $kotlin\
 $haskell\
 $python\
+$ruby\
+$lua\
 [](fg:color_srf2 bg:color_srf1)\
 $docker_context\
 $conda\
 $pixi\
 [](fg:color_srf1 bg:color_srf2)\
+$cmd_duration\
+$jobs\
 $time\
 [ ](fg:color_srf2)\
-$line_break$character"""
+$line_break$status$character"""
 
 palette = 'tokyonight_storm'
 
@@ -125,6 +131,24 @@ format = '[[ $symbol $branch ](fg:color_green bg:color_srf1)]($style)'
 style = "bg:color_srf1"
 format = '[[($all_status$ahead_behind )](fg:color_orange bg:color_srf1)]($style)'
 
+# Short commit hash, shown ONLY in detached-HEAD state (only_detached = true) so
+# a `git checkout <sha>`/`<tag>` no longer leaves the git band misleadingly blank.
+# Green text to read as a sibling of the branch, on the same srf1 surface.
+[git_commit]
+only_detached = true
+tag_disabled = false      # also surface an exact tag (e.g. v1.2.0) when on one
+tag_symbol = " "
+style = "bg:color_srf1"
+format = '[[ $hash$tag ](fg:color_green bg:color_srf1)]($style)'
+
+# Mid-operation state (REBASING 2/8, MERGING, CHERRY-PICKING…). Red text so an
+# in-progress rebase/merge is impossible to miss; sits in the same srf1 git band
+# between branch and status, and only appears when an operation is underway.
+
+[git_state]
+style = "bg:color_srf1"
+format = '[[ $state( $progress_current/$progress_total) ](fg:color_red bg:color_srf1)]($style)'
+
 [nodejs]
 symbol = ""
 style = "bg:color_srf2"
@@ -193,6 +217,36 @@ format = '[[ $symbol( $environment) ](fg:color_purple bg:color_srf1)]($style)'
 style = "bg:color_srf1"
 format = '[[ $symbol( $version)( $environment) ](fg:color_purple bg:color_srf1)]($style)'
 
+# ruby + lua are declared in mise/config.toml as global runtimes, so they belong
+# in the language band alongside the rest. Same cyan-on-srf2 treatment. (Section
+# order here is irrelevant — the `format` string at the top controls layout.)
+[ruby]
+symbol = ""
+style = "bg:color_srf2"
+format = '[[ $symbol( $version) ](fg:color_aqua bg:color_srf2)]($style)'
+
+[lua]
+symbol = ""
+style = "bg:color_srf2"
+format = '[[ $symbol( $version) ](fg:color_aqua bg:color_srf2)]($style)'
+
+# How long the last command took (only when it exceeds min_time). Orange text on
+# the same srf2 surface as time, so slow commands gently announce themselves
+# without a color clash. Transient: it vanishes after a quick command.
+[cmd_duration]
+min_time = 2000
+style = "bg:color_srf2"
+format = '[[  $duration ](fg:color_orange bg:color_srf2)]($style)'
+
+# Background job count (`&`, Ctrl-Z). Purple text, srf2 surface; only shows when
+# at least one job is running.
+[jobs]
+symbol = '+'
+symbol_threshold = 1
+number_threshold = 1
+style = "bg:color_srf2"
+format = '[[ $symbol $number ](fg:color_purple bg:color_srf2)]($style)'
+
 [time]
 disabled = false
 time_format = "%R"
@@ -201,6 +255,27 @@ format = '[[  $time ](fg:color_fg_dark bg:color_srf2)]($style)'
 
 [line_break]
 disabled = false
+
+# Exit code of the last command, on the prompt line (no powerline surface — the
+# ridge has already ended). success_symbol is empty, so this renders NOTHING on
+# success and only speaks up on failure, complementing the red character arrow
+# with the actual code/reason: 127 → not found, 126 → not executable, SIGINT on
+# Ctrl-C, SIGKILL on an OOM, etc. pipestatus breaks down which stage of a
+# `a | b | c` pipeline failed.
+[status]
+disabled = false
+style = "fg:color_red"
+symbol = "✘ "
+not_executable_symbol = " "
+not_found_symbol = " "
+sigint_symbol = " "
+signal_symbol = "⚡"
+recognize_signal_code = true
+map_symbol = true
+pipestatus = true
+pipestatus_separator = '[|](fg:color_comment)'
+format = '[$symbol$common_meaning$signal_name$maybe_int]($style) '
+pipestatus_format = '[$pipestatus]($style) => [$symbol$common_meaning$signal_name$maybe_int]($style) '
 
 [character]
 disabled = false
