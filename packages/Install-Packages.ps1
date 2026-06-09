@@ -86,13 +86,22 @@ if (-not $SkipWinget) {
 }
 
 # --- PowerShell modules -------------------------------------------------------
-Write-Host 'Installing PowerShell modules...' -ForegroundColor Cyan
+# Save to a LOCAL (non-OneDrive) modules dir. Install-Module -Scope CurrentUser
+# lands in Documents\PowerShell\Modules, which is OneDrive-synced when Documents
+# is redirected — and importing from there adds seconds to every shell start.
+# Save-Module writes the importable Name\Version layout to an explicit path;
+# profile.ps1 prepends this dir to $env:PSModulePath so it's found first.
+Write-Host 'Installing PowerShell modules (local, off OneDrive)...' -ForegroundColor Cyan
+$localModules = Join-Path $env:LOCALAPPDATA 'PowerShell\Modules'
+New-Item -ItemType Directory -Force -Path $localModules | Out-Null
 foreach ($m in $script:MaintModuleNames) {
-    if (-not (Get-Module -ListAvailable $m)) {
-        Write-Host "  -> $m" -ForegroundColor DarkGray
-        try { Install-Module $m -Scope CurrentUser -Force -AllowClobber }
-        catch { Write-Warning "  module $m failed: $_"; $failed.Add("module:$m") }
+    if (Test-Path (Join-Path $localModules $m)) {
+        Write-Host "  = $m (already local)" -ForegroundColor DarkGray
+        continue
     }
+    Write-Host "  -> $m" -ForegroundColor DarkGray
+    try { Save-Module -Name $m -Path $localModules -Force -ErrorAction Stop }
+    catch { Write-Warning "  module $m failed: $_"; $failed.Add("module:$m") }
 }
 
 # --- summary ------------------------------------------------------------------

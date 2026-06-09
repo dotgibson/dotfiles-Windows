@@ -45,6 +45,32 @@ function admin {
 function setenv  { param($Name,$Value) [Environment]::SetEnvironmentVariable($Name,$Value,'User'); Set-Item "env:$Name" $Value }
 function getenv  { param($Name) [Environment]::GetEnvironmentVariable($Name,'User') }
 
+# --- modules-localize: move PowerShell modules OFF OneDrive (one-time) ---------
+# Importing modules from a OneDrive-synced Documents\PowerShell\Modules folder
+# adds seconds to every shell start. profile.ps1 already prepends a local modules
+# dir to $env:PSModulePath; this copies your existing CurrentUser modules there so
+# imports resolve from local disk. Run it ONCE, ideally from `pwsh -NoProfile` so
+# no module DLLs are locked. Idempotent — safe to re-run.
+function modules-localize {
+    $src = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'PowerShell\Modules'
+    $dst = Join-Path $env:LOCALAPPDATA 'PowerShell\Modules'
+    if (-not (Test-Path $src)) { Write-Host "no user modules at $src (nothing to move)"; return }
+    if ($src -notlike '*OneDrive*') {
+        Write-Host "your modules path isn't under OneDrive ($src) — no move needed." -ForegroundColor DarkYellow
+    }
+    New-Item -ItemType Directory -Force -Path $dst | Out-Null
+    Write-Host "copying modules to local disk" -ForegroundColor Cyan
+    Write-Host "  from $src" -ForegroundColor DarkGray
+    Write-Host "  to   $dst" -ForegroundColor DarkGray
+    # /E copy (not /MOVE): leaves the OneDrive copies in place so a module loaded
+    # in THIS session can't block the operation. The prepend makes the local copy
+    # win regardless; delete the OneDrive Modules folder by hand later if you like.
+    robocopy $src $dst /E /NFL /NDL /NJH /NJS /NP | Out-Null
+    if ($LASTEXITCODE -ge 8) { Write-Error "robocopy failed (exit $LASTEXITCODE)"; return }
+    Write-Host "done — open a NEW shell. Modules now load from $dst (off OneDrive)." -ForegroundColor Green
+    Write-Host "verify with: (Get-Module -ListAvailable PSReadLine).Path" -ForegroundColor DarkGray
+}
+
 # --- Start psmux session (top-level interactive shell only) -------------------
 # $inMux must list every marker psmux sets inside a pane. Confirm with:
 #   Get-ChildItem env: | Where-Object Name -match 'mux'

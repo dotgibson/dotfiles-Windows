@@ -122,6 +122,15 @@ than the cache (e.g. after a scoop upgrade), trimming a subprocess spawn per too
 off every cold start. `init-cache-clear` forces a rebuild if you change a tool's
 init flags in `core/10-tools.ps1`.
 
+**Modules off OneDrive.** If `Documents` is redirected to OneDrive, the default
+CurrentUser module path (`Documents\PowerShell\Modules`) is OneDrive-synced, and
+importing modules from there can add **several seconds to every shell start**
+(placeholder hydration / sync I/O). `profile.ps1` prepends a local dir
+(`%LOCALAPPDATA%\PowerShell\Modules`) to `$env:PSModulePath`; the installer and
+maintenance runner `Save-Module` managed modules there. To migrate an existing
+machine, run `modules-localize` once (ideally from `pwsh -NoProfile` so no module
+DLLs are locked), then open a new shell.
+
 The scheduled runner (`maint/Maintenance.ps1`) updates the **user-space** stack
 automatically (scoop, mise, nvim plugins/parsers, PowerShell modules). `winget
 upgrade --all` is **opt-in** (`MAINT_WINGET_UPGRADE=1`) because it can launch MSI

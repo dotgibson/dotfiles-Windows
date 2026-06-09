@@ -108,16 +108,15 @@ try {
     }
 
     # --- PowerShell modules ---------------------------------------------------
-    # PSReadLine ships with PowerShell so Update-Module refuses to touch it;
-    # Install-Module -Force is the documented workaround for that module only.
+    # Refresh into the LOCAL (non-OneDrive) modules dir with Save-Module -Force —
+    #     # the same path profile.ps1 prepends and Install-Packages.ps1 seeds. Keeps
+    #         # modules off OneDrive (fast shell start) and sidesteps the old PSReadLine
+    #             # special case: Save-Module just writes the latest Name\Version with no
+    #                 # Update-Module-vs-shipped-module friction.
+    $localModules = Join-Path $env:LOCALAPPDATA 'PowerShell\Modules'
+    New-Item -ItemType Directory -Force -Path $localModules | Out-Null
     foreach ($m in $script:MaintModuleNames) {
-        if (Get-Module -ListAvailable $m) {
-            if ($m -eq 'PSReadLine') {
-                Step "module update: $m" { Install-Module $m -Scope CurrentUser -Force -SkipPublisherCheck -ErrorAction Stop }
-            } else {
-                Step "module update: $m" { Update-Module $m -Scope CurrentUser -Force -ErrorAction Stop }
-            }
-        }
+        Step "module update: $m" { Save-Module -Name $m -Path $localModules -Force -ErrorAction Stop }
     }
 
     # --- winget (OPT-IN — see header) -----------------------------------------

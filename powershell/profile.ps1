@@ -28,6 +28,18 @@ try {
     $OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 } catch { }
 
+# --- Modules off OneDrive -----------------------------------------------------
+# When Documents is redirected to OneDrive, the default CurrentUser module path
+# (Documents\PowerShell\Modules) is OneDrive-synced — and importing modules from
+# there taxes EVERY shell start with placeholder hydration / sync I/O (seconds).
+# Prepend a local, non-synced modules dir so imports resolve from fast local disk
+# first. Populate it once with `modules-localize` (os/30-windows.ps1); the
+# installer and maintenance runner keep managed modules here going forward.
+$LocalModules = Join-Path $env:LOCALAPPDATA 'PowerShell\Modules'
+if ($env:PSModulePath -notlike "*$LocalModules*") {
+    $env:PSModulePath = $LocalModules + [System.IO.Path]::PathSeparator + $env:PSModulePath
+}
+
 # --- Optional load tracer -----------------------------------------------------
 # Set DOTFILES_PROFILE_TRACE=1 in the ENVIRONMENT before pwsh starts to time each
 # fragment (and the heavier steps inside 10-tools, which record via Add-DotfilesTrace).
