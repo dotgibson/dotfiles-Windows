@@ -113,6 +113,7 @@ The fleet's "check + nudge, apply on demand" pattern (Core's `update.zsh` /
 | `maint-install [HH:MM]`                                                | register the daily maintenance **Scheduled Task** (default 13:00)                                    |
 | `maint-run` / `maint-log [N\|-f]` / `maint-status` / `maint-uninstall` | run now / tail log / next-run info / remove                                                          |
 | `shell-bench [runs]`                                                   | time a cold `pwsh` start (full profile), default 5 runs — measure before tuning startup              |
+| `prof-trace`                                                           | load the full profile with tracing on and print a slowest-first per-fragment / per-tool breakdown    |
 | `init-cache-clear`                                                     | drop the cached tool-init scripts (`%LOCALAPPDATA%\dotfiles\init-cache`); they regenerate next start |
 
 Tool shell-integration scripts (`starship`/`zoxide`/`mise`/`atuin`/`carapace`)

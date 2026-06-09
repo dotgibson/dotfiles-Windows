@@ -147,6 +147,20 @@ function global:shell-bench {
                       @{n='Avg_ms';e={[math]::Round($_.Average)}}, @{n='Max_ms';e={[math]::Round($_.Maximum)}}
 }
 
+# prof-trace: spawn a clean shell that loads the FULL profile with tracing on and
+# prints the slowest-first breakdown. Runs via -Command (a) so the psmux
+# auto-launch in os/30-windows is skipped — otherwise psmux grabs the terminal
+# mid-load and you never see the table — and (b) with -NoProfile + an explicit
+# `. $PROFILE` so the trace flag is set before the one load we measure.
+function global:prof-trace {
+    $pwshPath = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
+    if (-not $pwshPath) { Write-Error 'pwsh not found'; return }
+    & $pwshPath -NoProfile -Command {
+        $env:DOTFILES_PROFILE_TRACE = '1'
+        . $PROFILE
+    }
+}
+
 # --- starship prompt (cross-shell - same starship.toml as the fleet) ----------
 # Force the repo config to win over any inherited/persistent STARSHIP_CONFIG.
 # Only point at it if the file actually exists, so we never aim starship at a
