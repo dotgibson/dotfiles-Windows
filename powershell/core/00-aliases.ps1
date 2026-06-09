@@ -90,7 +90,6 @@ function ~     { Set-Location $HOME }
 function mkcd  { param($p) New-Item -ItemType Directory -Force -Path $p | Out-Null; Set-Location $p }
 
 # --- misc quality-of-life -----------------------------------------------------
-function which { param($n) (Get-Command $n -ErrorAction SilentlyContinue).Source }
 function which {
     param($n)
     $cmd = Get-Command $n -ErrorAction SilentlyContinue
@@ -99,11 +98,11 @@ function which {
     # so fall back to the resolved name + kind (zsh `which` resolves those too).
     if ($cmd.Source) { return $cmd.Source }
     switch ($cmd.CommandType) {
-        'Alias' { "$n -> $($cmd.Definition)" }
+        'Alias'    { "$n -> $($cmd.Definition)" }
         'Function' { "$n is a function" }
-        default { "$n ($($cmd.CommandType))" }
-      }
-  }
+        default    { "$n ($($cmd.CommandType))" }
+    }
+}
 function reload { . $PROFILE; Write-Host 'profile reloaded' -ForegroundColor Green }
 function dotfiles { Set-Location $global:DOTFILES }
 

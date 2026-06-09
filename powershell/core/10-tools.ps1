@@ -24,6 +24,20 @@ if ($env:FAST_START -eq '1') { return }
 # $script:) means this also holds if the fragment is re-sourced on its own.
 if (-not $global:DotfilesInit) { $global:DotfilesInit = @{} }
 
+# --- load tracer (DOTFILES_PROFILE_TRACE=1) -----------------------------------
+# One stopwatch, lapped after each heavy step below, so the trace table breaks
+# this fragment's cost down by tool instead of reporting one lump. No-op unless
+# tracing is on. (Reads $script: state that resolves to this dot-sourced
+# fragment's scope; Add-DotfilesTrace is global.)
+if ($global:DotfilesTraceOn) { $script:__tsw = [System.Diagnostics.Stopwatch]::StartNew(); $script:__tlast = 0.0 }
+function script:__lap {
+    param([string]$Name)
+    if (-not $global:DotfilesTraceOn) { return }
+    $now = $script:__tsw.Elapsed.TotalMilliseconds
+    Add-DotfilesTrace "10-tools: $Name" ($now - $script:__tlast)
+    $script:__tlast = $now
+}
+
 # --- PSReadLine: history, prediction, keybinds --------------------------------
 # PSReadLine ships with PowerShell 7. Configure it for a zsh-like feel.
 if (Get-Module -ListAvailable PSReadLine) {
@@ -48,7 +62,7 @@ if (Get-Module -ListAvailable PSReadLine) {
     # Never persist obviously sensitive one-liners to the history file. This is
     # the PSReadLine analog of Core's HISTORY_IGNORE (history.zsh): the line is
     # still usable in the session, it just isn't written to disk. Returning
-	# 'MemoryOnly' keeps it out of the saved file; 'None' would drop it entirely.
+    # 'MemoryOnly' keeps it out of the saved file; 'None' would drop it entirely.
     Set-PSReadLineOption -AddToHistoryHandler {
         param([string]$line)
         $sensitive = '(?i)(password|passwd|pwd|pass|secret|token|api[_-]?key|bearer|authorization|credential|creds|-password|oauth|jwt|op read|op item)'
@@ -62,6 +76,7 @@ if (Get-Module -ListAvailable PSReadLine) {
     # Ctrl+arrow word movement; Tab = menu complete
     Set-PSReadLineKeyHandler -Key Tab       -Function MenuComplete
 }
+__lap 'PSReadLine'
 
 # --- Terminal-Icons (file/dir glyphs for Get-ChildItem output) ----------------
 # Wrap in try/catch: the manifest can exist (ListAvailable returns true) while
@@ -71,6 +86,7 @@ if (Get-Module -ListAvailable Terminal-Icons) {
     try   { Import-Module Terminal-Icons -ErrorAction Stop }
     catch { Write-Warning "Terminal-Icons failed to load — reinstall with: Install-Module Terminal-Icons -Scope CurrentUser -Force -AllowClobber" }
 }
+__lap 'Terminal-Icons'
 
 # --- init-output cache (cold-start speed) -------------------------------------
 # starship/zoxide/mise/atuin/carapace each spawn a subprocess just to PRINT their
@@ -97,7 +113,7 @@ function global:Get-InitCache {
         try {
             if (-not (Test-Path $global:DotfilesInitCacheDir)) {
                 New-Item -ItemType Directory -Force -Path $global:DotfilesInitCacheDir | Out-Null
-			}
+            }
             $out = (& $Generate | Out-String)
             if ([string]::IsNullOrWhiteSpace($out)) { return $null }
             Set-Content -Path $cacheFile -Value $out -Encoding utf8
@@ -146,6 +162,7 @@ if ((Test-Cmd starship) -and -not $global:DotfilesInit.Starship) {
         $global:DotfilesInit.Starship = $true
     } catch { Write-Warning "starship init failed: $_" }
 }
+__lap 'starship'
 
 # --- zoxide (smarter cd; `z foo`, `zi` for interactive) -----------------------
 if ((Test-Cmd zoxide) -and -not $global:DotfilesInit.Zoxide) {
@@ -153,6 +170,7 @@ if ((Test-Cmd zoxide) -and -not $global:DotfilesInit.Zoxide) {
     if ($cf) { . $cf } else { Invoke-Expression (& { (zoxide init powershell --cmd cd | Out-String) }) }
     $global:DotfilesInit.Zoxide = $true
 }
+__lap 'zoxide'
 
 # --- fzf + PSFzf (Ctrl+t files, Ctrl+r history, Alt+c cd) ---------------------
 # Ctrl+R ownership: when atuin is installed it loads AFTER this and rebinds Ctrl+R
@@ -170,6 +188,7 @@ if ((Test-Cmd fzf) -and (Get-Module -ListAvailable PSFzf)) {
     $env:FZF_DEFAULT_OPTS = '--height 40% --layout=reverse --border --info=inline'
     if (Test-Cmd fd) { $env:FZF_DEFAULT_COMMAND = 'fd --type f --hidden --follow --exclude .git' }
 }
+__lap 'fzf/PSFzf'
 
 # --- mise (runtime/tool version manager; shims + path setup) ------------------
 # `mise activate` injects shims and a prompt hook that keeps the active tool
@@ -180,6 +199,7 @@ if ((Test-Cmd mise) -and -not $global:DotfilesInit.Mise) {
     if ($cf) { . $cf } else { Invoke-Expression (& { (mise activate pwsh | Out-String) }) }
     $global:DotfilesInit.Mise = $true
 }
+__lap 'mise'
 
 # --- atuin (shell history sync/search; optional, if installed) ----------------
 if ((Test-Cmd atuin) -and -not $global:DotfilesInit.Atuin) {
@@ -187,6 +207,7 @@ if ((Test-Cmd atuin) -and -not $global:DotfilesInit.Atuin) {
     if ($cf) { . $cf } else { Invoke-Expression (& { (atuin init powershell | Out-String) }) }
     $global:DotfilesInit.Atuin = $true
 }
+__lap 'atuin'
 
 # --- carapace (multi-shell completions; optional) -----------------------------
 if ((Test-Cmd carapace) -and -not $global:DotfilesInit.Carapace) {
@@ -195,6 +216,7 @@ if ((Test-Cmd carapace) -and -not $global:DotfilesInit.Carapace) {
     if ($cf) { . $cf } else { Invoke-Expression (& { (carapace _carapace powershell | Out-String) }) }
     $global:DotfilesInit.Carapace = $true
 }
+__lap 'carapace'
 
 # --- navi (interactive cheatsheet; Ctrl+G to open the widget) -----------------
 # navi's shell widget binds Ctrl+G to open an interactive cheatsheet picker.
@@ -214,3 +236,4 @@ if ((Test-Cmd navi) -and -not $global:DotfilesInit.Navi) {
         }
     } catch { }
 }
+__lap 'navi'

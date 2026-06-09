@@ -28,6 +28,19 @@ try {
     $OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 } catch { }
 
+# --- Optional load tracer -----------------------------------------------------
+# Set DOTFILES_PROFILE_TRACE=1 in the ENVIRONMENT before pwsh starts to time each
+# fragment (and the heavier steps inside 10-tools, which record via Add-DotfilesTrace).
+# A sorted table prints at the end of load so you can see exactly where the time
+# goes. Must be an env var (read before the profile runs); a lean way to check:
+#   $env:DOTFILES_PROFILE_TRACE='1'; pwsh -NoLogo   # child inherits it, prints the table
+$global:DotfilesTraceOn = ($env:DOTFILES_PROFILE_TRACE -eq '1')
+$global:DotfilesTrace   = if ($global:DotfilesTraceOn) { [System.Collections.Generic.List[object]]::new() } else { $null }
+function global:Add-DotfilesTrace {
+    param([string]$Step, [double]$Ms)
+    if ($global:DotfilesTrace) { $global:DotfilesTrace.Add([pscustomobject]@{ Step = $Step; ms = [int]$Ms }) }
+}
+
 # --- Layer loader -------------------------------------------------------------
 # Each layer is a directory of NN-name.ps1 fragments, dot-sourced in name order.
 foreach ($layer in @('core', 'os')) {
@@ -37,8 +50,13 @@ foreach ($layer in @('core', 'os')) {
             Sort-Object Name |
             ForEach-Object {
                 $fragment = $_
+                if ($global:DotfilesTraceOn) { $__sw = [System.Diagnostics.Stopwatch]::StartNew() }
                 try   { . $fragment.FullName }
                 catch { Write-Warning "dotfiles: failed to load $($fragment.Name): $_" }
+                if ($global:DotfilesTraceOn) {
+                    $__sw.Stop()
+                    Add-DotfilesTrace "fragment $layer/$($fragment.Name)" $__sw.Elapsed.TotalMilliseconds
+                }
             }
     }
 }
@@ -46,3 +64,9 @@ foreach ($layer in @('core', 'os')) {
 # --- Local, machine-specific overrides (gitignored) ---------------------------
 $LocalProfile = Join-Path $ProfileDir 'local.ps1'
 if (Test-Path $LocalProfile) { . $LocalProfile }
+
+# --- Emit the trace table (if tracing) ----------------------------------------
+if ($global:DotfilesTraceOn -and $global:DotfilesTrace.Count) {
+    Write-Host "`nprofile load trace (slowest first):" -ForegroundColor Cyan
+    $global:DotfilesTrace | Sort-Object ms -Descending | Format-Table -AutoSize | Out-Host
+}
