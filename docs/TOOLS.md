@@ -112,6 +112,14 @@ The fleet's "check + nudge, apply on demand" pattern (Core's `update.zsh` /
 | `update-host`                                                          | legacy one-shot scoop+winget update (kept; `up` is the fleet-standard verb)                          |
 | `maint-install [HH:MM]`                                                | register the daily maintenance **Scheduled Task** (default 13:00)                                    |
 | `maint-run` / `maint-log [N\|-f]` / `maint-status` / `maint-uninstall` | run now / tail log / next-run info / remove                                                          |
+| `shell-bench [runs]`                                                   | time a cold `pwsh` start (full profile), default 5 runs — measure before tuning startup              |
+| `init-cache-clear`                                                     | drop the cached tool-init scripts (`%LOCALAPPDATA%\dotfiles\init-cache`); they regenerate next start |
+
+Tool shell-integration scripts (`starship`/`zoxide`/`mise`/`atuin`/`carapace`)
+are cached on first run and only regenerated when the tool's binary is newer
+than the cache (e.g. after a scoop upgrade), trimming a subprocess spawn per tool
+off every cold start. `init-cache-clear` forces a rebuild if you change a tool's
+init flags in `core/10-tools.ps1`.
 
 The scheduled runner (`maint/Maintenance.ps1`) updates the **user-space** stack
 automatically (scoop, mise, nvim plugins/parsers, PowerShell modules). `winget

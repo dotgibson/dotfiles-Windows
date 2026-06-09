@@ -51,7 +51,37 @@ function getenv  { param($Name) [Environment]::GetEnvironmentVariable($Name,'Use
 # and add whatever you find. The sentinel is a fallback in case psmux
 # doesn't export a marker into pane shells.
 $InMux = $env:TMUX -or $env:TMUX_PANE -or $env:PSMUX -or $env:PSMUX_PANE
-if ((Test-Cmd psmux) -and -not $InMux -and -not $env:PSMUX_AUTOLAUNCHED) {
+
+# Only auto-launch for a *top-level interactive* shell. The profile is ALSO
+# loaded for `pwsh -Command ...` / `pwsh -File ...` (VS Code tasks, git hooks,
+# scheduled scripts, other tooling) unless they pass -NoProfile — and attaching
+# a multiplexer there would hang or hijack the scripted call. Inspect the actual
+# process command line: anything that ran a command/file/encoded-block, or asked
+# for a non-interactive host, is NOT a shell we should drop into psmux for.
+function script:Test-InteractiveShell {
+    if ($Host.Name -ne 'ConsoleHost') { return $false }      # ISE/VSCode-host/remoting
+    # PowerShell accepts any unambiguous prefix of a parameter name, so match by
+    # prefix rather than exact spelling. We must NOT match -NoExit/-NoLogo/
+    # -NoProfile (all begin 'no' and DO appear on interactive launches, e.g. the
+    # Windows Terminal profile's `pwsh.exe -NoLogo`), so -NonInteractive only
+    # counts once the token is long enough to be unambiguous ('noni'+).
+    $nonInteractive = @('command', 'file', 'encodedcommand', 'noninteractive')
+    foreach ($a in [Environment]::GetCommandLineArgs()) {
+        if ($a -notmatch '^-') { continue }
+        $name = $a.TrimStart('-').ToLowerInvariant()
+        if (-not $name) { continue }
+        foreach ($flag in $nonInteractive) {
+            if ($flag.StartsWith($name)) {
+                if ($flag -eq 'noninteractive' -and $name.Length -lt 4) { continue }
+                return $false
+            }
+        }
+    }
+    return $true
+}
+
+if ((Test-Cmd psmux) -and -not $InMux -and -not $env:PSMUX_AUTOLAUNCHED -and
+    (Test-InteractiveShell)) {
     $env:PSMUX_AUTOLAUNCHED = '1'
     psmux new-session -A -s main
 }

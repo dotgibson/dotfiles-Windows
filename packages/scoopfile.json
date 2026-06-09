@@ -13,7 +13,6 @@
     { "Name": "psmux", "Source": "https://github.com/psmux/scoop-psmux" }
   ],
   "apps": [
-    { "Name": "git", "Source": "main" },
     { "Name": "gh", "Source": "main" },
     { "Name": "starship", "Source": "main" },
     { "Name": "zoxide", "Source": "main" },

@@ -18,6 +18,16 @@ if (-not $DotfilesRoot) { $DotfilesRoot = Join-Path $HOME 'dotfiles-Windows' }
 $global:DOTFILES = $DotfilesRoot
 $ProfileDir = Join-Path $DotfilesRoot 'powershell'
 
+# --- UTF-8 I/O ----------------------------------------------------------------
+# Force UTF-8 in/out so the Nerd Font glyphs from starship, eza, bat, and psmux
+# render regardless of the console's legacy codepage (some hosts still start on
+# 437/1252). Cheap, and runs before anything prints. Guarded so a host that
+# rejects the assignment (rare) can't abort profile load.
+try {
+    [Console]::OutputEncoding = [Console]::InputEncoding = [System.Text.UTF8Encoding]::new($false)
+    $OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+} catch { }
+
 # --- Layer loader -------------------------------------------------------------
 # Each layer is a directory of NN-name.ps1 fragments, dot-sourced in name order.
 foreach ($layer in @('core', 'os')) {

@@ -48,7 +48,7 @@ if (Get-Module -ListAvailable PSReadLine) {
     # Never persist obviously sensitive one-liners to the history file. This is
     # the PSReadLine analog of Core's HISTORY_IGNORE (history.zsh): the line is
     # still usable in the session, it just isn't written to disk. Returning
-    # 'MemoryOnly' keeps it out of the saved file; 'None' would drop it entirely.
+	# 'MemoryOnly' keeps it out of the saved file; 'None' would drop it entirely.
     Set-PSReadLineOption -AddToHistoryHandler {
         param([string]$line)
         $sensitive = '(?i)(password|passwd|pwd|pass|secret|token|api[_-]?key|bearer|authorization|credential|creds|-password|oauth|jwt|op read|op item)'
@@ -72,6 +72,65 @@ if (Get-Module -ListAvailable Terminal-Icons) {
     catch { Write-Warning "Terminal-Icons failed to load — reinstall with: Install-Module Terminal-Icons -Scope CurrentUser -Force -AllowClobber" }
 }
 
+# --- init-output cache (cold-start speed) -------------------------------------
+# starship/zoxide/mise/atuin/carapace each spawn a subprocess just to PRINT their
+# shell-integration script, which we then evaluate. Process spawn is the slow part
+# on Windows, so cache that text to a file and re-spawn only when the tool's own
+# binary is newer than the cache (i.e. after a scoop upgrade). The cache file is
+# dot-sourced by the CALLER at global scope (this fragment runs global), so prompt
+# hooks / key handlers register exactly as they did with Invoke-Expression.
+#   Get-InitCache returns the path to a ready-to-source file (or $null on failure,
+#   so each call site can fall back). Bust the whole cache with `init-cache-clear`.
+$global:DotfilesInitCacheDir = Join-Path $env:LOCALAPPDATA 'dotfiles\init-cache'
+function global:Get-InitCache {
+    param(
+        [Parameter(Mandatory)][string]$Name,
+        [Parameter(Mandatory)][scriptblock]$Generate
+    )
+    $src = (Get-Command $Name -ErrorAction SilentlyContinue).Source
+    $cacheFile = Join-Path $global:DotfilesInitCacheDir "$Name.ps1"
+    $stale = $true
+    if ((Test-Path $cacheFile) -and $src -and (Test-Path $src)) {
+        $stale = (Get-Item $cacheFile).LastWriteTimeUtc -lt (Get-Item $src).LastWriteTimeUtc
+    }
+    if ($stale) {
+        try {
+            if (-not (Test-Path $global:DotfilesInitCacheDir)) {
+                New-Item -ItemType Directory -Force -Path $global:DotfilesInitCacheDir | Out-Null
+			}
+            $out = (& $Generate | Out-String)
+            if ([string]::IsNullOrWhiteSpace($out)) { return $null }
+            Set-Content -Path $cacheFile -Value $out -Encoding utf8
+        } catch { return $null }
+    }
+    return $cacheFile
+}
+
+# init-cache-clear: drop every cached init script (they regenerate on next start).
+# Use after changing a tool's flags here, or if an init ever caches badly.
+function global:Clear-InitCache {
+    if (Test-Path $global:DotfilesInitCacheDir) {
+        Remove-Item (Join-Path $global:DotfilesInitCacheDir '*.ps1') -Force -ErrorAction SilentlyContinue
+    }
+    Write-Host 'init cache cleared (regenerates on next shell start)' -ForegroundColor Green
+}
+Set-Alias init-cache-clear Clear-InitCache -Scope Global
+
+# shell-bench: time a cold pwsh start (full profile) N times. Use this to decide
+# whether any of the above is worth tuning further — measure, don't guess.
+#   shell-bench        # 5 runs
+#   shell-bench 10
+function global:shell-bench {
+    param([int]$Runs = 5)
+    $pwshPath = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
+    if (-not $pwshPath) { Write-Error 'pwsh not found'; return }
+    1..$Runs | ForEach-Object {
+        (Measure-Command { & $pwshPath -NoLogo -Command exit }).TotalMilliseconds
+    } | Measure-Object -Average -Minimum -Maximum |
+        Select-Object @{n='Runs';e={$Runs}}, @{n='Min_ms';e={[math]::Round($_.Minimum)}},
+                      @{n='Avg_ms';e={[math]::Round($_.Average)}}, @{n='Max_ms';e={[math]::Round($_.Maximum)}}
+}
+
 # --- starship prompt (cross-shell - same starship.toml as the fleet) ----------
 # Force the repo config to win over any inherited/persistent STARSHIP_CONFIG.
 # Only point at it if the file actually exists, so we never aim starship at a
@@ -81,20 +140,33 @@ if ((Test-Cmd starship) -and -not $global:DotfilesInit.Starship) {
     if ($starshipCfg -and (Test-Path $starshipCfg)) {
         $env:STARSHIP_CONFIG = $starshipCfg
     }
-    try { Invoke-Expression (&starship init powershell); $global:DotfilesInit.Starship = $true }
-    catch { Write-Warning "starship init failed: $_" }
+    try {
+        $cf = Get-InitCache -Name starship -Generate { starship init powershell }
+        if ($cf) { . $cf } else { Invoke-Expression (&starship init powershell) }   # fallback: never lose the prompt
+        $global:DotfilesInit.Starship = $true
+    } catch { Write-Warning "starship init failed: $_" }
 }
 
 # --- zoxide (smarter cd; `z foo`, `zi` for interactive) -----------------------
 if ((Test-Cmd zoxide) -and -not $global:DotfilesInit.Zoxide) {
-    Invoke-Expression (& { (zoxide init powershell --cmd cd | Out-String) })
+    $cf = Get-InitCache -Name zoxide -Generate { zoxide init powershell --cmd cd }
+    if ($cf) { . $cf } else { Invoke-Expression (& { (zoxide init powershell --cmd cd | Out-String) }) }
     $global:DotfilesInit.Zoxide = $true
 }
 
 # --- fzf + PSFzf (Ctrl+t files, Ctrl+r history, Alt+c cd) ---------------------
+# Ctrl+R ownership: when atuin is installed it loads AFTER this and rebinds Ctrl+R
+# to its own (richer) history search — so binding it here too just gets clobbered,
+# making the winner a matter of load order. Make the intent explicit: hand Ctrl+R
+# to PSFzf ONLY when atuin isn't present; otherwise PSFzf keeps Ctrl+T and atuin
+# owns Ctrl+R cleanly.
 if ((Test-Cmd fzf) -and (Get-Module -ListAvailable PSFzf)) {
     Import-Module PSFzf
-    Set-PsFzfOption -PSReadlineChordProvider 'Ctrl+t' -PSReadlineChordReverseHistory 'Ctrl+r'
+    if (Test-Cmd atuin) {
+        Set-PsFzfOption -PSReadlineChordProvider 'Ctrl+t'
+    } else {
+        Set-PsFzfOption -PSReadlineChordProvider 'Ctrl+t' -PSReadlineChordReverseHistory 'Ctrl+r'
+    }
     $env:FZF_DEFAULT_OPTS = '--height 40% --layout=reverse --border --info=inline'
     if (Test-Cmd fd) { $env:FZF_DEFAULT_COMMAND = 'fd --type f --hidden --follow --exclude .git' }
 }
@@ -104,20 +176,23 @@ if ((Test-Cmd fzf) -and (Get-Module -ListAvailable PSFzf)) {
 # versions consistent with the nearest .mise.toml / .tool-versions file. This is
 # the Windows equivalent of the Core zsh `mise activate zsh` call.
 if ((Test-Cmd mise) -and -not $global:DotfilesInit.Mise) {
-    Invoke-Expression (& { (mise activate pwsh | Out-String) })
+    $cf = Get-InitCache -Name mise -Generate { mise activate pwsh }
+    if ($cf) { . $cf } else { Invoke-Expression (& { (mise activate pwsh | Out-String) }) }
     $global:DotfilesInit.Mise = $true
 }
 
 # --- atuin (shell history sync/search; optional, if installed) ----------------
 if ((Test-Cmd atuin) -and -not $global:DotfilesInit.Atuin) {
-    Invoke-Expression (& { (atuin init powershell | Out-String) })
+    $cf = Get-InitCache -Name atuin -Generate { atuin init powershell }
+    if ($cf) { . $cf } else { Invoke-Expression (& { (atuin init powershell | Out-String) }) }
     $global:DotfilesInit.Atuin = $true
 }
 
 # --- carapace (multi-shell completions; optional) -----------------------------
 if ((Test-Cmd carapace) -and -not $global:DotfilesInit.Carapace) {
     $env:CARAPACE_BRIDGES = 'powershell'
-    Invoke-Expression (& { (carapace _carapace powershell | Out-String) })
+    $cf = Get-InitCache -Name carapace -Generate { carapace _carapace powershell }
+    if ($cf) { . $cf } else { Invoke-Expression (& { (carapace _carapace powershell | Out-String) }) }
     $global:DotfilesInit.Carapace = $true
 }
 

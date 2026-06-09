@@ -68,7 +68,10 @@ function Link-Item {
         New-Item -ItemType SymbolicLink -Path $Link -Target $Target -Force | Out-Null
         Write-Host "  linked  $Link" -ForegroundColor Green
     } else {
-        Copy-Item $Target $Link -Force
+        # -Recurse so directory targets (nvim\, psmux\scripts) copy in full — a
+        # plain Copy-Item only takes the top-level entry and leaves them empty.
+        $recurse = (Test-Path $Target -PathType Container)
+        Copy-Item $Target $Link -Force -Recurse:$recurse
         Write-Host "  copied  $Link" -ForegroundColor Green
     }
 }

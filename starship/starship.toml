@@ -1,5 +1,9 @@
 "$schema" = 'https://starship.rs/config-schema.json'
 
+# Give modules that shell out (git on a big/slow repo) a little more headroom than
+# the 500ms default before starship gives up and reders the prompt without them.
+command_timeout = 1000
+
 # dotfiles-Windows :: starship prompt  (tokyonight-storm, low-glare revision)
 # ──────────────────────────────────────────────────────────────────────────────
 # WHAT CHANGED & WHY:

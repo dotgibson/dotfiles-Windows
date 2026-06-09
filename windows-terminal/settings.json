@@ -2,6 +2,7 @@
   "$help": "https://aka.ms/terminal-documentation",
   "$schema": "https://aka.ms/terminal-profiles-schema",
   "actions": [],
+  "autoMarkPrompts": true,
   "copyFormatting": "none",
   "copyOnSelect": true,
   "defaultProfile": "{574e775e-4f2a-5b96-ac1e-a2962a402336}",
@@ -39,6 +40,14 @@
     {
       "id": "Terminal.MoveFocusLeft",
       "keys": "alt+left"
+    },
+    {
+      "command": { "action": "scrollToMark", "direction": "previous" },
+      "keys": "ctrl+alt+up"
+    },
+    {
+      "command": { "action": "scrollToMark", "direction": "next" },
+      "keys": "ctrl+alt+down"
     }
   ],
   "newTabMenu": [
@@ -46,6 +55,7 @@
       "type": "remainingProfiles"
     }
   ],
+  "showMarksOnScrollbar": true,
   "profiles": {
     "defaults": {
       "antialiasingMode": "cleartype",

@@ -91,8 +91,23 @@ function mkcd  { param($p) New-Item -ItemType Directory -Force -Path $p | Out-Nu
 
 # --- misc quality-of-life -----------------------------------------------------
 function which { param($n) (Get-Command $n -ErrorAction SilentlyContinue).Source }
+function which {
+    param($n)
+    $cmd = Get-Command $n -ErrorAction SilentlyContinue
+    if (-not $cmd) { return }
+    # External apps/scripts have a .Source path; our own functions/aliases don't,
+    # so fall back to the resolved name + kind (zsh `which` resolves those too).
+    if ($cmd.Source) { return $cmd.Source }
+    switch ($cmd.CommandType) {
+        'Alias' { "$n -> $($cmd.Definition)" }
+        'Function' { "$n is a function" }
+        default { "$n ($($cmd.CommandType))" }
+      }
+  }
 function reload { . $PROFILE; Write-Host 'profile reloaded' -ForegroundColor Green }
 function dotfiles { Set-Location $global:DOTFILES }
 
 # --- Neovim ----------------------------------------------------------------
-Set-Alias vim nvim
+# Guarded like every other tool wiring above: only claim `vim` if nvim exists,
+# so a fresh box (pre-bootstrap) keeps any real vim on PATH.
+if (Test-Cmd nvim) { Set-Alias vim nvim }

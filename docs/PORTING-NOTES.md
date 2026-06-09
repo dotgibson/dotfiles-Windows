@@ -47,6 +47,23 @@ Linux distros under WSL2. Here's the row, translated.
   rerere, rebase.updateRefs/autosquash, maintenance, fuller delta, expanded
   aliases) while keeping the Windows bits (autocrlf=true, longpaths, GCM,
   Windows excludesfile path).
+- **init-output caching** — `core/10-tools.ps1` now caches the shell-integration
+  script each tool prints (`starship`/`zoxide`/`mise`/`atuin`/`carapace`) under
+  `%LOCALAPPDATA%\dotfiles\init-cache`, re-spawning only when the tool's binary
+  is newer (i.e. after a scoop upgrade). This is the Windows analog of Core's
+  cached `init zsh`; process spawn is the slow part on Windows. Each call site
+  falls back to the live `init` if the cache can't be built, so the prompt is
+  never lost. Helpers: `init-cache-clear` (bust it) and `shell-bench` (time a
+  cold `pwsh` start). The old note said this wasn't worth porting — it is, now
+  that the rest of the startup is lean.
+- **Windows Terminal command marks** — `autoMarkPrompts` + `showMarksOnScrollbar`
+  plus `ctrl+alt+up`/`down` to jump between prompts; starship grew `cmd_duration`
+  (slow-command timing) and a `status` exit-code marker. UTF-8 I/O is now forced
+  in `profile.ps1` so Nerd Font glyphs survive a legacy console codepage.
+- **single Git source** — dropped scoop `git`; the host uses winget's `Git.Git`
+  (Git for Windows), which bundles Git Credential Manager. scoop's `git` does
+  not, so with both installed `credential.helper = manager` could break depending
+  on PATH order. `gh` still comes from scoop.
 
 > The new `core/` and `os/` fragments load automatically — `profile.ps1` globs
 > each layer directory in name order, so no `install.ps1` change is needed for
@@ -82,10 +99,6 @@ through `set-clipboard on` (OSC52) instead.
 - **sesh** — the tmux session-manager wrapper stays in Core for use inside WSL;
   on the host, `mux` (attach-or-create) covers the common case.
 - **Full nvim tree** — belongs in Core and is vendored, not duplicated.
-- **starship/zoxide init caching** — Core caches `init zsh` output to skip a
-  subprocess per shell. Not ported: PowerShell's module/profile load dominates
-  startup here and the caching machinery isn't worth the complexity. Revisit if
-  `pwsh` cold-start ever feels slow (measure first).
 - **MAC/SELinux/AppArmor** — no equivalent.
 - **`getent`/`/etc/passwd` shell detection** — n/a on the host.
 
