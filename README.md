@@ -10,12 +10,12 @@ configure themselves from their own repos _inside_ WSL. This repo's job is to
 make the host excellent and then get out of the way.
 
 ```
-                ┌─────────────────────────────────────────┐
+                ┌─--────────────────────────────────────────┐
    this repo →  │  Windows host: pwsh + Terminal + scoop    │
-                │  + psmux (native tmux) + WSL bridge        │
+                │  + psmux (native tmux) + WSL bridge       │
                 └───────────────────┬───────────────────────┘
                                     │  wsl
-                ┌───────────────────▼───────────────────────┐
+                ┌───────────────────▼──────────────────────--─┐
    other repos →│  WSL2: Core / Debian / Kali (zsh/tmux/...)  │
                 └─────────────────────────────────────────────┘
 ```
@@ -120,7 +120,7 @@ dotfiles-Windows/
 | `fif <term>` / `fbr`                          | find-in-files / fuzzy git-branch checkout                                     |
 | `tmux` / `psmux` / `pmux`                     | native host multiplexer (psmux; reads `~/.config/psmux/psmux.conf`)           |
 | `mux [session]`                               | attach-or-create a psmux session (defaults to `main`)                         |
-| `psmux-pill-install` / `psmux-pill-uninstall` | enable/disable the file-backed operator/VPN status pill (off the render path) |
+| `psmux-pill-enable` / `psmux-pill-disable`    | enable/disable the file-backed operator/VPN status pill (off the render path) |
 | `up` / `up -y`                                | apply scoop+winget updates (`-y` auto-confirms winget)                        |
 | `update-check`                                | force the "updates available" check now                                       |
 | `maint-install [HH:MM]`                       | register the daily maintenance task                                           |

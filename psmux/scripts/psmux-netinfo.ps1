@@ -10,9 +10,10 @@
 # IMPORTANT — this is NOT called from the bar via #() any more. A #() that spawns
 # pwsh blocks psmux's synchronous render path (that was the blank-cursor bug). The
 # bar now reads a pre-written file with a cheap `type`; this script is what writes
-# that file. Run it OUT of band: `psmux-pill-install` (powershell/os/33-psmux-pill.ps1)
-# registers a 1-minute Scheduled Task that does exactly that. The styled pill is
-# also emitted to stdout, so the script still works standalone.
+# that file. Run it OUT of band: `psmux-pill-enable` (powershell/os/33-psmux-pill.ps1)
+# arms a per-session timer that runs this every 60s while a psmux pane is open
+# (no Scheduled Task, no elevation). The styled pill is also emitted to stdout, so
+# the script still works standalone.
 #
 # Deliberately tolerant (SilentlyContinue): a status helper must never hard-fail.
 # This is the bash original's Linux `ip`/macOS `ipconfig` logic re-expressed with
@@ -113,7 +114,7 @@ elseif ($AllNetworks) {
 # The whole point of the file-backed design: the bar reads this file with a ~10ms
 # `cmd /C type`, never spawning pwsh (and its slow Get-Net*/WMI calls) on psmux's
 # synchronous render path. Refresh it OUT of band — see powershell/os/33-psmux-pill.ps1
-# (psmux-pill-install registers a 1-minute Scheduled Task that runs this script).
+# (psmux-pill-enable arms a per-session timer that runs this every 60s).)
 # Write UTF-8 with NO BOM and NO trailing newline so the pill is exactly the bytes
 # psmux re-parses; a trailing CRLF would push a blank line into status-right.
 try {
