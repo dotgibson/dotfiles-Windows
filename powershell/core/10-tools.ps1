@@ -247,15 +247,20 @@ __lap 'carapace'
 # of navi does not support `widget powershell` and returns nothing — in that
 # case we skip silently rather than erroring. `navi` itself still works as a
 # standalone command; you just won't get the Ctrl+G keybind.
+#
+# CACHED like the other inits (Get-InitCache): `navi widget powershell` is a
+# subprocess spawn, and this was the ONLY tool init still paying that on EVERY
+# new shell/pane (starship/zoxide/mise/atuin all cache). Caching it makes each
+# split/new-window cheaper. The Shim-noise filter runs inside the generator so
+# only clean output is cached; an empty widget (broken build) yields $null and we
+# skip, exactly as before. Cache busts when the navi binary is upgraded.
 if ((Test-Cmd navi) -and -not $global:DotfilesInit.Navi) {
     try {
-        $naviWidget = (& navi widget powershell 2>$null) -join "`n"
-        # Filter out scoop shim noise before checking if output is usable
-        $naviWidget = ($naviWidget -split "`n" | Where-Object { $_ -notmatch '^Shim:' }) -join "`n"
-        if ($naviWidget.Trim()) {
-            Invoke-Expression $naviWidget
-            $global:DotfilesInit.Navi = $true
+        $cf = Get-InitCache -Name navi -Generate {
+            (& navi widget powershell 2>$null) -split "`n" |
+                Where-Object { $_ -notmatch '^Shim:' }
         }
+        if ($cf) { . $cf; $global:DotfilesInit.Navi = $true }
     } catch { }
 }
 __lap 'navi'
