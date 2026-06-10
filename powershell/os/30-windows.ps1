@@ -106,7 +106,16 @@ function script:Test-InteractiveShell {
     return $true
 }
 
+# Escape hatch: set PSMUX_NO_AUTOLAUNCH=1 to suppress the auto-attach and stay in
+# a bare pwsh shell (parity with FAST_START / DOTFILES_UPDATE_CHECK). Read from the
+# ENVIRONMENT, so it must be set before pwsh starts — for a one-off lean shell:
+#   $env:PSMUX_NO_AUTOLAUNCH='1'; pwsh        # child inherits it
+# or permanently on this box:
+#   [Environment]::SetEnvironmentVariable('PSMUX_NO_AUTOLAUNCH','1','User')
+# This is the off-switch to reach for if psmux ever misbehaves on launch and you
+# need a prompt without it (you can still run `mux` by hand afterward).
 if ((Test-Cmd psmux) -and -not $InMux -and -not $env:PSMUX_AUTOLAUNCHED -and
+    $env:PSMUX_NO_AUTOLAUNCH -ne '1' -and
     (Test-InteractiveShell)) {
     $env:PSMUX_AUTOLAUNCHED = '1'
     psmux new-session -A -s main

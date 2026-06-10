@@ -2,23 +2,38 @@
 # Windows/PowerShell port of dotfiles-core/tmux/scripts/tmux-netinfo.sh, so the
 # Windows box shows the same at-a-glance fact as the Unix fleet.
 # ──────────────────────────────────────────────────────────────────────────────
-# Shows your VPN / tunnel IP (the callback address a reverse shell must reach)
-# when a tunnel interface is up — in standout ORANGE — otherwise your primary LAN
-# IP in GREEN, otherwise NOTHING. The empty case is what keeps it portable: a box
-# with no tunnel and no routable LAN simply renders no pill.
+# Shows your VPN / tunnel IP in standout ORANGE when a tunnel interface is up.
+# By DEFAULT it is tunnel-only — on plain LAN it renders nothing, so the bar stays
+# quiet unless you're actually on a VPN (high signal, low noise). Pass -AllNetworks
+# to also show the plain-LAN IP in GREEN (the old always-on behaviour).
 #
-# Emits a fully-styled psmux "pill" (its own #[...] colour codes), which psmux
-# re-interprets in status-right. Wired up via a #() shell-out in psmux.conf:
-#   #(pwsh -NoProfile -ExecutionPolicy Bypass -File %USERPROFILE%\.config\psmux\scripts\psmux-netinfo.ps1)
-# psmux caches #() output for `status-interval` seconds, so this runs at most
-# once per refresh.
+# IMPORTANT — this is NOT called from the bar via #() any more. A #() that spawns
+# pwsh blocks psmux's synchronous render path (that was the blank-cursor bug). The
+# bar now reads a pre-written file with a cheap `type`; this script is what writes
+# that file. Run it OUT of band: `psmux-pill-install` (powershell/os/33-psmux-pill.ps1)
+# registers a 1-minute Scheduled Task that does exactly that. The styled pill is
+# also emitted to stdout, so the script still works standalone.
 #
 # Deliberately tolerant (SilentlyContinue): a status helper must never hard-fail.
 # This is the bash original's Linux `ip`/macOS `ipconfig` logic re-expressed with
 # the Windows NetTCPIP cmdlets (Get-NetIPAddress / Get-NetAdapter / Find-NetRoute).
 # ──────────────────────────────────────────────────────────────────────────────
+[CmdletBinding()]
+param(
+    # Also show the plain-LAN IP (green) when no tunnel is up. Default OFF: the
+    # pill is TUNNEL-ONLY, so it stays invisible unless you're actually on a VPN —
+    # high signal, low noise. Pass -AllNetworks for the old always-show-LAN feel.
+    [switch]$AllNetworks,
+    # Where the styled pill is cached for the status bar to read with a cheap
+    # `type`. Must match the path the status-right segment uses in psmux.conf.
+    [string]$OutFile = (Join-Path $env:LOCALAPPDATA 'dotfiles\psmux-netinfo.pill')
+)
 
 $ErrorActionPreference = 'SilentlyContinue'
+
+# Stashed by Pill() so the file-write at the bottom can persist the chosen pill
+# without re-running detection. Empty string = "render nothing".
+$script:LastPill = ''
 
 # tokyonight-storm palette. Literal hex on purpose: psmux does not expand #{@tn_*}
 # inside #[...] (whether in style options or in #() output), and BG is the bar's
@@ -29,12 +44,13 @@ $ORANGE = '#ff9e64'
 $GREEN  = '#9ece6a'
 
 # left/right rounded caps (Nerd Font) — same glyphs as @cap_l / @cap_r
-$CAP_L = ''
-$CAP_R = ''
+$CAP_L = ""
+$CAP_R = ""
 
 function Pill {
     param([string]$Accent, [string]$Text)
-    "#[fg=$Accent,bg=$BG]$CAP_L#[fg=$BG,bg=$Accent,bold]$Text#[fg=$Accent,bg=$BG]$CAP_R"
+    $script:LastPill = "#[fg=$Accent,bg=$BG]$CAP_L#[fg=$BG,bg=$Accent,bold]$Text#[fg=$Accent,bg=$BG]$CAP_R"
+    $script:LastPill
 }
 
 # Adapter Name / InterfaceDescription patterns that mean "tunnel"
@@ -86,9 +102,22 @@ $tun = Get-TunnelInfo
 if ($tun) {
     Pill $ORANGE " $($tun.Iface) $($tun.Addr)"   # shield: you're tunneled
 }
-else {
+elseif ($AllNetworks) {
     $lan = Get-LanIp
     if ($lan) {
         Pill $GREEN " $lan"                       # ethernet: LAN only
     }
 }
+
+# ── Persist the chosen pill so the status bar can read it cheaply ─────────────
+# The whole point of the file-backed design: the bar reads this file with a ~10ms
+# `cmd /C type`, never spawning pwsh (and its slow Get-Net*/WMI calls) on psmux's
+# synchronous render path. Refresh it OUT of band — see powershell/os/33-psmux-pill.ps1
+# (psmux-pill-install registers a 1-minute Scheduled Task that runs this script).
+# Write UTF-8 with NO BOM and NO trailing newline so the pill is exactly the bytes
+# psmux re-parses; a trailing CRLF would push a blank line into status-right.
+try {
+    $dir = Split-Path -Parent $OutFile
+    if ($dir -and -not (Test-Path $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
+    [System.IO.File]::WriteAllText($OutFile, $script:LastPill, (New-Object System.Text.UTF8Encoding($false)))
+} catch { }

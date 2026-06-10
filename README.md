@@ -108,26 +108,27 @@ dotfiles-Windows/
 
 ## Daily-driver cheatsheet
 
-| Command                                       | Does                                                                |
-| --------------------------------------------- | ------------------------------------------------------------------- |
-| `ll` / `la` / `lt`                            | eza listings (long / all / tree)                                    |
-| `cat` / `catp`                                | bat (no-pager / paged)                                              |
-| `z foo`                                       | zoxide jump; `cd` is rebound to `z`                                 |
-| `Ctrl+t` / `Ctrl+r`                           | fzf file picker / history search                                    |
-| `http` / `dns` / `md`                         | xh / doggo / glow (guarded if installed)                            |
-| `lg`                                          | lazygit                                                             |
-| `serve [port]`                                | HTTP server in the CWD, prints the host LAN URL                     |
-| `fif <term>` / `fbr`                          | find-in-files / fuzzy git-branch checkout                           |
-| `tmux` / `psmux` / `pmux`                     | native host multiplexer (psmux; reads `~/.config/psmux/psmux.conf`) |
-| `mux [session]`                               | attach-or-create a psmux session (defaults to `main`)               |
-| `up` / `up -y`                                | apply scoop+winget updates (`-y` auto-confirms winget)              |
-| `update-check`                                | force the "updates available" check now                             |
-| `maint-install [HH:MM]`                       | register the daily maintenance task                                 |
-| `maint-run` / `maint-log -f` / `maint-status` | run now / follow log / next-run                                     |
-| `opsecret` / `optoken` / `openv` / `opssh`    | 1Password CLI helpers                                               |
-| `kali` / `cdwsl`                              | jump into Kali / into Kali at the current dir                       |
-| `wsls` / `hostip`                             | WSL distro status / host LAN IP                                     |
-| `tools`                                       | open the host tool docs                                             |
+| Command                                       | Does                                                                          |
+| --------------------------------------------- | ----------------------------------------------------------------------------- |
+| `ll` / `la` / `lt`                            | eza listings (long / all / tree)                                              |
+| `cat` / `catp`                                | bat (no-pager / paged)                                                        |
+| `z foo`                                       | zoxide jump; `cd` is rebound to `z`                                           |
+| `Ctrl+t` / `Ctrl+r`                           | fzf file picker / history search                                              |
+| `http` / `dns` / `md`                         | xh / doggo / glow (guarded if installed)                                      |
+| `lg`                                          | lazygit                                                                       |
+| `serve [port]`                                | HTTP server in the CWD, prints the host LAN URL                               |
+| `fif <term>` / `fbr`                          | find-in-files / fuzzy git-branch checkout                                     |
+| `tmux` / `psmux` / `pmux`                     | native host multiplexer (psmux; reads `~/.config/psmux/psmux.conf`)           |
+| `mux [session]`                               | attach-or-create a psmux session (defaults to `main`)                         |
+| `psmux-pill-install` / `psmux-pill-uninstall` | enable/disable the file-backed operator/VPN status pill (off the render path) |
+| `up` / `up -y`                                | apply scoop+winget updates (`-y` auto-confirms winget)                        |
+| `update-check`                                | force the "updates available" check now                                       |
+| `maint-install [HH:MM]`                       | register the daily maintenance task                                           |
+| `maint-run` / `maint-log -f` / `maint-status` | run now / follow log / next-run                                               |
+| `opsecret` / `optoken` / `openv` / `opssh`    | 1Password CLI helpers                                                         |
+| `kali` / `cdwsl`                              | jump into Kali / into Kali at the current dir                                 |
+| `wsls` / `hostip`                             | WSL distro status / host LAN IP                                               |
+| `tools`                                       | open the host tool docs                                                       |
 
 ## Scope note
 
