@@ -40,7 +40,8 @@ $script:LastPill = ''
 # inside #[...] (whether in style options or in #() output), and BG is the bar's
 # highlight bg (@tn_bg_hl = #292e42) so the pill floats on the bar like the cwd /
 # clock pills in psmux.conf.
-$BG     = '#292e42'
+$BGHL   = '#292e42'
+$BG     = '#24283b'
 $ORANGE = '#ff9e64'
 $GREEN  = '#9ece6a'
 
@@ -50,7 +51,7 @@ $CAP_R = ""
 
 function Pill {
     param([string]$Accent, [string]$Text)
-    $script:LastPill = "#[fg=$Accent,bg=$BG]$CAP_L#[fg=$BG,bg=$Accent,bold]$Text#[fg=$Accent,bg=$BG]$CAP_R"
+    $script:LastPill = "#[fg=$BG,bg=$BGHL]$CAP_L#[fg=$Accent,bg=$BG,bold]$Text#[fg=$BG,bg=$BGHL]$CAP_R"
     $script:LastPill
 }
 
