@@ -79,10 +79,13 @@ if (Get-Module -ListAvailable PSReadLine) {
 __lap 'PSReadLine'
 
 # --- Terminal-Icons (file/dir glyphs for Get-ChildItem output) ----------------
-# Wrap in try/catch: the manifest can exist (ListAvailable returns true) while
-# the .psm1 it references is missing (corrupted/partial install). If that
-# happens the warning tells you exactly how to fix it.
-if (Get-Module -ListAvailable Terminal-Icons) {
+# OFF by default: importing Terminal-Icons costs ~1s every shell, and it only
+# themes RAW Get-ChildItem/dir output — your ls/ll/la already render icons via
+# `eza --icons`, so you almost never see Terminal-Icons output. Opt in by setting
+# the env var (User scope, so it's present at shell start — local.ps1 loads too
+# late): [Environment]::SetEnvironmentVariable('DOTFILES_TERMINAL_ICONS','1','User')
+# Try/catch: the manifest can exist while the .psm1 it points at is missing.
+if ($env:DOTFILES_TERMINAL_ICONS -eq '1' -and (Get-Module -ListAvailable Terminal-Icons)) {
     try   { Import-Module Terminal-Icons -ErrorAction Stop }
     catch { Write-Warning "Terminal-Icons failed to load — reinstall with: Install-Module Terminal-Icons -Scope CurrentUser -Force -AllowClobber" }
 }
@@ -224,7 +227,12 @@ if ((Test-Cmd atuin) -and -not $global:DotfilesInit.Atuin) {
 __lap 'atuin'
 
 # --- carapace (multi-shell completions; optional) -----------------------------
-if ((Test-Cmd carapace) -and -not $global:DotfilesInit.Carapace) {
+# OFF by default: generating carapace's completion bridge costs ~1.5s on a cold
+# shell. pwsh's native completion + CompletionPredictor + atuin cover most needs.
+# Opt in (User scope, present at shell start — local.ps1 loads too late):
+#   [Environment]::SetEnvironmentVariable('DOTFILES_CARAPACE','1','User')
+# When enabled, the init is cached (Get-InitCache) so warm shells skip the spawn.
+if ($env:DOTFILES_CARAPACE -eq '1' -and (Test-Cmd carapace) -and -not $global:DotfilesInit.Carapace) {
     $env:CARAPACE_BRIDGES = 'powershell'
     $cf = Get-InitCache -Name carapace -Generate { carapace _carapace powershell }
     if ($cf) { . $cf } else { Invoke-Expression (& { (carapace _carapace powershell | Out-String) }) }

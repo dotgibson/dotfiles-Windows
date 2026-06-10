@@ -122,6 +122,14 @@ than the cache (e.g. after a scoop upgrade), trimming a subprocess spawn per too
 off every cold start. `init-cache-clear` forces a rebuild if you change a tool's
 init flags in `core/10-tools.ps1`.
 
+**Startup speed.** Two items dominate a cold shell and are therefore **off by
+default**: `Terminal-Icons` (~1.1s — only themes raw `Get-ChildItem`, which your
+`ls`/`ll` bypass via `eza --icons`) and `carapace` (~1.5s completion generation —
+pwsh native completion + CompletionPredictor + atuin cover most of it). Re-enable
+either with a User-scope env var (`DOTFILES_TERMINAL_ICONS=1` / `DOTFILES_CARAPACE=1`;
+see `powershell/local.ps1.example`). Measure with `shell-bench`, break it down with
+`prof-trace`.
+
 **Modules off OneDrive.** If `Documents` is redirected to OneDrive, the default
 CurrentUser module path (`Documents\PowerShell\Modules`) is OneDrive-synced, and
 importing modules from there can add **several seconds to every shell start**

@@ -17,6 +17,18 @@
 #   lean child shell:    $env:FAST_START='1'; pwsh
 #   always lean here:    [Environment]::SetEnvironmentVariable('FAST_START','1','User')
 
+# --- Startup speed toggles (set as USER env vars, not here) --------------------
+# Read while core/10-tools.ps1 loads, which is BEFORE this file — so set them at
+# User scope (persisted, present at next shell start), not in local.ps1.
+#
+# Terminal-Icons and carapace are OFF by default because they dominate cold start
+# (~1.1s and ~1.5s) for features you rarely miss: Terminal-Icons only themes raw
+# `Get-ChildItem` (your ls/ll already use eza --icons), and pwsh native completion
+# + CompletionPredictor + atuin cover most of what carapace adds. Re-enable either:
+#   [Environment]::SetEnvironmentVariable('DOTFILES_TERMINAL_ICONS','1','User')
+#   [Environment]::SetEnvironmentVariable('DOTFILES_CARAPACE','1','User')
+# Measure with `shell-bench`; see the full per-step breakdown with `prof-trace`.
+
 # Example: per-host proxy
 # $env:HTTP_PROXY  = 'http://127.0.0.1:8080'
 # $env:HTTPS_PROXY = 'http://127.0.0.1:8080'
