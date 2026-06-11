@@ -151,15 +151,21 @@ function global:shell-bench {
 }
 
 # prof-trace: spawn a clean shell that loads the FULL profile with tracing on and
-# prints the slowest-first breakdown. Runs via -Command (a) so the psmux
-# auto-launch in os/30-windows is skipped — otherwise psmux grabs the terminal
-# mid-load and you never see the table — and (b) with -NoProfile + an explicit
-# `. $PROFILE` so the trace flag is set before the one load we measure.
+# prints the slowest-first breakdown. -NoProfile + an explicit `. $PROFILE` sets
+# the trace flag before the one load we measure. Two guards make the table
+# actually reach your screen:
+#   • PSMUX_NO_AUTOLAUNCH=1 — hard-stops the psmux auto-launch (os/30-windows).
+#     Previously this relied only on Test-InteractiveShell spotting -Command; if
+#     that slipped, psmux grabbed the child terminal and the table was never seen
+#     (the "prof-trace prints nothing" symptom). The explicit hatch is belt-and-
+#     suspenders.
+#   • -NoExit — keeps the child open at a prompt after the table prints, so a
+#     fast load can't flash-and-close before you read it. Type `exit` to return.
 function global:prof-trace {
     $pwshPath = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
     if (-not $pwshPath) { Write-Error 'pwsh not found'; return }
-    & $pwshPath -NoProfile -Command {
-        $env:DOTFILES_PROFILE_TRACE = '1'
+    & $pwshPath -NoProfile -NoExit -Command {
+        $env:PSMUX_NO_AUTOLAUNCH = '1'
         . $PROFILE
     }
 }
