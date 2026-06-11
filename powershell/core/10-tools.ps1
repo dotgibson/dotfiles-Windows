@@ -150,23 +150,46 @@ function global:shell-bench {
                       @{n='Avg_ms';e={[math]::Round($_.Average)}}, @{n='Max_ms';e={[math]::Round($_.Maximum)}}
 }
 
-# prof-trace: spawn a clean shell that loads the FULL profile with tracing on and
-# prints the slowest-first breakdown. -NoProfile + an explicit `. $PROFILE` sets
-# the trace flag before the one load we measure. Two guards make the table
-# actually reach your screen:
-#   • PSMUX_NO_AUTOLAUNCH=1 — hard-stops the psmux auto-launch (os/30-windows).
-#     Previously this relied only on Test-InteractiveShell spotting -Command; if
-#     that slipped, psmux grabbed the child terminal and the table was never seen
-#     (the "prof-trace prints nothing" symptom). The explicit hatch is belt-and-
-#     suspenders.
-#   • -NoExit — keeps the child open at a prompt after the table prints, so a
-#     fast load can't flash-and-close before you read it. Type `exit` to return.
+# prof-trace: load the FULL profile in a clean child with tracing on, and show the
+# slowest-first breakdown. Instead of relying on the child's console output (which
+# can be swallowed by the -Command/-NoExit/host-stream chain — the "prints nothing"
+# bug), the child WRITES the table to a temp file and the parent reads it back on
+# its own output stream. Robust regardless of how the child's console behaves.
+#   • PSMUX_NO_AUTOLAUNCH=1 — psmux can't grab the trace child.
+#   • The child writes to $env:DOTFILES_TRACE_OUT (inherited from us), so there's
+#     no string-escaping of paths into the command.
+#   • If the file comes back empty/missing, that itself tells us the profile didn't
+#     populate the trace (vs. an output-plumbing problem) — and we say so.
 function global:prof-trace {
     $pwshPath = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
     if (-not $pwshPath) { Write-Error 'pwsh not found'; return }
-    & $pwshPath -NoProfile -NoExit -Command {
-        $env:PSMUX_NO_AUTOLAUNCH = '1'
-        . $PROFILE
+    $out = Join-Path $env:TEMP 'dotfiles-proftrace.txt'
+    Remove-Item $out -Force -ErrorAction SilentlyContinue
+    $env:DOTFILES_TRACE_OUT = $out
+    try {
+        & $pwshPath -NoProfile -Command {
+            $env:DOTFILES_PROFILE_TRACE = '1'
+            $env:PSMUX_NO_AUTOLAUNCH    = '1'
+            . $PROFILE
+            if ($global:DotfilesTrace -and $global:DotfilesTrace.Count) {
+                $global:DotfilesTrace | Sort-Object ms -Descending |
+                    Format-Table -AutoSize | Out-String -Width 200 |
+                    Set-Content -Path $env:DOTFILES_TRACE_OUT -Encoding utf8
+            } else {
+                Set-Content -Path $env:DOTFILES_TRACE_OUT -Encoding utf8 `
+                    -Value '(trace empty — profile loaded but DotfilesTrace was never populated)'
+            }
+        }
+    } finally {
+        Remove-Item Env:DOTFILES_TRACE_OUT -ErrorAction SilentlyContinue
+    }
+    if (Test-Path $out) {
+        Write-Host "`nprofile load trace (slowest first):" -ForegroundColor Cyan
+        Get-Content $out
+    } else {
+        Write-Warning 'prof-trace: child wrote no file — the profile likely errored before the trace ran.'
+        Write-Host  'Fallback (loads the profile the plain way, no -Command indirection):' -ForegroundColor DarkGray
+        Write-Host  "  `$env:DOTFILES_PROFILE_TRACE='1'; `$env:PSMUX_NO_AUTOLAUNCH='1'; pwsh -NoLogo" -ForegroundColor DarkGray
     }
 }
 
