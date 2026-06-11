@@ -65,21 +65,32 @@ function script:Start-PillRefresher {
     $netScript = Get-PillScript
     if (-not $netScript) { return }
 
+    $steadyMs = [math]::Max(5, $IntervalSeconds) * 1000
+
     $timer = New-Object System.Timers.Timer
-    $timer.Interval  = [math]::Max(5, $IntervalSeconds) * 1000
+    # CRITICAL: do NOT prime synchronously here — psmux-netinfo.ps1's Get-Net*/WMI
+    # calls take SECONDS, and running them at profile-load time blocked every new
+    # shell/pane by that much (this fragment was ~10s of startup). Instead the
+    # FIRST refresh is just an early timer tick (~2.5s) that runs on the timer's
+    # background thread; the handler then settles the cadence to the steady value.
+    # Net effect: arming the pill costs ~milliseconds at load; the WMI work happens
+    # off the startup path.
+    $timer.Interval  = 2500
     $timer.AutoReset = $true
 
     # The Elapsed action runs in its own runspace and only sees $Event — pass
     # everything it needs via -MessageData (no closure over this scope).
     $data = @{
-        Script  = $netScript
-        All     = [bool]$AllNetworks
-        OutFile = $script:PillCache
-        MinAge  = [math]::Max(2, [int]($IntervalSeconds / 2))   # cross-pane dedup window
+        Script   = $netScript
+        All      = [bool]$AllNetworks
+        OutFile  = $script:PillCache
+        MinAge   = [math]::Max(2, [int]($IntervalSeconds / 2))   # cross-pane dedup window
+        SteadyMs = $steadyMs
     }
     $null = Register-ObjectEvent -InputObject $timer -EventName Elapsed `
         -SourceIdentifier $script:PillSource -MessageData $data -Action {
             $d = $Event.MessageData
+            $Sender.Interval = $d.SteadyMs    # after the quick first tick, settle to the steady cadence
             try {
                 # If another pane refreshed the file very recently, skip the work.
                 if ((Test-Path $d.OutFile) -and
@@ -89,9 +100,6 @@ function script:Start-PillRefresher {
         }
     $timer.Start()
     $global:PsmuxPillTimer = $timer
-
-    # Prime immediately so the pill is current without waiting a full interval.
-    if ($AllNetworks) { & $netScript -AllNetworks | Out-Null } else { & $netScript | Out-Null }
 }
 
 function script:Stop-PillRefresher {
