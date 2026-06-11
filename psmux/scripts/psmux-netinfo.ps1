@@ -71,8 +71,14 @@ function Get-Ipv4Up {
 
 # Tunnel interface in priority of "first up tunnel adapter with a v4 address".
 function Get-TunnelInfo {
+    # Pull ALL adapters once and index by InterfaceIndex. The previous version
+    # called Get-NetAdapter once PER up-IP — each is a slow CIM query, so on a box
+    # with several addresses this was seconds of work. One bulk call + a hashtable
+    # lookup is the bulk of the speedup that got this pill off the startup path.
+    $adapters = @{}
+    foreach ($a in (Get-NetAdapter -ErrorAction SilentlyContinue)) { $adapters[[int]$a.InterfaceIndex] = $a }
     foreach ($ip in Get-Ipv4Up) {
-        $ad = Get-NetAdapter -InterfaceIndex $ip.InterfaceIndex -ErrorAction SilentlyContinue
+        $ad = $adapters[[int]$ip.InterfaceIndex]
         if (-not $ad -or $ad.Status -ne 'Up') { continue }
         if (($ad.InterfaceDescription -match $TunnelPattern) -or ($ad.Name -match $TunnelPattern)) {
             $iface = $ad.Name
