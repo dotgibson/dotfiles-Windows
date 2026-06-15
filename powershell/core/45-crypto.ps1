@@ -40,7 +40,7 @@ if (Test-Cmd age) {
     # age-pubkey: show the public key for the default key (share this, not the key file)
     function age-pubkey {
         if (-not (Test-Path $script:AgeKey)) {
-            Write-Error "no key at $script:AgeKey — run age-setup to create one"; return
+            Write-DotErr "no age key at $script:AgeKey" 'run age-setup to create one'; return
         }
         age-keygen -y $script:AgeKey
     }
@@ -53,8 +53,8 @@ if (Test-Cmd age) {
             [Parameter(Mandatory)][string]$File,
             [string]$Out
         )
-        if (-not (Test-Path $File))           { Write-Error "file not found: $File"; return }
-        if (-not (Test-Path $script:AgeKey))  { Write-Error "no key at $script:AgeKey — run age-setup"; return }
+        if (-not (Test-Path $File))           { Write-DotErr "file not found: $File"; return }
+        if (-not (Test-Path $script:AgeKey))  { Write-DotErr "no age key at $script:AgeKey" 'run age-setup'; return }
         if (-not $script:AgePubKey) { $script:AgePubKey = age-keygen -y $script:AgeKey 2>$null }
         $pub = $script:AgePubKey
         if (-not $Out) { $Out = "$File.age" }
@@ -70,8 +70,8 @@ if (Test-Cmd age) {
             [Parameter(Mandatory)][string]$File,
             [string]$Out
         )
-        if (-not (Test-Path $File))           { Write-Error "file not found: $File"; return }
-        if (-not (Test-Path $script:AgeKey))  { Write-Error "no key at $script:AgeKey — run age-setup"; return }
+        if (-not (Test-Path $File))           { Write-DotErr "file not found: $File"; return }
+        if (-not (Test-Path $script:AgeKey))  { Write-DotErr "no age key at $script:AgeKey" 'run age-setup'; return }
         if (-not $Out) { $Out = $File -replace '\.age$', '' }
         age -d -i $script:AgeKey -o $Out $File
         if ($LASTEXITCODE -eq 0) { Write-Host "decrypted -> $Out" -ForegroundColor Green }
@@ -84,7 +84,7 @@ if (Test-Cmd age) {
             [Parameter(Mandatory)][string]$File,
             [string]$Out
         )
-        if (-not (Test-Path $File)) { Write-Error "file not found: $File"; return }
+        if (-not (Test-Path $File)) { Write-DotErr "file not found: $File"; return }
         if (-not $Out) { $Out = "$File.age" }
         age -p -o $Out $File
         if ($LASTEXITCODE -eq 0) { Write-Host "encrypted (passphrase) -> $Out" -ForegroundColor Green }

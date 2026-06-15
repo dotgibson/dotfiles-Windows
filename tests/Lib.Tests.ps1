@@ -27,3 +27,14 @@ Describe 'Test-SensitiveHistoryLine' {
         It 'drops a private-key mention'{ Test-SensitiveHistoryLine 'cat ~/.ssh/id_ed25519 # private key' | Should -BeTrue }
     }
 }
+
+Describe 'Write-DotErr' {
+    It 'composes message and hint with -PassThru' {
+        $out = Write-DotErr -Message 'boom' -Hint 'do this' -PassThru 6>$null
+        $out | Should -Match '✗ boom'
+        $out | Should -Match '→ do this'
+    }
+    It 'omits the hint line when none is given' {
+        (Write-DotErr -Message 'only' -PassThru 6>$null) | Should -Be '✗ only'
+    }
+}

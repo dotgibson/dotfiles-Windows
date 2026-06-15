@@ -40,3 +40,27 @@ function global:Test-SensitiveHistoryLine {
 
     return $false
 }
+
+# --- Write-DotErr -------------------------------------------------------------
+# One consistent error layout for the interactive helpers: a red "✗ <message>"
+# and, when supplied, a dimmed "→ <hint>" telling the user how to fix it (usually
+# the exact install command). Replaces the bare, hint-less `Write-Error 'needs x'`
+# scattered across the helpers. -PassThru returns the composed text (for tests).
+function global:Write-DotErr {
+    param(
+        [Parameter(Mandatory)][string]$Message,
+        [string]$Hint,
+        [switch]$PassThru
+    )
+    Write-Host '  ✗ ' -ForegroundColor Red -NoNewline
+    Write-Host $Message -ForegroundColor Red
+    if ($Hint) {
+        Write-Host '    → ' -ForegroundColor DarkGray -NoNewline
+        Write-Host $Hint -ForegroundColor DarkGray
+    }
+    if ($PassThru) {
+        $out = "✗ $Message"
+        if ($Hint) { $out += "`n→ $Hint" }
+        return $out
+    }
+}
