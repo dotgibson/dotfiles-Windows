@@ -52,6 +52,21 @@ Describe 'Package manifests' {
     }
 }
 
+Describe 'psmux config' {
+    BeforeAll {
+        $RepoRoot = Split-Path -Parent $PSScriptRoot
+        $script:Conf = Get-Content (Join-Path $RepoRoot 'psmux/psmux.conf') -Raw
+    }
+    It 'reads the status pill via an explicit cmd /c (not the pwsh type alias)' {
+        # In the pwsh default-shell, `type` aliases Get-Content and %VAR% does not
+        # expand; the pill segment must go through cmd /c to render at all.
+        $script:Conf | Should -Match '#\(cmd /c type %LOCALAPPDATA%'
+    }
+    It 'silences the missing-cache error so the segment renders nothing when off' {
+        $script:Conf | Should -Match 'psmux-netinfo\.pill 2>NUL'
+    }
+}
+
 Describe 'git config' {
     BeforeAll { $RepoRoot = Split-Path -Parent $PSScriptRoot }
     It 'includes the gitignored local identity file' {
