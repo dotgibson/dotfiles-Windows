@@ -83,18 +83,34 @@ if (-not $SkipWinget) {
 
         # Query the installed set ONCE via `winget export` (clean JSON) instead of
         # spawning `winget list --id` for every package — N fewer subprocesses.
+        # If export fails (older winget, non-zero exit), fall back to the per-id
+        # `winget list` check so we don't blindly reinstall everything.
         $installedIds = @()
+        $exportOk = $false
         $tmp = $null
         try {
             $tmp = Join-Path $env:TEMP ("winget-export-" + [guid]::NewGuid().ToString('N') + '.json')
             winget export -o $tmp --accept-source-agreements *> $null
-            if (Test-Path $tmp) { $installedIds = Get-WingetInstalledIds (Get-Content $tmp -Raw) }
+            if ($LASTEXITCODE -eq 0 -and (Test-Path $tmp)) {
+                $installedIds = Get-WingetInstalledIds (Get-Content $tmp -Raw)
+                $exportOk = $true
+            }
         } catch { }
         finally { if ($tmp -and (Test-Path $tmp)) { Remove-Item $tmp -Force -ErrorAction SilentlyContinue } }
+        if (-not $exportOk) {
+            Write-Warning '  winget export unavailable - falling back to per-package checks (slower).'
+        }
 
         foreach ($id in $wg.packages) {
-            # -contains is case-insensitive, matching winget's id handling.
-            if ($installedIds -contains $id) {
+            # Already installed? Prefer the exported set (-contains is
+            # case-insensitive); fall back to a per-id query when export failed.
+            $already = if ($exportOk) {
+                $installedIds -contains $id
+            } else {
+                winget list --id $id -e --accept-source-agreements *> $null
+                $LASTEXITCODE -eq 0
+            }
+            if ($already) {
                 Write-Host "  = $id (already installed)" -ForegroundColor DarkGray
                 continue
             }

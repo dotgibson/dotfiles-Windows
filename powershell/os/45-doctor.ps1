@@ -89,9 +89,11 @@ function script:Get-DoctorResults {
         $r.Add((New-DoctorResult 'Symlink capability' 'warn' 'no Dev Mode / not elevated' 'enable Developer Mode so install.ps1 links instead of copies'))
     }
 
-    # DOTFILES_WIN
-    if ($global:DOTFILES -and (Test-Path $global:DOTFILES)) {
-        $r.Add((New-DoctorResult 'Repo root' 'ok' $global:DOTFILES))
+    # Repo root: the profile sets $global:DOTFILES from $env:DOTFILES_WIN, but
+    # accept either so a direct dot-source (no profile) still reports accurately.
+    $root = if ($global:DOTFILES) { $global:DOTFILES } else { $env:DOTFILES_WIN }
+    if ($root -and (Test-Path $root)) {
+        $r.Add((New-DoctorResult 'Repo root' 'ok' $root))
     } else {
         $r.Add((New-DoctorResult 'Repo root' 'fail' 'DOTFILES_WIN unset/missing' 're-run install.ps1 to set DOTFILES_WIN'))
     }

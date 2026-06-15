@@ -66,12 +66,13 @@ Write-Host 'TOML (best-effort):' -ForegroundColor Cyan
 $toml = Get-ChildItem -Path $RepoRoot -Recurse -Filter *.toml -File |
     Where-Object { $_.FullName -notmatch '[\\/]\.git[\\/]' }
 if (Get-Command python3 -ErrorAction SilentlyContinue) {
+    $preToml = $script:fail
     foreach ($t in $toml) {
         $py = "import tomllib,sys; tomllib.load(open(sys.argv[1],'rb'))"
         & python3 -c $py $t.FullName 2>$null
         if ($LASTEXITCODE -ne 0) { Fail "toml: $($t.FullName)" }
     }
-    if ($script:fail -eq 0 -or $toml.Count) { Pass "$($toml.Count) TOML file(s) checked" }
+    if ($script:fail -eq $preToml) { Pass "$($toml.Count) TOML file(s) checked" }
 } else {
     Write-Host '  - skipped (no python tomllib available)' -ForegroundColor DarkGray
 }
