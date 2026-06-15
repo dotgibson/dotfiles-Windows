@@ -37,18 +37,22 @@ function Get-DotfilesLinkMap {
     )
     # Defensive: a host with no resolvable Documents (or LOCALAPPDATA) must not
     # crash the map — fall back under HOME so the rest of the links still resolve.
-    if (-not $Documents)    { $Documents    = Join-Path $HomeDir 'Documents' }
-    if (-not $LocalAppData) { $LocalAppData = Join-Path $HomeDir 'AppData\Local' }
+    # Use [IO.Path]::Combine (pure string join) rather than Join-Path: Join-Path
+    # resolves the drive PROVIDER and throws DriveNotFoundException for a path on
+    # a drive that doesn't exist on this host — which is exactly what tests inject.
+    $join = { param($a, $b) [System.IO.Path]::Combine($a, $b) }
+    if (-not $Documents)    { $Documents    = & $join $HomeDir 'Documents' }
+    if (-not $LocalAppData) { $LocalAppData = & $join $HomeDir 'AppData\Local' }
     @(
-        (Join-Path $Documents    'PowerShell\Microsoft.PowerShell_profile.ps1')
-        (Join-Path $LocalAppData 'nvim')
-        (Join-Path $HomeDir      '.gitconfig')
-        (Join-Path $HomeDir      '.gitignore_global')
-        (Join-Path $HomeDir      '.ssh\config')
-        (Join-Path $HomeDir      '.config\psmux\psmux.conf')
-        (Join-Path $HomeDir      '.config\psmux\psmux.reset.conf')
-        (Join-Path $HomeDir      '.config\psmux\scripts')
-        (Join-Path $LocalAppData 'Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json')
+        (& $join $Documents    'PowerShell\Microsoft.PowerShell_profile.ps1')
+        (& $join $LocalAppData 'nvim')
+        (& $join $HomeDir      '.gitconfig')
+        (& $join $HomeDir      '.gitignore_global')
+        (& $join $HomeDir      '.ssh\config')
+        (& $join $HomeDir      '.config\psmux\psmux.conf')
+        (& $join $HomeDir      '.config\psmux\psmux.reset.conf')
+        (& $join $HomeDir      '.config\psmux\scripts')
+        (& $join $LocalAppData 'Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json')
     )
 }
 
