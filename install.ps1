@@ -47,6 +47,33 @@ function Test-SymlinkCurrent {
     return [string]::Equals($a, $b, [System.StringComparison]::OrdinalIgnoreCase)
 }
 
+# --- run accounting + UI --------------------------------------------------------
+# A single tally Link-Item updates, summarized at the end so the run reports what
+# actually changed (linked/copied/skipped/backed-up) instead of scrolling past.
+$script:LinkStats = [ordered]@{ linked = 0; copied = 0; skipped = 0; backedup = 0 }
+
+# Numbered, consistent section header (visual hierarchy + progress: [n/total]).
+$script:StepTotal = 5
+$script:StepNo    = 0
+function Write-Step {
+    param([string]$Title)
+    $script:StepNo++
+    Write-Host ''
+    Write-Host ("[{0}/{1}] " -f $script:StepNo, $script:StepTotal) -ForegroundColor Cyan -NoNewline
+    Write-Host $Title -ForegroundColor White
+}
+
+# Pure: turn the stats tally into the summary lines (unit-tested).
+function Get-InstallSummaryLines {
+    param([System.Collections.IDictionary]$Stats)
+    @(
+        "linked   : $($Stats.linked)"
+        "copied   : $($Stats.copied)"
+        "skipped  : $($Stats.skipped)  (already correct)"
+        "backed up: $($Stats.backedup)"
+    )
+}
+
 # --- link helper --------------------------------------------------------------
 function Link-Item {
     param([string]$Target, [string]$Link)
@@ -58,6 +85,7 @@ function Link-Item {
     # links, get backed up and replaced.
     if ($CanSymlink -and (Test-SymlinkCurrent -Link $Link -Target $Target)) {
         Write-Host "  ok      $Link (already linked)" -ForegroundColor DarkGray
+        $script:LinkStats.skipped++
         return
     }
 
@@ -65,16 +93,19 @@ function Link-Item {
         $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
         Move-Item $Link "$Link.$stamp.bak" -Force
         Write-Host "  backed up existing -> $Link.$stamp.bak" -ForegroundColor DarkYellow
+        $script:LinkStats.backedup++
     }
     if ($CanSymlink) {
         New-Item -ItemType SymbolicLink -Path $Link -Target $Target -Force | Out-Null
         Write-Host "  linked  $Link" -ForegroundColor Green
+        $script:LinkStats.linked++
     } else {
         # -Recurse so directory targets (nvim\, psmux\scripts) copy in full — a
         # plain Copy-Item only takes the top-level entry and leaves them empty.
         $recurse = (Test-Path $Target -PathType Container)
         Copy-Item $Target $Link -Force -Recurse:$recurse
         Write-Host "  copied  $Link" -ForegroundColor Green
+        $script:LinkStats.copied++
     }
 }
 
@@ -114,18 +145,19 @@ if (-not $CanSymlink) {
 }
 
 # --- 1. persistent env var ----------------------------------------------------
-Write-Host '== Setting DOTFILES_WIN ==' -ForegroundColor Cyan
+Write-Step 'Setting DOTFILES_WIN'
 [Environment]::SetEnvironmentVariable('DOTFILES_WIN', $RepoRoot, 'User')
 $env:DOTFILES_WIN = $RepoRoot
+Write-Host "  DOTFILES_WIN = $RepoRoot" -ForegroundColor DarkGray
 
 # --- 2. packages --------------------------------------------------------------
+Write-Step $(if ($SkipPackages) { 'Installing packages (skipped: -SkipPackages)' } else { 'Installing packages' })
 if (-not $SkipPackages) {
-    Write-Host '== Installing packages ==' -ForegroundColor Cyan
     & (Join-Path $RepoRoot 'packages\Install-Packages.ps1')
 }
 
 # --- 3. wire symlinks ---------------------------------------------------------
-Write-Host '== Wiring configs ==' -ForegroundColor Cyan
+Write-Step 'Wiring configs'
 
 # PowerShell 7 profile. Resolve the Documents folder the OneDrive-aware way:
 # [Environment]::GetFolderPath('MyDocuments') follows a OneDrive redirect, so we
@@ -185,6 +217,7 @@ if (Test-Path $wtDir) {
 }
 
 # --- 4. .wslconfig (COPY, don't symlink - it's host-global, edit per machine) -
+Write-Step 'Seeding host-global .wslconfig'
 $wslCfg = Join-Path $HOME '.wslconfig'
 if (-not (Test-Path $wslCfg)) {
     Copy-Item (Join-Path $RepoRoot 'wsl\windows.wslconfig.example') $wslCfg
@@ -194,6 +227,7 @@ if (-not (Test-Path $wslCfg)) {
 }
 
 # --- 5. seed local override + gitconfig.local ---------------------------------
+Write-Step 'Seeding local overrides'
 $localPs = Join-Path $RepoRoot 'powershell\local.ps1'
 if (-not (Test-Path $localPs)) { Copy-Item (Join-Path $RepoRoot 'powershell\local.ps1.example') $localPs }
 
@@ -214,5 +248,16 @@ if (-not (Test-Path $gcLocal)) {
 # silently dirtying the tracked repo file (it edits the symlink target).
 
 Write-Host ''
-Write-Host 'Bootstrap complete. Open a NEW PowerShell window (pwsh) to load the profile.' -ForegroundColor Green
-Write-Host 'Then: set your name/email in ~/.gitconfig.local, review ~/.wslconfig, and run `wsl --shutdown`.' -ForegroundColor Green
+Write-Host '── Summary ─────────────────────────────────────────────' -ForegroundColor Cyan
+Get-InstallSummaryLines -Stats $script:LinkStats | ForEach-Object { Write-Host "  $_" -ForegroundColor Gray }
+if (-not $CanSymlink) {
+    Write-Host '  mode    : COPY (no Dev Mode / not elevated — links would not track the repo)' -ForegroundColor DarkYellow
+}
+
+Write-Host ''
+Write-Host 'Bootstrap complete.' -ForegroundColor Green
+Write-Host 'Next steps:' -ForegroundColor White
+Write-Host '  1. Open a NEW PowerShell window (pwsh) to load the profile.' -ForegroundColor Gray
+Write-Host '  2. Set your name/email in ~/.gitconfig.local.' -ForegroundColor Gray
+Write-Host '  3. Review ~/.wslconfig, then run: wsl --shutdown' -ForegroundColor Gray
+Write-Host '  4. Run `dotfiles-doctor` to verify everything is wired correctly.' -ForegroundColor Gray

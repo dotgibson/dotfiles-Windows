@@ -34,3 +34,13 @@ Describe 'Test-SymlinkCurrent' {
         Test-SymlinkCurrent -Link $script:Target -Target $script:Target | Should -BeFalse
     }
 }
+
+Describe 'Get-InstallSummaryLines' {
+    It 'renders all four tally categories' {
+        $lines = Get-InstallSummaryLines -Stats ([ordered]@{ linked = 3; copied = 0; skipped = 2; backedup = 1 })
+        $lines.Count | Should -Be 4
+        ($lines -join "`n") | Should -Match 'linked   : 3'
+        ($lines -join "`n") | Should -Match 'skipped  : 2'
+        ($lines -join "`n") | Should -Match 'backed up: 1'
+    }
+}
