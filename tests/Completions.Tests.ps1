@@ -4,7 +4,10 @@
 
 BeforeAll {
     $RepoRoot = Split-Path -Parent $PSScriptRoot
-    # Stub the target commands so completion resolves against real command names.
+    # 55-help defines Get-DotfilesHelpData/Get-DotHelpFilters/dothelp that the
+    # dothelp completer leans on; load it before registering completers.
+    . (Join-Path $RepoRoot 'powershell/core/55-help.ps1')
+    # Stub the remaining target commands so completion resolves against real names.
     function global:mux       { param([string]$Session = 'main') }
     function global:cdwsl     { param([string]$Distro = 'kali-linux') }
     function global:maint-log { param($Arg = 50) }
@@ -29,5 +32,10 @@ Describe 'argument completers are registered' {
         $line = 'maint-log '
         $tab = TabExpansion2 $line $line.Length
         $tab.CompletionMatches.CompletionText | Should -Contain '-f'
+    }
+    It 'completes dothelp filters from the catalog' {
+        $line = 'dothelp g'
+        $tab = TabExpansion2 $line $line.Length
+        $tab.CompletionMatches.CompletionText | Should -Contain 'git'
     }
 }

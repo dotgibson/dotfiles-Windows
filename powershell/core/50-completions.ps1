@@ -50,3 +50,13 @@ Register-ArgumentCompleter -CommandName maint-log -ParameterName Arg -ScriptBloc
         [System.Management.Automation.CompletionResult]::new('50', '50', 'ParameterValue', 'last N lines')
     ) | Where-Object { $_.CompletionText -like "$wordToComplete*" }
 }
+
+# --- dothelp <filter> : the group names + command verbs in the catalog --------
+# So `dothelp g<Tab>` offers git / gs / gco / glow…, turning the help index into
+# a discoverable, tab-completable surface. Candidates come from the pure
+# Get-DotHelpFilters (core/55-help.ps1), resolved lazily at <Tab> time.
+Register-ArgumentCompleter -CommandName dothelp -ParameterName Filter -ScriptBlock {
+    param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameters)
+    if (-not (Get-Command Get-DotHelpFilters -ErrorAction SilentlyContinue)) { return }
+    New-DotCompletions -Values (Get-DotHelpFilters) -Word $wordToComplete -Tooltip 'dothelp filter'
+}

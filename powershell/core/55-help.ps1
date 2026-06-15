@@ -82,6 +82,25 @@ function global:Get-DotfilesHelpData {
     return $g
 }
 
+# --- Get-DotHelpFilters -------------------------------------------------------
+# The set of useful `dothelp <filter>` arguments: every group name plus every
+# individual command verb (so "ll / la / lt" yields ll, la, lt). Pure, so the
+# tab-completer in core/50-completions.ps1 can offer them and it's unit-tested.
+function global:Get-DotHelpFilters {
+    $data = Get-DotfilesHelpData
+    $out = [System.Collections.Generic.List[string]]::new()
+    foreach ($group in $data.Keys) {
+        $out.Add($group)
+        foreach ($row in $data[$group]) {
+            foreach ($tok in ($row.Command -split '[\s/]+')) {
+                # skip placeholders like <dir>, [filter], <name>
+                if ($tok -and $tok -notmatch '^[<\[]') { $out.Add($tok) }
+            }
+        }
+    }
+    $out | Sort-Object -Unique
+}
+
 function global:dothelp {
     [CmdletBinding()]
     param([string]$Filter)

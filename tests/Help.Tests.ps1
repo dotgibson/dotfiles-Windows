@@ -32,6 +32,19 @@ Describe 'Get-DotfilesHelpData' {
     }
 }
 
+Describe 'Get-DotHelpFilters' {
+    It 'includes group names and individual command verbs' {
+        $f = Get-DotHelpFilters
+        $f | Should -Contain 'Git'
+        $f | Should -Contain 'git'
+        $f | Should -Contain 'lg'
+    }
+    It 'excludes placeholder tokens like <dir> / [filter]' {
+        $f = Get-DotHelpFilters
+        ($f | Where-Object { $_ -match '^[<\[]' }) | Should -BeNullOrEmpty
+    }
+}
+
 Describe 'dothelp' {
     It 'runs without error for the full index' {
         { dothelp } | Should -Not -Throw
