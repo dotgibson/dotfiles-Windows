@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Cancel superseded runs on the same ref so the queue stays current.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Fast, dependency-free gate. Runs on Linux pwsh in seconds and fails the
+  # build on any syntax/JSON regression before the heavier Windows job spins up.
+  lint-fast:
+    name: Syntax & manifest gate (fast)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate (parser + JSON, no Gallery needed)
+        shell: pwsh
+        run: ./tests/Invoke-Validation.ps1
+
+  analyze:
+    name: PSScriptAnalyzer
+    runs-on: windows-latest
+    needs: lint-fast
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PSScriptAnalyzer
+        shell: pwsh
+        run: |
+          Set-PSRepository PSGallery -InstallationPolicy Trusted
+          Install-Module PSScriptAnalyzer -Scope CurrentUser -Force
+      - name: Analyze
+        shell: pwsh
+        run: |
+          $results = Invoke-ScriptAnalyzer -Path . -Recurse `
+              -Settings ./tests/PSScriptAnalyzerSettings.psd1
+          if ($results) {
+              $results | Format-Table -AutoSize | Out-String | Write-Host
+          }
+          $errors = @($results | Where-Object Severity -eq 'Error')
+          "Analyzer findings: $($results.Count) total, $($errors.Count) error(s)" | Write-Host
+          if ($errors.Count) { throw "PSScriptAnalyzer reported $($errors.Count) error(s)" }
+
+  test:
+    name: Pester
+    runs-on: windows-latest
+    needs: lint-fast
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Pester
+        shell: pwsh
+        run: |
+          Set-PSRepository PSGallery -InstallationPolicy Trusted
+          Install-Module Pester -MinimumVersion 5.5.0 -Scope CurrentUser -Force -SkipPublisherCheck
+      - name: Run tests
+        shell: pwsh
+        run: |
+          $cfg = New-PesterConfiguration
+          $cfg.Run.Path = './tests'
+          $cfg.Output.Verbosity = 'Detailed'
+          $cfg.Run.Exit = $true
+          Invoke-Pester -Configuration $cfg
