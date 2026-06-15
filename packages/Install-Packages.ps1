@@ -22,6 +22,21 @@ $here   = Split-Path -Parent $MyInvocation.MyCommand.Path
 $failed = [System.Collections.Generic.List[string]]::new()
 . (Join-Path $here 'modules.ps1')
 
+# --- Get-WingetInstalledIds ---------------------------------------------------
+# Parse the PackageIdentifiers out of `winget export` JSON. Pulling the installed
+# set ONCE this way replaces the old per-package `winget list --id` spawn (N
+# subprocesses on a cold install). Pure, so it's unit-tested.
+function Get-WingetInstalledIds {
+    param([string]$Json)
+    if ([string]::IsNullOrWhiteSpace($Json)) { return @() }
+    try { $obj = $Json | ConvertFrom-Json } catch { return @() }
+    $ids = foreach ($s in $obj.Sources) { foreach ($p in $s.Packages) { $p.PackageIdentifier } }
+    return @($ids | Where-Object { $_ })
+}
+
+# Library-only hook for the test suite: expose the helpers without installing.
+if ($env:DOTFILES_PKG_LIBONLY -eq '1') { return }
+
 # --- scoop --------------------------------------------------------------------
 if (-not $SkipScoop) {
     if (-not (Get-Command scoop -ErrorAction SilentlyContinue)) {
@@ -65,10 +80,21 @@ if (-not $SkipWinget) {
     if (Get-Command winget -ErrorAction SilentlyContinue) {
         Write-Host 'Installing winget packages...' -ForegroundColor Cyan
         $wg = Get-Content (Join-Path $here 'winget.json') -Raw | ConvertFrom-Json
+
+        # Query the installed set ONCE via `winget export` (clean JSON) instead of
+        # spawning `winget list --id` for every package — N fewer subprocesses.
+        $installedIds = @()
+        $tmp = $null
+        try {
+            $tmp = Join-Path $env:TEMP ("winget-export-" + [guid]::NewGuid().ToString('N') + '.json')
+            winget export -o $tmp --accept-source-agreements *> $null
+            if (Test-Path $tmp) { $installedIds = Get-WingetInstalledIds (Get-Content $tmp -Raw) }
+        } catch { }
+        finally { if ($tmp -and (Test-Path $tmp)) { Remove-Item $tmp -Force -ErrorAction SilentlyContinue } }
+
         foreach ($id in $wg.packages) {
-            # already installed? `winget list` exits 0 when the id is present.
-            winget list --id $id -e --accept-source-agreements *> $null
-            if ($LASTEXITCODE -eq 0) {
+            # -contains is case-insensitive, matching winget's id handling.
+            if ($installedIds -contains $id) {
                 Write-Host "  = $id (already installed)" -ForegroundColor DarkGray
                 continue
             }
