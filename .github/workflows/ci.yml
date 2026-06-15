@@ -132,7 +132,9 @@ jobs:
           Import-Module Pester -RequiredVersion $env:PESTER_VERSION
           $cfg = New-PesterConfiguration
           $cfg.Run.Path = './tests'
-          $cfg.Run.Exit = $true
+          # PassThru (not Run.Exit) so we get the result object back and can gate on
+          # BOTH failures and coverage ourselves with clear messages.
+          $cfg.Run.PassThru = $true
           $cfg.Output.Verbosity = 'Detailed'
           # Regression gate on the dedicated pure-helper library: it is fully
           # exercised by Lib.Tests.ps1, so a drop here means a test was deleted or
@@ -143,7 +145,10 @@ jobs:
           $cfg.CodeCoverage.CoveragePercentTarget = 85
           $r = Invoke-Pester -Configuration $cfg
           $pct = [math]::Round($r.CodeCoverage.CoveragePercent, 1)
-          "Coverage (05-lib.ps1): $pct% (target 85%)" | Write-Host
+          "Tests: $($r.PassedCount) passed, $($r.FailedCount) failed. Coverage (05-lib.ps1): $pct% (target 85%)" | Write-Host
+          if ($r.FailedCount -gt 0) {
+            throw "$($r.FailedCount) test(s) failed."
+          }
           if ($r.CodeCoverage.CoveragePercent -lt 85) {
             throw "Coverage $pct% is below the 85% target for the pure-helper library."
           }
