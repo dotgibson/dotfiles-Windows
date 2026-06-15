@@ -170,9 +170,58 @@ function script:Get-DoctorResults {
     return $r
 }
 
+# --- pure remediation planner -------------------------------------------------
+# Map the non-ok results to a DEDUPED, ordered list of fix actions dotfiles-doctor
+# -Fix can run. Pure (no host calls), so the routing is unit-tested; the actions
+# themselves live in Invoke-DoctorFix below.
+function global:Get-DoctorFixPlan {
+    param([object[]]$Results)
+    $plan = [System.Collections.Generic.List[string]]::new()
+    $add  = { param($k) if ($plan -notcontains $k) { $plan.Add($k) } }
+    foreach ($res in $Results) {
+        if ($res.Status -eq 'ok') { continue }
+        switch -Regex ($res.Name) {
+            '^Execution policy$'     { & $add 'execpolicy' }
+            '^Profile link$'         { & $add 'rewire' }
+            '^link: '                { & $add 'rewire' }
+            '^Modules off OneDrive$' { & $add 'localize-modules' }
+            '^Core toolchain$'       { & $add 'install-packages' }
+        }
+    }
+    return $plan
+}
+
+# Run one planned action. Side-effecting (host), so it's kept tiny and out of the
+# pure planner. Unknown keys are a no-op.
+function script:Invoke-DoctorFix {
+    param([string]$Key)
+    switch ($Key) {
+        'execpolicy' {
+            Write-DotHost '  → setting CurrentUser execution policy to RemoteSigned' -Color Cyan
+            try { Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force } catch { Write-DotErr "failed: $_" }
+        }
+        'rewire' {
+            $install = Join-Path $global:DOTFILES 'install.ps1'
+            if (Test-Path $install) {
+                Write-DotHost '  → re-wiring config symlinks (install.ps1 -SkipPackages)' -Color Cyan
+                & $install -SkipPackages -NonInteractive
+            } else { Write-DotErr 'install.ps1 not found' 'set DOTFILES_WIN / re-clone the repo' }
+        }
+        'localize-modules' {
+            if (Get-Command modules-localize -ErrorAction SilentlyContinue) {
+                Write-DotHost '  → moving modules off OneDrive (modules-localize)' -Color Cyan
+                modules-localize
+            } else { Write-DotErr 'modules-localize not available' 'open a new pwsh shell, then run it' }
+        }
+        'install-packages' {
+            Write-DotWarn 'missing tools need the package installer.' 'run: .\packages\Install-Packages.ps1'
+        }
+    }
+}
+
 function global:dotfiles-doctor {
     [CmdletBinding()]
-    param([switch]$Quiet, [switch]$PassThru)
+    param([switch]$Quiet, [switch]$PassThru, [switch]$Fix)
 
     $results = Get-DoctorResults
     if (-not $Quiet) {
@@ -191,6 +240,26 @@ function global:dotfiles-doctor {
     $color = switch ($s.Overall) { 'ok' { 'Green' } 'warn' { 'Yellow' } 'fail' { 'Red' } }
     $sep = if (Test-DotUnicode) { '·' } else { '|' }
     Write-DotHost ("  {0} ok {3} {1} warn {3} {2} fail" -f $s.Ok, $s.Warn, $s.Fail, $sep) -Color $color
+
+    # Opt-in remediation: only acts on the checks it knows how to fix, and says
+    # exactly what it's doing for each. Re-runs the probes afterward so you see
+    # the result without another command.
+    if ($Fix) {
+        $plan = Get-DoctorFixPlan $results
+        Write-Host ''
+        if (-not $plan.Count) {
+            Write-DotHost '  nothing auto-fixable here.' -Color DarkGray
+        } else {
+            Write-DotHost ("  applying {0} fix(es)..." -f $plan.Count) -Color Cyan
+            foreach ($key in $plan) { Invoke-DoctorFix $key }
+            Write-Host ''
+            Write-DotHost '  re-checking...' -Color Cyan
+            $results = Get-DoctorResults
+            $s = Get-DoctorSummary $results
+            $color = switch ($s.Overall) { 'ok' { 'Green' } 'warn' { 'Yellow' } 'fail' { 'Red' } }
+            Write-DotHost ("  {0} ok {3} {1} warn {3} {2} fail" -f $s.Ok, $s.Warn, $s.Fail, $sep) -Color $color
+        }
+    }
 
     if ($PassThru) { return $results }
 }

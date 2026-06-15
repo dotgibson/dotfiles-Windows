@@ -37,6 +37,30 @@ Describe 'Get-FragmentHealthResult' {
     }
 }
 
+Describe 'Get-DoctorFixPlan' {
+    It 'is empty when everything is ok' {
+        (Get-DoctorFixPlan @((New-DoctorResult 'Execution policy' 'ok'))) | Should -BeNullOrEmpty
+    }
+    It 'maps known failing checks to deduped actions' {
+        $plan = Get-DoctorFixPlan @(
+            (New-DoctorResult 'Execution policy' 'fail'),
+            (New-DoctorResult 'Profile link' 'warn'),
+            (New-DoctorResult 'link: .gitconfig' 'warn'),
+            (New-DoctorResult 'Modules off OneDrive' 'warn'),
+            (New-DoctorResult 'Core toolchain' 'warn')
+        )
+        $plan | Should -Contain 'execpolicy'
+        $plan | Should -Contain 'rewire'
+        $plan | Should -Contain 'localize-modules'
+        $plan | Should -Contain 'install-packages'
+        # 'Profile link' + 'link: .gitconfig' both collapse to a single rewire.
+        ($plan | Where-Object { $_ -eq 'rewire' }).Count | Should -Be 1
+    }
+    It 'ignores checks it has no remedy for' {
+        (Get-DoctorFixPlan @((New-DoctorResult 'git identity' 'warn'))) | Should -BeNullOrEmpty
+    }
+}
+
 Describe 'Get-DoctorSummary' {
     It 'counts ok/warn/fail correctly' {
         $s = Get-DoctorSummary @(
