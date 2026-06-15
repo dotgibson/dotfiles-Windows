@@ -53,7 +53,7 @@ function global:Get-DotfilesHelpData {
         @{ Command = 'maint-install [HH:MM]'; Desc = 'register the daily maint task' }
         @{ Command = 'maint-run / maint-log / maint-status'; Desc = 'run / tail / next-run' }
         @{ Command = 'shell-bench / prof-trace'; Desc = 'measure cold-start / trace load' }
-        @{ Command = 'dotfiles-doctor'; Desc = 'health-check this setup' }
+        @{ Command = 'dotfiles-doctor [-Fix]'; Desc = 'health-check this setup (and auto-remediate)' }
     )
     $g['Packages'] = @(
         @{ Command = 'scs / sci / scl / scu'; Desc = 'scoop search / install / list / update' }
@@ -77,7 +77,7 @@ function global:Get-DotfilesHelpData {
     $g['Shell'] = @(
         @{ Command = 'reload';       Desc = 'reload the PowerShell profile' }
         @{ Command = 'which <name>'; Desc = 'resolve a command (source / kind)' }
-        @{ Command = 'dothelp [filter]'; Desc = 'this index' }
+        @{ Command = 'dothelp [filter]'; Desc = 'this index (-i for an fzf picker)' }
     )
     return $g
 }
