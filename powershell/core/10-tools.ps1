@@ -63,10 +63,11 @@ if (Get-Module -ListAvailable PSReadLine) {
     # the PSReadLine analog of Core's HISTORY_IGNORE (history.zsh): the line is
     # still usable in the session, it just isn't written to disk. Returning
     # 'MemoryOnly' keeps it out of the saved file; 'None' would drop it entirely.
+    # The decision lives in Test-SensitiveHistoryLine (core/05-lib.ps1) so it is
+    # unit-tested and word-boundaried — the bare `pwd` command is NOT dropped.
     Set-PSReadLineOption -AddToHistoryHandler {
         param([string]$line)
-        $sensitive = '(?i)(password|passwd|pwd|pass|secret|token|api[_-]?key|bearer|authorization|credential|creds|-password|oauth|jwt|op read|op item)'
-        if ($line -match $sensitive) { return [Microsoft.PowerShell.AddToHistoryOption]::MemoryOnly }
+        if (Test-SensitiveHistoryLine $line) { return [Microsoft.PowerShell.AddToHistoryOption]::MemoryOnly }
         return [Microsoft.PowerShell.AddToHistoryOption]::MemoryAndFile
     }
 
