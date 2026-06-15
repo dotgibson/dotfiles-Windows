@@ -65,6 +65,14 @@ Describe 'repo hygiene' {
         $m = Get-Content (Join-Path $RepoRoot 'maint/Maintenance.ps1') -Raw
         $m | Should -Not -Match '#\s+#\s+#'
     }
+    It '<RelPath> ends with a final newline (editorconfig)' -ForEach (
+        $script:Ps1Files | ForEach-Object {
+            @{ Path = $_.FullName; RelPath = $_.FullName.Substring($script:RepoRoot.Length + 1) }
+        }
+    ) {
+        $bytes = [System.IO.File]::ReadAllBytes($Path)
+        if ($bytes.Length) { $bytes[-1] | Should -Be 0x0A }
+    }
 }
 
 Describe 'psmux config' {

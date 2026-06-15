@@ -1,0 +1,15 @@
+version: 2
+# Keep the SHA-pinned GitHub Actions in ci.yml current. Dependabot opens a PR
+# (with the new SHA + version comment) when an upstream action releases, so the
+# supply-chain pins stay both fixed AND maintained.
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci
+    groups:
+      actions:
+        patterns:
+          - "*"

@@ -11,32 +11,91 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Pinned dependency versions live in one place so a bump is a one-line, reviewable
+# change (and Dependabot can PR action SHAs). Actions are pinned to a full commit
+# SHA — a moved tag can't silently change what runs in CI (supply-chain gate).
+env:
+  PESTER_VERSION: '5.6.1'
+  PSSA_VERSION: '1.22.0'
+
+permissions:
+  contents: read
+
 jobs:
-  # Fast, dependency-free gate. Runs on Linux pwsh in seconds and fails the
-  # build on any syntax/JSON regression before the heavier Windows job spins up.
+  # --- incremental gate -------------------------------------------------------
+  # Decide whether the heavy Windows jobs need to run at all. A docs/markdown-only
+  # change still gets the fast Linux gate, but doesn't spin up two windows-latest
+  # runners for nothing. `code` is true when any changed file is NOT pure docs.
+  detect-changes:
+    name: Detect code changes
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+      - id: filter
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base='${{ github.event.pull_request.base.sha }}'
+            range="$base...HEAD"
+          else
+            base='${{ github.event.before }}'
+            if [ -z "$base" ] || ! git cat-file -e "${base}^{commit}" 2>/dev/null; then
+              base='HEAD~1'
+            fi
+            range="${base}...HEAD"
+          fi
+          changed="$(git diff --name-only "$range" 2>/dev/null || git diff --name-only HEAD~1)"
+          echo "changed files:"; echo "$changed"
+          # code=true if at least one changed path is NOT a docs/markdown file
+          # (anything under docs/ or any *.md is treated as docs-only).
+          if printf '%s\n' "$changed" | grep -qvE '^(docs/.*|.*\.md)$'; then
+            echo 'code=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'code=false' >> "$GITHUB_OUTPUT"
+          fi
+
+  # --- fast, dependency-free gate ---------------------------------------------
+  # Runs on Linux pwsh in seconds and fails the build on any syntax/JSON/format
+  # regression before the heavier Windows jobs spin up. Always runs.
   lint-fast:
-    name: Syntax & manifest gate (fast)
+    name: Syntax, manifest & format gate (fast)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Validate (parser + JSON, no Gallery needed)
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Validate (parser + JSON + editorconfig, no Gallery needed)
         shell: pwsh
         run: ./tests/Invoke-Validation.ps1
 
   analyze:
     name: PSScriptAnalyzer
     runs-on: windows-latest
-    needs: lint-fast
+    needs: [lint-fast, detect-changes]
+    if: needs.detect-changes.outputs.code == 'true'
     steps:
-      - uses: actions/checkout@v4
-      - name: Install PSScriptAnalyzer
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Cache PowerShell modules
+        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        with:
+          path: ~/Documents/PowerShell/Modules
+          key: pssa-${{ runner.os }}-${{ env.PSSA_VERSION }}
+      - name: Install PSScriptAnalyzer (pinned)
         shell: pwsh
         run: |
-          Set-PSRepository PSGallery -InstallationPolicy Trusted
-          Install-Module PSScriptAnalyzer -Scope CurrentUser -Force
+          if (-not (Get-Module -ListAvailable PSScriptAnalyzer |
+                    Where-Object Version -eq ([version]$env:PSSA_VERSION))) {
+            Set-PSRepository PSGallery -InstallationPolicy Trusted
+            Install-Module PSScriptAnalyzer -RequiredVersion $env:PSSA_VERSION `
+              -Scope CurrentUser -Force
+          }
       - name: Analyze
         shell: pwsh
         run: |
+          Import-Module PSScriptAnalyzer -RequiredVersion $env:PSSA_VERSION
           $results = Invoke-ScriptAnalyzer -Path . -Recurse `
               -Settings ./tests/PSScriptAnalyzerSettings.psd1
           if ($results) {
@@ -49,19 +108,42 @@ jobs:
   test:
     name: Pester
     runs-on: windows-latest
-    needs: lint-fast
+    needs: [lint-fast, detect-changes]
+    if: needs.detect-changes.outputs.code == 'true'
     steps:
-      - uses: actions/checkout@v4
-      - name: Install Pester
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Cache PowerShell modules
+        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        with:
+          path: ~/Documents/PowerShell/Modules
+          key: pester-${{ runner.os }}-${{ env.PESTER_VERSION }}
+      - name: Install Pester (pinned)
         shell: pwsh
         run: |
-          Set-PSRepository PSGallery -InstallationPolicy Trusted
-          Install-Module Pester -MinimumVersion 5.5.0 -Scope CurrentUser -Force -SkipPublisherCheck
-      - name: Run tests
+          if (-not (Get-Module -ListAvailable Pester |
+                    Where-Object Version -eq ([version]$env:PESTER_VERSION))) {
+            Set-PSRepository PSGallery -InstallationPolicy Trusted
+            Install-Module Pester -RequiredVersion $env:PESTER_VERSION `
+              -Scope CurrentUser -Force -SkipPublisherCheck
+          }
+      - name: Run tests (with coverage gate)
         shell: pwsh
         run: |
+          Import-Module Pester -RequiredVersion $env:PESTER_VERSION
           $cfg = New-PesterConfiguration
           $cfg.Run.Path = './tests'
-          $cfg.Output.Verbosity = 'Detailed'
           $cfg.Run.Exit = $true
-          Invoke-Pester -Configuration $cfg
+          $cfg.Output.Verbosity = 'Detailed'
+          # Regression gate on the dedicated pure-helper library: it is fully
+          # exercised by Lib.Tests.ps1, so a drop here means a test was deleted or
+          # a branch was added without a covering test. Grow CoveragePaths as more
+          # pure helpers reach full coverage.
+          $cfg.CodeCoverage.Enabled = $true
+          $cfg.CodeCoverage.Path = './powershell/core/05-lib.ps1'
+          $cfg.CodeCoverage.CoveragePercentTarget = 85
+          $r = Invoke-Pester -Configuration $cfg
+          $pct = [math]::Round($r.CodeCoverage.CoveragePercent, 1)
+          "Coverage (05-lib.ps1): $pct% (target 85%)" | Write-Host
+          if ($r.CodeCoverage.CoveragePercent -lt 85) {
+            throw "Coverage $pct% is below the 85% target for the pure-helper library."
+          }

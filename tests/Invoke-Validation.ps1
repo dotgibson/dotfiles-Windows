@@ -77,6 +77,38 @@ if (Get-Command python3 -ErrorAction SilentlyContinue) {
     Write-Host '  - skipped (no python tomllib available)' -ForegroundColor DarkGray
 }
 
+# --- 4. editorconfig basics (final newline, no trailing WS, LF endings) --------
+# Enforces the shipped .editorconfig where it's cheap and unambiguous, so the
+# whole fleet's formatting can't silently drift. Dependency-free (no editorconfig
+# binary): we encode the few rules that matter here.
+#   • every text file ends with a newline           (insert_final_newline = true)
+#   • no trailing whitespace, except *.md            (trim_trailing_whitespace)
+#   • LF line endings, except *.cmd/*.bat            (end_of_line = lf|crlf)
+Write-Host 'editorconfig (final newline / trailing WS / LF):' -ForegroundColor Cyan
+$preEc = $script:fail
+$textExt = '.ps1', '.psm1', '.psd1', '.lua', '.json', '.yml', '.yaml', '.toml', '.md'
+$crlfOk  = '.cmd', '.bat'
+$ecFiles = Get-ChildItem -Path $RepoRoot -Recurse -File |
+    Where-Object {
+        $_.FullName -notmatch '[\\/]\.git[\\/]' -and
+        ($_.Extension -in $textExt -or $_.Name -in '.editorconfig', '.gitignore', '.gitignore_global', '.gitconfig', 'config')
+    }
+foreach ($f in $ecFiles) {
+    $bytes = [System.IO.File]::ReadAllBytes($f.FullName)
+    if ($bytes.Length -eq 0) { continue }                       # empty file: nothing to check
+    if ($bytes[-1] -ne 0x0A) { Fail "no final newline: $($f.FullName)" }
+    if ($f.Extension -notin $crlfOk -and ($bytes -contains 0x0D)) {
+        Fail "CRLF line ending (want LF): $($f.FullName)"
+    }
+    if ($f.Extension -ne '.md') {
+        $text = [System.Text.Encoding]::UTF8.GetString($bytes)
+        if ($text -split "`n" | Where-Object { $_ -match '[ \t]+\r?$' }) {
+            Fail "trailing whitespace: $($f.FullName)"
+        }
+    }
+}
+if ($script:fail -eq $preEc) { Pass "$($ecFiles.Count) file(s) match editorconfig basics" }
+
 Write-Host ''
 if ($script:fail) {
     Write-Host "VALIDATION FAILED ($script:fail issue(s))" -ForegroundColor Red
