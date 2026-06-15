@@ -109,10 +109,10 @@ try {
 
     # --- PowerShell modules ---------------------------------------------------
     # Refresh into the LOCAL (non-OneDrive) modules dir with Save-Module -Force —
-    #     # the same path profile.ps1 prepends and Install-Packages.ps1 seeds. Keeps
-    #         # modules off OneDrive (fast shell start) and sidesteps the old PSReadLine
-    #             # special case: Save-Module just writes the latest Name\Version with no
-    #                 # Update-Module-vs-shipped-module friction.
+    # the same path profile.ps1 prepends and Install-Packages.ps1 seeds. Keeps
+    # modules off OneDrive (fast shell start) and sidesteps the old PSReadLine
+    # special case: Save-Module just writes the latest Name\Version with no
+    # Update-Module-vs-shipped-module friction.
     $localModules = Join-Path $env:LOCALAPPDATA 'PowerShell\Modules'
     New-Item -ItemType Directory -Force -Path $localModules | Out-Null
     foreach ($m in $script:MaintModuleNames) {

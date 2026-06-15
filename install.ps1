@@ -17,6 +17,102 @@ param(
 $ErrorActionPreference = 'Stop'
 $RepoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 
+# --- can we make symlinks? ----------------------------------------------------
+function Test-CanSymlink {
+    $devMode = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock' -ErrorAction SilentlyContinue).AllowDevelopmentWithoutDevLicense
+    $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+    return ($devMode -eq 1) -or $isAdmin
+}
+
+# --- Test-SymlinkCurrent ------------------------------------------------------
+# True only when $Link already exists, IS a symbolic link, and points at $Target.
+# This is what makes re-running install.ps1 idempotent: a link that's already
+# correct is left untouched instead of being backed up and recreated (which used
+# to spawn a fresh `.bak` on every run). Pure/filesystem-only, so it's unit-tested.
+function Test-SymlinkCurrent {
+    param([string]$Link, [string]$Target)
+    if (-not (Test-Path -LiteralPath $Link)) { return $false }
+    $item = Get-Item -LiteralPath $Link -Force -ErrorAction SilentlyContinue
+    if (-not $item -or $item.LinkType -ne 'SymbolicLink') { return $false }
+    $current = @($item.Target)[0]
+    if (-not $current) { return $false }
+    # Compare resolved absolute paths; fall back to a raw compare if either side
+    # can't be resolved (e.g. a dangling link). Case-insensitive to match NTFS.
+    try {
+        $a = (Resolve-Path -LiteralPath $current -ErrorAction Stop).Path
+        $b = (Resolve-Path -LiteralPath $Target  -ErrorAction Stop).Path
+    } catch {
+        return [string]::Equals($current, $Target, [System.StringComparison]::OrdinalIgnoreCase)
+    }
+    return [string]::Equals($a, $b, [System.StringComparison]::OrdinalIgnoreCase)
+}
+
+# --- run accounting + UI --------------------------------------------------------
+# A single tally Link-Item updates, summarized at the end so the run reports what
+# actually changed (linked/copied/skipped/backed-up) instead of scrolling past.
+$script:LinkStats = [ordered]@{ linked = 0; copied = 0; skipped = 0; backedup = 0 }
+
+# Numbered, consistent section header (visual hierarchy + progress: [n/total]).
+$script:StepTotal = 5
+$script:StepNo    = 0
+function Write-Step {
+    param([string]$Title)
+    $script:StepNo++
+    Write-Host ''
+    Write-Host ("[{0}/{1}] " -f $script:StepNo, $script:StepTotal) -ForegroundColor Cyan -NoNewline
+    Write-Host $Title -ForegroundColor White
+}
+
+# Pure: turn the stats tally into the summary lines (unit-tested).
+function Get-InstallSummaryLines {
+    param([System.Collections.IDictionary]$Stats)
+    @(
+        "linked   : $($Stats.linked)"
+        "copied   : $($Stats.copied)"
+        "skipped  : $($Stats.skipped)  (already correct)"
+        "backed up: $($Stats.backedup)"
+    )
+}
+
+# --- link helper --------------------------------------------------------------
+function Link-Item {
+    param([string]$Target, [string]$Link)
+    $parent = Split-Path -Parent $Link
+    if (-not (Test-Path $parent)) { New-Item -ItemType Directory -Force -Path $parent | Out-Null }
+
+    # Idempotent: a link already pointing where we want needs no work — skip it so
+    # repeated runs don't pile up `.bak` files. Only real files, or wrong/stale
+    # links, get backed up and replaced.
+    if ($CanSymlink -and (Test-SymlinkCurrent -Link $Link -Target $Target)) {
+        Write-Host "  ok      $Link (already linked)" -ForegroundColor DarkGray
+        $script:LinkStats.skipped++
+        return
+    }
+
+    if (Test-Path $Link) {
+        $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+        Move-Item $Link "$Link.$stamp.bak" -Force
+        Write-Host "  backed up existing -> $Link.$stamp.bak" -ForegroundColor DarkYellow
+        $script:LinkStats.backedup++
+    }
+    if ($CanSymlink) {
+        New-Item -ItemType SymbolicLink -Path $Link -Target $Target -Force | Out-Null
+        Write-Host "  linked  $Link" -ForegroundColor Green
+        $script:LinkStats.linked++
+    } else {
+        # -Recurse so directory targets (nvim\, psmux\scripts) copy in full — a
+        # plain Copy-Item only takes the top-level entry and leaves them empty.
+        $recurse = (Test-Path $Target -PathType Container)
+        Copy-Item $Target $Link -Force -Recurse:$recurse
+        Write-Host "  copied  $Link" -ForegroundColor Green
+        $script:LinkStats.copied++
+    }
+}
+
+# Library-only hook: dot-sourcing with DOTFILES_INSTALL_LIBONLY=1 exposes the
+# functions above (for the test suite) without running the bootstrap below.
+if ($env:DOTFILES_INSTALL_LIBONLY -eq '1') { return }
+
 # --- preflight: shell version, Mark-of-the-Web, execution policy --------------
 # Warn (do not block) if running under Windows PowerShell 5.1. Bootstrapping
 # from 5.1 is fine - this run installs pwsh 7 - but the profile is wired for
@@ -27,8 +123,11 @@ if ($PSVersionTable.PSEdition -ne 'Core') {
 
 # Strip the "downloaded from the internet" flag off the repo so RemoteSigned
 # policy will not block our own scripts. A `git clone` avoids this entirely;
-# this matters when the repo arrived as a downloaded archive.
-Get-ChildItem -Path $RepoRoot -Recurse -File -ErrorAction SilentlyContinue | Unblock-File -ErrorAction SilentlyContinue
+# this matters when the repo arrived as a downloaded archive. Skip the .git tree:
+# its thousands of objects never get loaded/executed and only slow the scan.
+Get-ChildItem -Path $RepoRoot -Recurse -File -ErrorAction SilentlyContinue |
+    Where-Object { $_.FullName -notlike '*\.git\*' } |
+    Unblock-File -ErrorAction SilentlyContinue
 
 # Ensure scripts can run for this user. RemoteSigned is the minimum the profile
 # needs to load each session. Leave it alone if Group Policy already pins one.
@@ -42,53 +141,26 @@ try {
     Write-Warning "Could not set execution policy (Group Policy may control it): $_"
 }
 
-# --- can we make symlinks? ----------------------------------------------------
-function Test-CanSymlink {
-    $devMode = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock' -ErrorAction SilentlyContinue).AllowDevelopmentWithoutDevLicense
-    $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-    return ($devMode -eq 1) -or $isAdmin
-}
 $CanSymlink = Test-CanSymlink
 if (-not $CanSymlink) {
     Write-Warning 'Neither Developer Mode nor admin detected. Falling back to COPY (changes will not auto-track the repo).'
     Write-Warning 'For true symlinks: enable Developer Mode, or re-run from an elevated PowerShell.'
 }
 
-# --- link helper --------------------------------------------------------------
-function Link-Item {
-    param([string]$Target, [string]$Link)
-    $parent = Split-Path -Parent $Link
-    if (-not (Test-Path $parent)) { New-Item -ItemType Directory -Force -Path $parent | Out-Null }
-    if (Test-Path $Link) {
-        $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
-        Move-Item $Link "$Link.$stamp.bak" -Force
-        Write-Host "  backed up existing -> $Link.$stamp.bak" -ForegroundColor DarkYellow
-    }
-    if ($CanSymlink) {
-        New-Item -ItemType SymbolicLink -Path $Link -Target $Target -Force | Out-Null
-        Write-Host "  linked  $Link" -ForegroundColor Green
-    } else {
-        # -Recurse so directory targets (nvim\, psmux\scripts) copy in full — a
-        # plain Copy-Item only takes the top-level entry and leaves them empty.
-        $recurse = (Test-Path $Target -PathType Container)
-        Copy-Item $Target $Link -Force -Recurse:$recurse
-        Write-Host "  copied  $Link" -ForegroundColor Green
-    }
-}
-
 # --- 1. persistent env var ----------------------------------------------------
-Write-Host '== Setting DOTFILES_WIN ==' -ForegroundColor Cyan
+Write-Step 'Setting DOTFILES_WIN'
 [Environment]::SetEnvironmentVariable('DOTFILES_WIN', $RepoRoot, 'User')
 $env:DOTFILES_WIN = $RepoRoot
+Write-Host "  DOTFILES_WIN = $RepoRoot" -ForegroundColor DarkGray
 
 # --- 2. packages --------------------------------------------------------------
+Write-Step $(if ($SkipPackages) { 'Installing packages (skipped: -SkipPackages)' } else { 'Installing packages' })
 if (-not $SkipPackages) {
-    Write-Host '== Installing packages ==' -ForegroundColor Cyan
     & (Join-Path $RepoRoot 'packages\Install-Packages.ps1')
 }
 
 # --- 3. wire symlinks ---------------------------------------------------------
-Write-Host '== Wiring configs ==' -ForegroundColor Cyan
+Write-Step 'Wiring configs'
 
 # PowerShell 7 profile. Resolve the Documents folder the OneDrive-aware way:
 # [Environment]::GetFolderPath('MyDocuments') follows a OneDrive redirect, so we
@@ -148,6 +220,7 @@ if (Test-Path $wtDir) {
 }
 
 # --- 4. .wslconfig (COPY, don't symlink - it's host-global, edit per machine) -
+Write-Step 'Seeding host-global .wslconfig'
 $wslCfg = Join-Path $HOME '.wslconfig'
 if (-not (Test-Path $wslCfg)) {
     Copy-Item (Join-Path $RepoRoot 'wsl\windows.wslconfig.example') $wslCfg
@@ -157,6 +230,7 @@ if (-not (Test-Path $wslCfg)) {
 }
 
 # --- 5. seed local override + gitconfig.local ---------------------------------
+Write-Step 'Seeding local overrides'
 $localPs = Join-Path $RepoRoot 'powershell\local.ps1'
 if (-not (Test-Path $localPs)) { Copy-Item (Join-Path $RepoRoot 'powershell\local.ps1.example') $localPs }
 
@@ -177,5 +251,16 @@ if (-not (Test-Path $gcLocal)) {
 # silently dirtying the tracked repo file (it edits the symlink target).
 
 Write-Host ''
-Write-Host 'Bootstrap complete. Open a NEW PowerShell window (pwsh) to load the profile.' -ForegroundColor Green
-Write-Host 'Then: set your name/email in ~/.gitconfig.local, review ~/.wslconfig, and run `wsl --shutdown`.' -ForegroundColor Green
+Write-Host '── Summary ─────────────────────────────────────────────' -ForegroundColor Cyan
+Get-InstallSummaryLines -Stats $script:LinkStats | ForEach-Object { Write-Host "  $_" -ForegroundColor Gray }
+if (-not $CanSymlink) {
+    Write-Host '  mode    : COPY (no Dev Mode / not elevated — links would not track the repo)' -ForegroundColor DarkYellow
+}
+
+Write-Host ''
+Write-Host 'Bootstrap complete.' -ForegroundColor Green
+Write-Host 'Next steps:' -ForegroundColor White
+Write-Host '  1. Open a NEW PowerShell window (pwsh) to load the profile.' -ForegroundColor Gray
+Write-Host '  2. Set your name/email in ~/.gitconfig.local.' -ForegroundColor Gray
+Write-Host '  3. Review ~/.wslconfig, then run: wsl --shutdown' -ForegroundColor Gray
+Write-Host '  4. Run `dotfiles-doctor` to verify everything is wired correctly.' -ForegroundColor Gray

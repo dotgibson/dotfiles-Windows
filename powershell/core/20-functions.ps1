@@ -17,7 +17,7 @@ function localips  {
 # so the function still works on a fresh bootstrap before ouch is installed.
 function extract {
     param([Parameter(Mandatory)][string]$Path)
-    if (-not (Test-Path $Path)) { Write-Error "no such file: $Path"; return }
+    if (-not (Test-Path $Path)) { Write-DotErr "no such file: $Path"; return }
     if (Test-Cmd ouch) { ouch d $Path; return }
     # fallback: built-in handlers for the most common formats
     $full = (Resolve-Path $Path).Path
@@ -26,8 +26,8 @@ function extract {
         '\.(tar\.gz|tgz)$'   { tar -xzf $full; break }
         '\.(tar\.bz2|tbz)$'  { tar -xjf $full; break }
         '\.tar$'             { tar -xf  $full; break }
-        '\.7z$'              { if (Test-Cmd 7z) { 7z x $full } else { Write-Error '7z not installed (scoop install 7zip)' }; break }
-        default              { Write-Error "don't know how to extract: $full (install ouch for broader format support)" }
+        '\.7z$'              { if (Test-Cmd 7z) { 7z x $full } else { Write-DotErr '7z not installed' 'scoop install 7zip' }; break }
+        default              { Write-DotErr "don't know how to extract: $full" 'install ouch for broader format support: scoop install ouch' }
     }
 }
 
@@ -39,8 +39,8 @@ function compress {
     param(
         [Parameter(Mandatory, ValueFromRemainingArguments)][string[]]$Targets
     )
-    if (-not (Test-Cmd ouch)) { Write-Error 'compress needs ouch (scoop install ouch)'; return }
-    if ($Targets.Count -lt 2) { Write-Error 'usage: compress <source...> <output-archive>'; return }
+    if (-not (Test-Cmd ouch)) { Write-DotErr 'compress needs ouch' 'scoop install ouch'; return }
+    if ($Targets.Count -lt 2) { Write-DotErr 'usage: compress <source...> <output-archive>'; return }
     ouch c @Targets
 }
 
@@ -75,20 +75,30 @@ function serve {
         Sort-Object SkipAsSource | Select-Object -First 1 -ExpandProperty IPAddress)
     Write-Host "serving $((Get-Location).Path) on port $Port  (Ctrl-C to stop)" -ForegroundColor Cyan
     if ($ip) { Write-Host "  -> http://${ip}:$Port/   (lan)" -ForegroundColor Green }
-    if (Test-Cmd python) { python -m http.server $Port }
-    elseif (Test-Cmd python3) { python3 -m http.server $Port }
-    else { Write-Error 'python not found (scoop install python)' }
+    if (-not ((Test-Cmd python) -or (Test-Cmd python3))) {
+        Write-DotErr 'python not found' 'scoop install python'; return
+    }
+    # finally: print a clean line on Ctrl-C (or normal exit) instead of dumping
+    # the user back at a bare prompt with no acknowledgement the server stopped.
+    try {
+        if (Test-Cmd python) { python -m http.server $Port }
+        else { python3 -m http.server $Port }
+    } finally {
+        Write-Host "`nserver stopped." -ForegroundColor DarkGray
+    }
 }
 
 # --- fif: find text inside files (rg -> fzf -> open in nvim) -------------------
 function fif {
     param([Parameter(Mandatory)][string]$Term)
-    if (-not (Test-Cmd rg) -or -not (Test-Cmd fzf)) { Write-Error 'fif needs rg + fzf'; return }
+    if (-not (Test-Cmd rg) -or -not (Test-Cmd fzf)) { Write-DotErr 'fif needs rg + fzf' 'scoop install ripgrep fzf'; return }
     $preview = 'bat --style=numbers --color=always "{}"'  # quotes needed for paths with spaces on Windows
     $file = rg --files-with-matches --no-messages $Term |
         fzf --height 80% --layout=reverse --border --prompt 'Text Match > ' `
             --preview $preview --preview-window 'right:65%:wrap'
-    if ($file) { nvim $file }
+    if (-not $file) { return }
+    if (Test-Cmd nvim) { nvim $file }
+    else { Write-DotErr 'nvim not found to open the match' "the file is: $file" }
 }
 
 # --- fbr: fuzzy git branch checkout -------------------------------------------

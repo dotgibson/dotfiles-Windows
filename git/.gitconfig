@@ -24,7 +24,7 @@
 	commitGraph = true
 	whitespace = fix,-indent-with-non-tab,trailing-space,cr-at-eol
 	fsmonitor = true              # background file-system monitor — fast status on big repos
-  untrackedCache = true         # cache untracked-file scans (pairs with fsmonitor)
+	untrackedCache = true         # cache untracked-file scans (pairs with fsmonitor)
 	excludesfile = ~/.gitignore_global   # git expands ~ — portable across machines/users
 
 [commit]
@@ -200,4 +200,3 @@
 # ── Private identity (name/email/signingkey) — gitignored, NEVER tracked ──────
 [include]
 	path = ~/.gitconfig.local
-

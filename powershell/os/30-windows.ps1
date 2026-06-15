@@ -35,7 +35,13 @@ Set-Alias explorer-here open
 function admin {
     if (Test-Cmd sudo) { sudo @args; return }
     if ($args.Count -gt 0) {
-        Start-Process pwsh -Verb RunAs -ArgumentList ('-NoExit','-Command',($args -join ' '))
+        # Re-quote any argument that contains whitespace so a relaunched command
+        # like `admin code "C:\Program Files\x"` survives the join into -Command
+        # instead of being split into separate tokens.
+        $cmd = ($args | ForEach-Object {
+            if ($_ -match '\s') { '"' + ($_ -replace '"', '`"') + '"' } else { "$_" }
+        }) -join ' '
+        Start-Process pwsh -Verb RunAs -ArgumentList @('-NoExit', '-Command', $cmd)
     } else {
         Start-Process pwsh -Verb RunAs
     }

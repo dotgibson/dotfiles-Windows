@@ -1,0 +1,35 @@
+# https://editorconfig.org — consistent formatting across the PS/Lua/JSON/TOML mix.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+# PowerShell — 4-space indent (matches the existing fragments).
+[*.{ps1,psm1,psd1}]
+indent_size = 4
+
+# Lua (Neovim config) — 2-space, the lua-fmt / stylua convention.
+[*.lua]
+indent_size = 2
+
+# Data/markup — 2-space.
+[*.{json,yml,yaml,toml}]
+indent_size = 2
+
+# Markdown — keep trailing whitespace (hard line breaks) and 2-space.
+[*.md]
+indent_size = 2
+trim_trailing_whitespace = false
+
+# Git config uses tabs (git's own convention).
+[.gitconfig]
+indent_style = tab
+
+# Windows-targeted shells/configs that Windows tooling expects as CRLF.
+[*.{cmd,bat}]
+end_of_line = crlf

@@ -122,6 +122,14 @@ than the cache (e.g. after a scoop upgrade), trimming a subprocess spawn per too
 off every cold start. `init-cache-clear` forces a rebuild if you change a tool's
 init flags in `core/10-tools.ps1`.
 
+**Which profiler?** There are three, each for a different question:
+
+| Use                         | When                                                                                                                                                                                               |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `shell-bench [runs]`        | "How long is a cold start?" — wall-clock totals only.                                                                                                                                              |
+| `prof-trace`                | "Where does the time go?" — per-fragment / per-tool breakdown.                                                                                                                                     |
+| `maint/Measure-Profile.ps1` | "Which fragment HANGS?" — writes a breadcrumb log before each fragment, so the last line names the one that froze. Reach for this only when a shell hangs on load and `prof-trace` prints nothing. |
+
 **Startup speed.** Two items dominate a cold shell and are therefore **off by
 default**: `Terminal-Icons` (~1.1s — only themes raw `Get-ChildItem`, which your
 `ls`/`ll` bypass via `eza --icons`) and `carapace` (~1.5s completion generation —
