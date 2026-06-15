@@ -61,6 +61,22 @@ function script:Test-LinkIntoRepo {
     return ($target -and $global:DOTFILES -and $target -like "*$($global:DOTFILES)*")
 }
 
+# --- fragment-load health (pure: maps the loader's error list to a result) ----
+# $null  -> profile never loaded (probably a direct dot-source, not a real shell)
+# empty  -> every fragment loaded clean
+# items  -> at least one fragment threw; surface the count + the first failure.
+function global:Get-FragmentHealthResult {
+    param($LoadErrors)
+    if ($null -eq $LoadErrors) {
+        return New-DoctorResult 'Profile fragments' 'warn' 'not loaded via the profile' 'open a new pwsh shell so the profile loads'
+    }
+    $list = @($LoadErrors)
+    if ($list.Count -eq 0) {
+        return New-DoctorResult 'Profile fragments' 'ok' 'all fragments loaded clean'
+    }
+    return New-DoctorResult 'Profile fragments' 'fail' "$($list.Count) failed: $($list[0])" 'fix the fragment, then run: reload'
+}
+
 # --- the probes (host-specific; each returns a DoctorResult) ------------------
 function script:Get-DoctorResults {
     $r = [System.Collections.Generic.List[object]]::new()
@@ -137,6 +153,10 @@ function script:Get-DoctorResults {
     } else {
         $r.Add((New-DoctorResult 'git identity' 'warn' 'placeholder or missing' 'set your name/email in ~/.gitconfig.local'))
     }
+
+    # profile fragment load health (B7): the loader records any fragment that
+    # threw into $global:DotfilesLoadErrors. Classification is pure (unit-tested).
+    $r.Add((Get-FragmentHealthResult $global:DotfilesLoadErrors))
 
     # core toolchain on PATH
     $core = 'git', 'starship', 'zoxide', 'fzf', 'rg', 'fd', 'bat', 'eza', 'nvim', 'psmux'

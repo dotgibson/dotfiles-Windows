@@ -22,6 +22,21 @@ Describe 'New-DoctorResult' {
     }
 }
 
+Describe 'Get-FragmentHealthResult' {
+    It 'warns when the profile never loaded (null)' {
+        (Get-FragmentHealthResult $null).Status | Should -Be 'warn'
+    }
+    It 'is ok for an empty error list' {
+        (Get-FragmentHealthResult @()).Status | Should -Be 'ok'
+    }
+    It 'fails and reports the count + first failure' {
+        $res = Get-FragmentHealthResult @('core/10-tools.ps1: boom', 'os/40-maint.ps1: nope')
+        $res.Status | Should -Be 'fail'
+        $res.Detail | Should -Match '2 failed'
+        $res.Detail | Should -Match '10-tools'
+    }
+}
+
 Describe 'Get-DoctorSummary' {
     It 'counts ok/warn/fail correctly' {
         $s = Get-DoctorSummary @(
