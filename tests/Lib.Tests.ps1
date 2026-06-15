@@ -31,6 +31,27 @@ Describe 'Test-SensitiveHistoryLine' {
     }
 }
 
+Describe 'Test-DotColor' {
+    It 'enables colour by default'        { Test-DotColor -NoColor '' -Term 'xterm' | Should -BeTrue }
+    It 'disables colour when NO_COLOR set' { Test-DotColor -NoColor '1' -Term 'xterm' | Should -BeFalse }
+    It 'disables colour for TERM=dumb'    { Test-DotColor -NoColor '' -Term 'dumb' | Should -BeFalse }
+}
+
+Describe 'Test-DotUnicode' {
+    It 'is unicode by default'             { Test-DotUnicode -Ascii '' | Should -BeTrue }
+    It 'falls back to ASCII when forced'   { Test-DotUnicode -Ascii '1' | Should -BeFalse }
+}
+
+Describe 'Get-DotGlyph' {
+    It 'returns the unicode glyph by default'   { Get-DotGlyph -Name fail -Unicode $true | Should -Be '✗' }
+    It 'returns an ASCII fallback when asked'   { Get-DotGlyph -Name fail -Unicode $false | Should -Be 'x' }
+    It 'maps the arrow both ways' {
+        Get-DotGlyph arrow -Unicode $true  | Should -Be '→'
+        Get-DotGlyph arrow -Unicode $false | Should -Be '->'
+    }
+    It 'rejects an unknown glyph name' { { Get-DotGlyph -Name nope } | Should -Throw }
+}
+
 Describe 'Write-DotErr' {
     It 'composes message and hint with -PassThru' {
         $out = Write-DotErr -Message 'boom' -Hint 'do this' -PassThru 6>$null
@@ -39,5 +60,12 @@ Describe 'Write-DotErr' {
     }
     It 'omits the hint line when none is given' {
         (Write-DotErr -Message 'only' -PassThru 6>$null) | Should -Be '✗ only'
+    }
+    It 'uses ASCII glyphs under DOTFILES_ASCII=1' {
+        $prev = $env:DOTFILES_ASCII
+        try {
+            $env:DOTFILES_ASCII = '1'
+            (Write-DotErr -Message 'only' -PassThru 6>$null) | Should -Be 'x only'
+        } finally { $env:DOTFILES_ASCII = $prev }
     }
 }

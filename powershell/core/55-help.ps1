@@ -88,9 +88,13 @@ function global:dothelp {
 
     $data = Get-DotfilesHelpData
     Write-Host ''
-    Write-Host ' dotfiles-Windows ' -ForegroundColor Black -BackgroundColor Blue -NoNewline
-    Write-Host '  custom commands' -ForegroundColor Cyan
-    if ($Filter) { Write-Host "  (filtered by '$Filter')" -ForegroundColor DarkGray }
+    if (Test-DotColor) {
+        Write-Host ' dotfiles-Windows ' -ForegroundColor Black -BackgroundColor Blue -NoNewline
+        Write-Host '  custom commands' -ForegroundColor Cyan
+    } else {
+        Write-Host '== dotfiles-Windows :: custom commands =='
+    }
+    if ($Filter) { Write-DotHost "  (filtered by '$Filter')" -Color DarkGray }
     Write-Host ''
 
     $shown = 0
@@ -100,17 +104,17 @@ function global:dothelp {
             $rows = $rows | Where-Object { $_.Command -match [regex]::Escape($Filter) -or $_.Desc -match [regex]::Escape($Filter) }
         }
         if (-not $rows) { continue }
-        Write-Host "  $group" -ForegroundColor Yellow
+        Write-DotHost "  $group" -Color Yellow
         $width = ($rows.Command | Measure-Object -Maximum -Property Length).Maximum
         foreach ($r in $rows) {
             $shown++
-            Write-Host ("    {0,-$width}" -f $r.Command) -ForegroundColor Green -NoNewline
-            Write-Host "   $($r.Desc)" -ForegroundColor Gray
+            Write-DotHost ("    {0,-$width}" -f $r.Command) -Color Green -NoNewline
+            Write-DotHost "   $($r.Desc)" -Color Gray
         }
         Write-Host ''
     }
     if ($Filter -and $shown -eq 0) {
-        Write-Host "  no commands match '$Filter'." -ForegroundColor DarkYellow
+        Write-DotHost "  no commands match '$Filter'." -Color DarkYellow
         Write-Host ''
     }
 }

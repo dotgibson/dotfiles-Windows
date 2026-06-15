@@ -4,6 +4,9 @@
 
 BeforeAll {
     $RepoRoot = Split-Path -Parent $PSScriptRoot
+    # Load the shared lib first (profile load order) so dothelp's colour helper
+    # (Write-DotHost / Test-DotColor) is available when it renders.
+    . (Join-Path $RepoRoot 'powershell/core/05-lib.ps1')
     . (Join-Path $RepoRoot 'powershell/core/55-help.ps1')
 }
 

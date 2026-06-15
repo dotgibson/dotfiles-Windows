@@ -5,6 +5,9 @@
 
 BeforeAll {
     $RepoRoot = Split-Path -Parent $PSScriptRoot
+    # Load the shared lib first (profile load order) so the renderer's glyph/colour
+    # helpers are present.
+    . (Join-Path $RepoRoot 'powershell/core/05-lib.ps1')
     . (Join-Path $RepoRoot 'powershell/os/45-doctor.ps1')
 }
 

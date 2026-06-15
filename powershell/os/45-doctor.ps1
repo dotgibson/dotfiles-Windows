@@ -34,18 +34,20 @@ function global:Get-DoctorSummary {
 }
 
 # --- render one result line ---------------------------------------------------
+# Glyphs/colour route through the shared helpers (core/05-lib.ps1) so the report
+# degrades cleanly under NO_COLOR / DOTFILES_ASCII like every other renderer.
 function script:Write-DoctorLine {
     param([object]$Result)
     $glyph, $color = switch ($Result.Status) {
-        'ok'   { '✓', 'Green' }
-        'warn' { '!', 'Yellow' }
-        'fail' { '✗', 'Red' }
+        'ok'   { (Get-DotGlyph ok),   'Green' }
+        'warn' { (Get-DotGlyph warn), 'Yellow' }
+        'fail' { (Get-DotGlyph fail), 'Red' }
     }
-    Write-Host "  $glyph " -ForegroundColor $color -NoNewline
+    Write-DotHost "  $glyph " -Color $color -NoNewline
     Write-Host ("{0,-26}" -f $Result.Name) -NoNewline
-    Write-Host " $($Result.Detail)" -ForegroundColor Gray
+    Write-DotHost " $($Result.Detail)" -Color Gray
     if ($Result.Status -ne 'ok' -and $Result.Hint) {
-        Write-Host ("      → {0}" -f $Result.Hint) -ForegroundColor DarkGray
+        Write-DotHost ("      {0} {1}" -f (Get-DotGlyph arrow), $Result.Hint) -Color DarkGray
     }
 }
 
@@ -155,7 +157,11 @@ function global:dotfiles-doctor {
     $results = Get-DoctorResults
     if (-not $Quiet) {
         Write-Host ''
-        Write-Host ' dotfiles-doctor ' -ForegroundColor Black -BackgroundColor Cyan
+        if (Test-DotColor) {
+            Write-Host ' dotfiles-doctor ' -ForegroundColor Black -BackgroundColor Cyan
+        } else {
+            Write-Host '== dotfiles-doctor =='
+        }
         Write-Host ''
         foreach ($res in $results) { Write-DoctorLine $res }
         Write-Host ''
@@ -163,7 +169,8 @@ function global:dotfiles-doctor {
 
     $s = Get-DoctorSummary $results
     $color = switch ($s.Overall) { 'ok' { 'Green' } 'warn' { 'Yellow' } 'fail' { 'Red' } }
-    Write-Host ("  {0} ok · {1} warn · {2} fail" -f $s.Ok, $s.Warn, $s.Fail) -ForegroundColor $color
+    $sep = if (Test-DotUnicode) { '·' } else { '|' }
+    Write-DotHost ("  {0} ok {3} {1} warn {3} {2} fail" -f $s.Ok, $s.Warn, $s.Fail, $sep) -Color $color
 
     if ($PassThru) { return $results }
 }
