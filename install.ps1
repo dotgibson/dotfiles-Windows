@@ -123,8 +123,11 @@ if ($PSVersionTable.PSEdition -ne 'Core') {
 
 # Strip the "downloaded from the internet" flag off the repo so RemoteSigned
 # policy will not block our own scripts. A `git clone` avoids this entirely;
-# this matters when the repo arrived as a downloaded archive.
-Get-ChildItem -Path $RepoRoot -Recurse -File -ErrorAction SilentlyContinue | Unblock-File -ErrorAction SilentlyContinue
+# this matters when the repo arrived as a downloaded archive. Skip the .git tree:
+# its thousands of objects never get loaded/executed and only slow the scan.
+Get-ChildItem -Path $RepoRoot -Recurse -File -ErrorAction SilentlyContinue |
+    Where-Object { $_.FullName -notlike '*\.git\*' } |
+    Unblock-File -ErrorAction SilentlyContinue
 
 # Ensure scripts can run for this user. RemoteSigned is the minimum the profile
 # needs to load each session. Leave it alone if Group Policy already pins one.

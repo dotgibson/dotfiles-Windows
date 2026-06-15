@@ -52,6 +52,21 @@ Describe 'Package manifests' {
     }
 }
 
+Describe 'repo hygiene' {
+    BeforeAll { $RepoRoot = Split-Path -Parent $PSScriptRoot }
+    It 'ships an .editorconfig' {
+        Test-Path (Join-Path $RepoRoot '.editorconfig') | Should -BeTrue
+    }
+    It 'install.ps1 excludes the .git tree from Unblock-File' {
+        $i = Get-Content (Join-Path $RepoRoot 'install.ps1') -Raw
+        $i | Should -Match "notlike '\*\\\.git\\\*'"
+    }
+    It 'Maintenance.ps1 has no garbled nested-hash comment' {
+        $m = Get-Content (Join-Path $RepoRoot 'maint/Maintenance.ps1') -Raw
+        $m | Should -Not -Match '#\s+#\s+#'
+    }
+}
+
 Describe 'psmux config' {
     BeforeAll {
         $RepoRoot = Split-Path -Parent $PSScriptRoot

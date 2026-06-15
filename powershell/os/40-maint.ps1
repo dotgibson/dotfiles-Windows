@@ -89,7 +89,9 @@ function maint-log {
     if (-not (Test-Path $script:MaintLog)) { Write-Host "no log yet at $script:MaintLog"; return }
 
     if ("$Arg" -in $script:FollowArgs) {
-        Get-Content $script:MaintLog -Wait -Tail 20
+        Write-Host "following $script:MaintLog  (Ctrl-C to stop)" -ForegroundColor DarkGray
+        try { Get-Content $script:MaintLog -Wait -Tail 20 }
+        finally { Write-Host "`nstopped following the log." -ForegroundColor DarkGray }
     } else {
         $lineCount = 0
         if (-not [int]::TryParse("$Arg", [ref]$lineCount) -or $lineCount -le 0) {

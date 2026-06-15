@@ -75,20 +75,30 @@ function serve {
         Sort-Object SkipAsSource | Select-Object -First 1 -ExpandProperty IPAddress)
     Write-Host "serving $((Get-Location).Path) on port $Port  (Ctrl-C to stop)" -ForegroundColor Cyan
     if ($ip) { Write-Host "  -> http://${ip}:$Port/   (lan)" -ForegroundColor Green }
-    if (Test-Cmd python) { python -m http.server $Port }
-    elseif (Test-Cmd python3) { python3 -m http.server $Port }
-    else { Write-DotErr 'python not found' 'scoop install python' }
+    if (-not ((Test-Cmd python) -or (Test-Cmd python3))) {
+        Write-DotErr 'python not found' 'scoop install python'; return
+    }
+    # finally: print a clean line on Ctrl-C (or normal exit) instead of dumping
+    # the user back at a bare prompt with no acknowledgement the server stopped.
+    try {
+        if (Test-Cmd python) { python -m http.server $Port }
+        else { python3 -m http.server $Port }
+    } finally {
+        Write-Host "`nserver stopped." -ForegroundColor DarkGray
+    }
 }
 
 # --- fif: find text inside files (rg -> fzf -> open in nvim) -------------------
 function fif {
     param([Parameter(Mandatory)][string]$Term)
-    if (-not (Test-Cmd rg) -or -not (Test-Cmd fzf)) { Write-Error 'fif needs rg + fzf'; return }
+    if (-not (Test-Cmd rg) -or -not (Test-Cmd fzf)) { Write-DotErr 'fif needs rg + fzf' 'scoop install ripgrep fzf'; return }
     $preview = 'bat --style=numbers --color=always "{}"'  # quotes needed for paths with spaces on Windows
     $file = rg --files-with-matches --no-messages $Term |
         fzf --height 80% --layout=reverse --border --prompt 'Text Match > ' `
             --preview $preview --preview-window 'right:65%:wrap'
-    if ($file) { nvim $file }
+    if (-not $file) { return }
+    if (Test-Cmd nvim) { nvim $file }
+    else { Write-DotErr 'nvim not found to open the match' "the file is: $file" }
 }
 
 # --- fbr: fuzzy git branch checkout -------------------------------------------
