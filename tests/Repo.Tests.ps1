@@ -50,6 +50,30 @@ Describe 'Package manifests' {
         $w | Should -Not -BeNullOrEmpty
         ($w | Group-Object | Where-Object Count -gt 1) | Should -BeNullOrEmpty
     }
+    It 'every winget id is a Publisher.Package form (provenance)' {
+        $w = (Get-Content (Join-Path $RepoRoot 'packages/winget.json') -Raw | ConvertFrom-Json).packages
+        foreach ($id in $w) { $id | Should -Match '^[^\s.]+(\.[^\s.]+)+$' }
+    }
+    It 'every scoop app has a plausible id (provenance)' {
+        $m = Get-Content (Join-Path $RepoRoot 'packages/scoopfile.json') -Raw | ConvertFrom-Json
+        foreach ($app in $m.apps) { $app.Name | Should -Match '^[\w.+-]+$' }
+    }
+}
+
+Describe 'Managed module pins' {
+    BeforeAll {
+        $RepoRoot = Split-Path -Parent $PSScriptRoot
+        . (Join-Path $RepoRoot 'packages/modules.ps1')
+    }
+    It 'pins a version floor for every managed module' {
+        $script:MaintModulePins.Count | Should -BeGreaterThan 0
+        foreach ($name in $script:MaintModulePins.Keys) {
+            $script:MaintModulePins[$name] | Should -Match '^\d+\.\d+'
+        }
+    }
+    It 'keeps the name list in sync with the pins' {
+        @($script:MaintModuleNames).Count | Should -Be $script:MaintModulePins.Count
+    }
 }
 
 Describe 'repo hygiene' {

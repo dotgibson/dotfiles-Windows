@@ -52,12 +52,23 @@ if (Test-Path $scoop) {
     if ($dupApps) { Fail "scoopfile.json duplicate apps: $($dupApps.Name -join ', ')" }
     $dupBkt = $m.buckets.Name | Group-Object | Where-Object Count -gt 1
     if ($dupBkt) { Fail "scoopfile.json duplicate buckets: $($dupBkt.Name -join ', ')" }
+    # Provenance: every app names a declared bucket and looks like a real app id,
+    # so a typo'd entry fails here instead of only on a live box at install time.
+    $declared = @($m.buckets.Name)
+    foreach ($app in $m.apps) {
+        if ($app.Name -notmatch '^[\w.+-]+$') { Fail "scoopfile.json odd app name: '$($app.Name)'" }
+        if ($declared -notcontains $app.Source) { Fail "scoopfile.json app '$($app.Name)' references undeclared bucket '$($app.Source)'" }
+    }
 }
 $wg = Join-Path $RepoRoot 'packages/winget.json'
 if (Test-Path $wg) {
     $w = (Get-Content $wg -Raw | ConvertFrom-Json).packages
     $dupWg = $w | Group-Object | Where-Object Count -gt 1
     if ($dupWg) { Fail "winget.json duplicate ids: $($dupWg.Name -join ', ')" }
+    # Provenance: winget ids are Publisher.Package (at least one dot, no spaces).
+    foreach ($id in $w) {
+        if ($id -notmatch '^[^\s.]+(\.[^\s.]+)+$') { Fail "winget.json malformed id: '$id'" }
+    }
 }
 if ($script:fail -eq $preJson) { Pass 'all JSON valid; manifests have no duplicates' }
 

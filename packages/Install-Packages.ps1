@@ -176,7 +176,10 @@ foreach ($m in $mods) {
         continue
     }
     $sw = Write-PkgStep -N $k -Total $mods.Count -Name $m
-    try { Save-Module -Name $m -Path $localModules -Force -ErrorAction Stop; $sw.Stop() }
+    # -MinimumVersion pins a reproducible floor (see packages/modules.ps1); it
+    # still resolves the latest available at/above that version.
+    $min = $script:MaintModulePins[$m]
+    try { Save-Module -Name $m -Path $localModules -MinimumVersion $min -Force -ErrorAction Stop; $sw.Stop() }
     catch { $sw.Stop(); Write-DotWarn "module $m failed: $_"; $failed.Add("module:$m") }
 }
 
