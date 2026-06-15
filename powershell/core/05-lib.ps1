@@ -117,3 +117,29 @@ function global:Write-DotErr {
         return $out
     }
 }
+
+# --- Write-DotWarn ------------------------------------------------------------
+# The non-fatal sibling of Write-DotErr: a yellow "! <message>" with an optional
+# dimmed "→ <hint>". Used in place of bare Write-Warning at the user-facing entry
+# points (install.ps1, the package installer) so warnings share one layout and
+# honour NO_COLOR / DOTFILES_ASCII. -PassThru returns the composed text.
+function global:Write-DotWarn {
+    param(
+        [Parameter(Mandatory)][string]$Message,
+        [string]$Hint,
+        [switch]$PassThru
+    )
+    $bang = Get-DotGlyph warn
+    $arrow = Get-DotGlyph arrow
+    Write-DotHost "  $bang " -Color Yellow -NoNewline
+    Write-DotHost $Message -Color Yellow
+    if ($Hint) {
+        Write-DotHost "    $arrow " -Color DarkGray -NoNewline
+        Write-DotHost $Hint -Color DarkGray
+    }
+    if ($PassThru) {
+        $out = "$bang $Message"
+        if ($Hint) { $out += "`n$arrow $Hint" }
+        return $out
+    }
+}

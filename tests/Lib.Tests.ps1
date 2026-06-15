@@ -69,3 +69,14 @@ Describe 'Write-DotErr' {
         } finally { $env:DOTFILES_ASCII = $prev }
     }
 }
+
+Describe 'Write-DotWarn' {
+    It 'composes a warning with the bang glyph and hint' {
+        $out = Write-DotWarn -Message 'heads up' -Hint 'try this' -PassThru 6>$null
+        $out | Should -Match '! heads up'
+        $out | Should -Match '→ try this'
+    }
+    It 'omits the hint line when none is given' {
+        (Write-DotWarn -Message 'bare' -PassThru 6>$null) | Should -Be '! bare'
+    }
+}
