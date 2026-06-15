@@ -47,7 +47,7 @@ Describe 'Get-InstallSummaryLines' {
 
 Describe 'Get-InstallUsage' {
     It 'documents every public switch' {
-        $u = Get-InstallUsage -join "`n"
+        $u = (Get-InstallUsage) -join "`n"
         foreach ($flag in '-SkipPackages', '-DryRun', '-NonInteractive', '-Yes', '-Help') {
             $u | Should -Match ([regex]::Escape($flag))
         }

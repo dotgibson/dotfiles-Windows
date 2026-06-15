@@ -253,6 +253,17 @@ if (-not $CanSymlink) {
     Write-DotWarn 'Neither Developer Mode nor admin detected — falling back to COPY (changes will not auto-track the repo).' 'For true symlinks: enable Developer Mode, or re-run from an elevated PowerShell.'
 }
 
+# Wire the repo-local pre-commit gate when this is a git clone (so contributors
+# get the dependency-free validator on every commit). Harmless for users.
+if (Test-Path (Join-Path $RepoRoot '.git')) {
+    if ($script:DryRun) {
+        Write-DotHost '  would set git core.hooksPath = .githooks' -Color Cyan
+    } else {
+        git -C $RepoRoot config core.hooksPath .githooks 2>$null
+        Write-Host '  git hooks: core.hooksPath = .githooks (pre-commit validation)' -ForegroundColor DarkGray
+    }
+}
+
 # --- 1. persistent env var ----------------------------------------------------
 Write-Step 'Setting DOTFILES_WIN'
 if ($script:DryRun) {
