@@ -32,6 +32,18 @@ Describe 'Get-DotfilesHelpData' {
     }
 }
 
+Describe 'Get-DotHelpFlatLines' {
+    It 'emits one tab-delimited command/desc/group line per entry' {
+        $lines = Get-DotHelpFlatLines
+        $lines.Count | Should -BeGreaterThan 10
+        foreach ($l in $lines) { ($l -split "`t").Count | Should -Be 3 }
+    }
+    It 'includes a known command in the first field' {
+        $cmds = Get-DotHelpFlatLines | ForEach-Object { ($_ -split "`t")[0] }
+        $cmds | Should -Contain 'lg'
+    }
+}
+
 Describe 'Get-DotHelpFilters' {
     It 'includes group names and individual command verbs' {
         $f = Get-DotHelpFilters

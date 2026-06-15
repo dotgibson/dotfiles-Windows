@@ -101,9 +101,44 @@ function global:Get-DotHelpFilters {
     $out | Sort-Object -Unique
 }
 
+# --- Get-DotHelpFlatLines -----------------------------------------------------
+# One tab-delimited "command<TAB>description<TAB>group" line per entry, for the
+# interactive (fzf) picker. Pure, so it's unit-tested.
+function global:Get-DotHelpFlatLines {
+    $data = Get-DotfilesHelpData
+    $out = [System.Collections.Generic.List[string]]::new()
+    foreach ($group in $data.Keys) {
+        foreach ($row in $data[$group]) {
+            $out.Add(("{0}`t{1}`t{2}" -f $row.Command, $row.Desc, $group))
+        }
+    }
+    return $out
+}
+
 function global:dothelp {
     [CmdletBinding()]
-    param([string]$Filter)
+    param([string]$Filter, [switch]$Interactive)
+
+    # Interactive picker: fuzzy-filter every command, and copy the pick to the
+    # clipboard so it's ready to paste. Falls back with a hint if fzf is absent.
+    if ($Interactive) {
+        if (-not (Get-Command fzf -ErrorAction SilentlyContinue)) {
+            Write-DotErr 'interactive dothelp needs fzf' 'scoop install fzf'
+            return
+        }
+        $picked = Get-DotHelpFlatLines |
+            fzf --delimiter "`t" --with-nth '1,2' --height '60%' --layout=reverse --border `
+                --prompt 'dothelp > ' --preview-window 'hidden'
+        if ($picked) {
+            $cmd = ($picked -split "`t")[0]
+            Write-DotHost $cmd -Color Green
+            if (Get-Command Set-Clipboard -ErrorAction SilentlyContinue) {
+                $cmd | Set-Clipboard
+                Write-DotHost '  (copied to clipboard)' -Color DarkGray
+            }
+        }
+        return
+    }
 
     $data = Get-DotfilesHelpData
     Write-Host ''
