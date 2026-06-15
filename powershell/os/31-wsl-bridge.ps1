@@ -8,6 +8,21 @@
 #  wsl/windows.wslconfig.example for mirrored networking).
 # ============================================================================
 
+# --- pure path translation (defined BEFORE the wsl guard so it's always testable)
+# C:\Users\me\src -> /mnt/c/Users/me/src. Returns $null for anything that isn't a
+# drive-qualified Windows path (UNC share, an already-/mnt path), so callers can
+# fall back to a plain shell. Pure: unit-tested in tests/WslBridge.Tests.ps1.
+function global:ConvertTo-WslPath {
+    [OutputType([string])]
+    param([Parameter(Mandatory)][string]$WindowsPath)
+    if ($WindowsPath -match '^([A-Za-z]):[\\/](.*)$') {
+        $drive = $Matches[1].ToLower()
+        $rest  = $Matches[2] -replace '\\', '/'
+        return "/mnt/$drive/$rest"
+    }
+    return $null
+}
+
 if (-not (Test-Cmd wsl)) { return }
 
 # --- distro shortcuts ---------------------------------------------------------
@@ -20,15 +35,9 @@ function wslip  { wsl -d kali-linux -- hostname -I }   # the distro's IP(s)
 # `cdwsl` translates C:\path -> /mnt/c/path and starts a shell there.
 function cdwsl {
     param([string]$Distro = 'kali-linux')
-    $here = (Get-Location).Path
-    if ($here -match '^([A-Za-z]):\\(.*)$') {
-        $drive = $Matches[1].ToLower()
-        $rest  = $Matches[2] -replace '\\','/'
-        $wslPath = "/mnt/$drive/$rest"
-        wsl -d $Distro --cd $wslPath
-    } else {
-        wsl -d $Distro
-    }
+    $wslPath = ConvertTo-WslPath (Get-Location).Path
+    if ($wslPath) { wsl -d $Distro --cd $wslPath }
+    else          { wsl -d $Distro }
 }
 
 # --- host primary IPv4 --------------------------------------------------------
