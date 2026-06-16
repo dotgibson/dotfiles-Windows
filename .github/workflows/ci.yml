@@ -176,10 +176,23 @@ jobs:
           $cfg.CodeCoverage.CoveragePercentTarget = 85
           $r = Invoke-Pester -Configuration $cfg
           $pct = [math]::Round($r.CodeCoverage.CoveragePercent, 1)
-          "Tests: $($r.PassedCount) passed, $($r.FailedCount) failed. Coverage (05-lib.ps1): $pct% (target 85%)" | Write-Host
+          "Tests: $($r.PassedCount) passed, $($r.FailedCount) failed, $($r.TotalCount) total across $($r.Containers.Count) file(s). Coverage (05-lib.ps1): $pct% (target 85%)" | Write-Host
           if ($r.FailedCount -gt 0) {
             throw "$($r.FailedCount) test(s) failed."
           }
           if ($r.CodeCoverage.CoveragePercent -lt 85) {
             throw "Coverage $pct% is below the 85% target for the pure-helper library."
+          }
+          # Anti-deletion gate across ALL suites (not just the coverage file): the
+          # pure helpers in doctor/help/install/uninstall/packages are tested but
+          # not in CoveragePaths, so a removed test there wouldn't drop coverage.
+          # Floors catch a whole test file being dropped, or a chunk of tests going
+          # missing. TotalCount is a floor (two -ForEach blocks expand it at run
+          # time well past this number); bump these when you intentionally add/remove.
+          $minTotal = 120; $minFiles = 9
+          if ($r.Containers.Count -lt $minFiles) {
+            throw "Only $($r.Containers.Count) test file(s) ran (floor $minFiles) — did a *.Tests.ps1 file get removed?"
+          }
+          if ($r.TotalCount -lt $minTotal) {
+            throw "Only $($r.TotalCount) tests discovered (floor $minTotal) — were tests removed?"
           }

@@ -102,6 +102,53 @@ Describe 'Test-DotEmailish' {
     It 'rejects whitespace/empty'         { Test-DotEmailish '   ' | Should -BeFalse }
 }
 
+Describe 'Write-DotBanner' {
+    It 'renders a plain == Title == under NO_COLOR' {
+        $prev = $env:NO_COLOR
+        try { $env:NO_COLOR = '1'; (Write-DotBanner 'Doctor' 6>&1 | Out-String).Trim() | Should -Be '== Doctor ==' }
+        finally { $env:NO_COLOR = $prev }
+    }
+    It 'includes the subtitle under NO_COLOR' {
+        $prev = $env:NO_COLOR
+        try { $env:NO_COLOR = '1'; (Write-DotBanner 'A' -Subtitle 'B' 6>&1 | Out-String).Trim() | Should -Be '== A :: B ==' }
+        finally { $env:NO_COLOR = $prev }
+    }
+    It 'does not throw with colour on' { { Write-DotBanner 'X' -Subtitle 'Y' 6>$null } | Should -Not -Throw }
+}
+
+Describe 'Write-DotRule' {
+    It 'prefixes the title and draws a rule' {
+        (Write-DotRule -Title 'Summary' -Width 5 6>&1 | Out-String) | Should -Match '-- Summary'
+    }
+    It 'uses ASCII dashes under DOTFILES_ASCII=1' {
+        $prev = $env:DOTFILES_ASCII
+        try { $env:DOTFILES_ASCII = '1'; (Write-DotRule -Width 4 6>&1 | Out-String).Trim() | Should -Be '----' }
+        finally { $env:DOTFILES_ASCII = $prev }
+    }
+}
+
+Describe 'Read-DotConfirm' {
+    It 'returns true when the user answers yes' {
+        Mock Read-Host { 'y' }
+        Read-DotConfirm 'go?' | Should -BeTrue
+    }
+    It 'returns false when the user answers no' {
+        Mock Read-Host { 'n' }
+        Read-DotConfirm 'go?' | Should -BeFalse
+    }
+    It 're-asks on an invalid answer, then honours the next valid one' {
+        $script:calls = 0
+        Mock Read-Host { $script:calls++; if ($script:calls -eq 1) { 'huh' } else { 'n' } }
+        Read-DotConfirm 'go?' | Should -BeFalse
+        Should -Invoke Read-Host -Times 2
+    }
+    It 'takes the default when there is no interactive host (Read-Host throws)' {
+        Mock Read-Host { throw 'no host' }
+        Read-DotConfirm 'go?' -DefaultYes $true | Should -BeTrue
+        Read-DotConfirm 'go?' -DefaultYes $false | Should -BeFalse
+    }
+}
+
 Describe 'Get-DotfilesLinkPlan' {
     It 'derives every link from the injected roots' {
         $plan = Get-DotfilesLinkPlan -RepoRoot 'R:\repo' -HomeDir 'H:\me' -LocalAppData 'L:\app' -Documents 'D:\docs'
