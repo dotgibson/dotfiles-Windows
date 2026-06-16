@@ -21,14 +21,14 @@ BeforeAll {
     # HOME / LOCALAPPDATA / Documents roots the plan links into.
     $script:World = Join-Path ([IO.Path]::GetTempPath()) ("rt-" + [guid]::NewGuid().ToString('N'))
     $script:Repo  = Join-Path $script:World 'repo'
-    $script:Home  = Join-Path $script:World 'home'
+    $script:HomeDir  = Join-Path $script:World 'home'
     $script:Local = Join-Path $script:World 'local'
     $script:Docs  = Join-Path $script:World 'docs'
-    foreach ($d in $script:Repo, $script:Home, $script:Local, $script:Docs) {
+    foreach ($d in $script:Repo, $script:HomeDir, $script:Local, $script:Docs) {
         New-Item -ItemType Directory -Force -Path $d | Out-Null
     }
 
-    $script:Plan = Get-DotfilesLinkPlan -RepoRoot $script:Repo -HomeDir $script:Home `
+    $script:Plan = Get-DotfilesLinkPlan -RepoRoot $script:Repo -HomeDir $script:HomeDir `
         -LocalAppData $script:Local -Documents $script:Docs
 
     # Materialize each target inside the fake repo so the links have something to
@@ -64,7 +64,7 @@ Describe 'install -> uninstall round-trip' {
     }
 
     It 'leaves a real user file alone (Test-LinkIntoRepo is false for it)' {
-        $real = (Join-Path $script:Home '.gitconfig')   # overwrite the link with a real file
+        $real = (Join-Path $script:HomeDir '.gitconfig')   # overwrite the link with a real file
         Remove-Item -LiteralPath $real -Force -ErrorAction SilentlyContinue
         'my own config' | Set-Content -LiteralPath $real
         Test-LinkIntoRepo -Link $real -Root $script:Repo | Should -BeFalse
@@ -74,7 +74,7 @@ Describe 'install -> uninstall round-trip' {
 
     It 'removes exactly the links that point into the repo' {
         $removed = 0
-        foreach ($link in (Get-DotfilesLinkMap -HomeDir $script:Home -LocalAppData $script:Local -Documents $script:Docs)) {
+        foreach ($link in (Get-DotfilesLinkMap -HomeDir $script:HomeDir -LocalAppData $script:Local -Documents $script:Docs)) {
             if (Test-LinkIntoRepo -Link $link -Root $script:Repo) {
                 Remove-Item -LiteralPath $link -Force -Recurse -ErrorAction SilentlyContinue
                 $removed++
