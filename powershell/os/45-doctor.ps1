@@ -164,6 +164,14 @@ function script:Get-DoctorResults {
     if ($root) {
         foreach ($row in (Get-DotfilesLinkPlan -RepoRoot $root)) {
             if ($row.Name -eq 'PowerShell profile') { continue }
+            # Honor ParentMustExist (Windows Terminal): install.ps1 deliberately skips
+            # that row when its parent folder is absent (WT not installed). Flagging it
+            # "missing → run install.ps1" would be a warning nothing could ever clear,
+            # so report it as a skip instead.
+            if ($row.ParentMustExist -and -not (Test-Path (Split-Path -Parent $row.Link))) {
+                $r.Add((New-DoctorResult "link: $($row.Name)" 'ok' 'skipped (parent app not installed)'))
+                continue
+            }
             if (Test-LinkIntoRepo $row.Link)  { $r.Add((New-DoctorResult "link: $($row.Name)" 'ok' 'linked')) }
             elseif (Test-Path $row.Link)      { $r.Add((New-DoctorResult "link: $($row.Name)" 'warn' 'present, not a repo link' 're-run install.ps1 -SkipPackages')) }
             else                              { $r.Add((New-DoctorResult "link: $($row.Name)" 'warn' 'missing' 'run install.ps1')) }

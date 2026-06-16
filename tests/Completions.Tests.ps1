@@ -52,4 +52,21 @@ Describe 'argument completers are registered' {
         $tab = TabExpansion2 $line $line.Length
         $tab.CompletionMatches.CompletionText | Should -Contain 'Microsoft.WindowsTerminal'
     }
+    It 'normalizes pinned { id, version } winget entries to id strings' {
+        # Guards the B2 pinned-entry shape: the completer must never emit a
+        # PSCustomObject. Point $global:DOTFILES at a temp manifest with both forms.
+        $tmp = Join-Path ([IO.Path]::GetTempPath()) ("wgnorm-" + [guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Force -Path (Join-Path $tmp 'packages') | Out-Null
+        try {
+            @{ packages = @('Git.Git', @{ id = 'Mozilla.Firefox'; version = '120.0' }) } |
+                ConvertTo-Json -Depth 5 | Set-Content (Join-Path $tmp 'packages\winget.json')
+            $prev = $global:DOTFILES
+            try {
+                $global:DOTFILES = $tmp
+                $ids = Get-DotManagedWingetIds
+                $ids | Should -Contain 'Mozilla.Firefox'
+                @($ids | Where-Object { $_ -isnot [string] }) | Should -BeNullOrEmpty
+            } finally { $global:DOTFILES = $prev }
+        } finally { Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue }
+    }
 }

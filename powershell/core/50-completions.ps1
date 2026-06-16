@@ -36,7 +36,14 @@ function script:Get-DotManagedScoopApps {
 function script:Get-DotManagedWingetIds {
     $f = if ($global:DOTFILES) { Join-Path $global:DOTFILES 'packages\winget.json' } else { $null }
     if (-not $f -or -not (Test-Path $f)) { return @() }
-    try { @((Get-Content $f -Raw | ConvertFrom-Json).packages) | Where-Object { $_ } } catch { @() }
+    # Entries may be a bare id string OR a pinned object { id, version } (see B2 /
+    # ConvertTo-DotWingetSpec). Normalize to id STRINGS so the completer never tries
+    # to build a CompletionResult from a PSCustomObject.
+    try {
+        @((Get-Content $f -Raw | ConvertFrom-Json).packages) |
+            ForEach-Object { if ($_ -is [string]) { $_ } elseif ($_) { "$($_.id)" } } |
+            Where-Object { $_ }
+    } catch { @() }
 }
 
 # sci <app> : scoop apps this repo manages (packages/scoopfile.json)
