@@ -72,6 +72,26 @@ if (Test-Path $wg) {
 }
 if ($script:fail -eq $preJson) { Pass 'all JSON valid; manifests have no duplicates' }
 
+# --- 2b. module pins are EXACT versions (hermetic install gate) ---------------
+# packages/modules.ps1 must pin every managed module to an exact x.y[.z] version
+# so a fresh bootstrap is reproducible (Install-Packages uses -RequiredVersion).
+# Catch a floor/range/prerelease tag sneaking back in here, dependency-free.
+Write-Host 'Module pins (exact versions):' -ForegroundColor Cyan
+$modScript = Join-Path $RepoRoot 'packages/modules.ps1'
+if (Test-Path $modScript) {
+    $preMod = $script:fail
+    . $modScript
+    if (-not $script:MaintModulePins) {
+        Fail 'modules.ps1 did not define $script:MaintModulePins'
+    } else {
+        foreach ($name in $script:MaintModulePins.Keys) {
+            $v = $script:MaintModulePins[$name]
+            if ($v -notmatch '^\d+\.\d+(\.\d+)?$') { Fail "module pin '$name' is not an exact version: '$v'" }
+        }
+        if ($script:fail -eq $preMod) { Pass "$($script:MaintModulePins.Count) module pin(s) are exact versions" }
+    }
+}
+
 # --- 3. TOML (best-effort) ----------------------------------------------------
 Write-Host 'TOML (best-effort):' -ForegroundColor Cyan
 $toml = Get-ChildItem -Path $RepoRoot -Recurse -Filter *.toml -File |
