@@ -114,19 +114,36 @@ function global:Invoke-DotSpinner {
     try { if ([Console]::IsOutputRedirected) { $animate = $false } } catch { }
     if (-not $animate) { return (& $Script @ArgumentList) }
 
-    $job = Start-Job -ScriptBlock $Script -ArgumentList $ArgumentList
-    $t = 0
+    # Prefer Start-ThreadJob (the ThreadJob module ships with pwsh 7): it runs the
+    # work on a THREAD in this process instead of spawning a whole child pwsh, so a
+    # wrapped step costs a thread, not a process — the same cheaper path the startup
+    # update-check (15-update.ps1) already takes. Fall back to Start-Job on any host
+    # without it. (B3: don't pay a process spawn for every spinner.)
+    $start = if (Get-Command Start-ThreadJob -ErrorAction SilentlyContinue) { 'Start-ThreadJob' } else { 'Start-Job' }
+    $job = & $start -ScriptBlock $Script -ArgumentList $ArgumentList
+    $out = $null
     try {
+        $t = 0
         while ($job.State -eq 'Running') {
             Write-Host ("`r  {0} {1}" -f (Get-DotSpinnerFrame $t), $Label) -NoNewline -ForegroundColor Cyan
             Start-Sleep -Milliseconds 120
             $t++
         }
+        # Wait-Job before Receive-Job closes a race: a ThreadJob can finish between
+        # poll ticks (or before the loop sees 'Running' at all), and reading output
+        # off a not-yet-flushed job would drop it. Wait is a no-op once it's done.
+        $job | Wait-Job | Out-Null
+        $out = Receive-Job $job -ErrorAction SilentlyContinue
     } finally {
+        # Runs on normal completion AND on Ctrl-C. Wipe the spinner line, then ALWAYS
+        # tear the job down — Stop-Job first so an interrupt can't leave a background
+        # thread/process running the half-finished work (U7: clean SIGINT teardown).
         Write-Host ("`r{0}`r" -f (' ' * ($Label.Length + 6))) -NoNewline   # wipe the spinner line
+        if ($job) {
+            try { Stop-Job $job -ErrorAction SilentlyContinue } catch { }
+            Remove-Job $job -Force -ErrorAction SilentlyContinue
+        }
     }
-    $out = Receive-Job $job -ErrorAction SilentlyContinue
-    Remove-Job $job -Force -ErrorAction SilentlyContinue
     return $out
 }
 
