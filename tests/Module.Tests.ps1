@@ -10,9 +10,11 @@
 BeforeAll {
     $script:RepoRoot = Split-Path -Parent $PSScriptRoot
     $script:Manifest = Join-Path $script:RepoRoot 'powershell/Dotfiles/Dotfiles.psd1'
-    Import-Module $script:Manifest -Force -DisableNameChecking
+    # -PassThru so AfterAll removes THIS module instance, not every loaded module
+    # named "Dotfiles" (a dev could have an unrelated one in their session).
+    $script:Module = Import-Module $script:Manifest -Force -DisableNameChecking -PassThru
 }
-AfterAll { Remove-Module Dotfiles -Force -ErrorAction SilentlyContinue }
+AfterAll { if ($script:Module) { Remove-Module $script:Module -Force -ErrorAction SilentlyContinue } }
 
 Describe 'Dotfiles module manifest' {
     It 'is a valid module manifest' {

@@ -77,8 +77,12 @@ if (Test-Path $DotfilesModule) {
         Import-Module $DotfilesModule -Force -Global -DisableNameChecking -ErrorAction Stop
         $script:DotfilesModuleLoaded = $true
     } catch {
-        $global:DotfilesLoadErrors.Add("module Dotfiles: $_")
-        Write-Warning "dotfiles: failed to import the Dotfiles module: $_"
+        # Keep a stable, single-line message in the load-error list and warning —
+        # the full ErrorRecord ($_) renders multi-line (CategoryInfo/position) and
+        # would make the degraded-load summary unreadable.
+        $msg = $_.Exception.Message
+        $global:DotfilesLoadErrors.Add("module Dotfiles: $msg")
+        Write-Warning "dotfiles: failed to import the Dotfiles module: $msg"
     }
 }
 
