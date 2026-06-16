@@ -6,24 +6,12 @@
 #  cross the filesystem boundary cleanly, and surface the host IP (handy when
 #  a service in WSL needs to be reachable from the host LAN - see
 #  wsl/windows.wslconfig.example for mirrored networking).
+#
+#  The pure path translation (ConvertTo-WslPath) now lives in the Dotfiles module
+#  (powershell/Dotfiles/Wsl.Helpers.ps1), imported by the profile BEFORE this
+#  fragment, so it stays available and unit-tested even on a host without wsl.
+#  The wsl-dependent verbs below call it via that module export.
 # ============================================================================
-
-# --- ConvertTo-WslPath (pure: translate a Windows path to its /mnt form) ------
-# C:\Users\me -> /mnt/c/Users/me (drive lower-cased, backslashes normalized).
-# Accepts forward- or back-slash separators; returns $null for anything that
-# isn't a drive-letter path (UNC, or an already-translated /mnt path) so callers
-# can fall back. Defined ABOVE the wsl guard so the logic is always available and
-# unit-tested (tests/WslBridge.Tests.ps1) even on a host without wsl installed.
-function global:ConvertTo-WslPath {
-    [OutputType([string])]
-    param([string]$Path)
-    if ($Path -match '^([A-Za-z]):[\\/](.*)$') {
-        $drive = $Matches[1].ToLower()
-        $rest  = $Matches[2] -replace '\\', '/'
-        return "/mnt/$drive/$rest"
-    }
-    return $null
-}
 
 if (-not (Test-Cmd wsl)) { return }
 
@@ -38,7 +26,12 @@ function wslip  { wsl -d kali-linux -- hostname -I }   # the distro's IP(s)
 # shell there; a non-drive CWD just opens the distro at its default location.
 function cdwsl {
     param([string]$Distro = 'kali-linux')
-    $wslPath = ConvertTo-WslPath (Get-Location).Path
+    # ConvertTo-WslPath comes from the Dotfiles module. If a degraded load left it
+    # unavailable (module import failed), fall back to opening the distro at its
+    # default location instead of throwing — same path as a non-drive CWD.
+    $wslPath = if (Get-Command ConvertTo-WslPath -ErrorAction SilentlyContinue) {
+        ConvertTo-WslPath (Get-Location).Path
+    }
     if ($wslPath) { wsl -d $Distro --cd $wslPath }
     else          { wsl -d $Distro }
 }
