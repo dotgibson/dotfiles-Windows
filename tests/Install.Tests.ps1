@@ -45,6 +45,41 @@ Describe 'Get-InstallSummaryLines' {
     }
 }
 
+Describe 'Get-DotLogsToPrune' {
+    BeforeAll {
+        # 13 fake logs with increasing timestamps; newest should be kept.
+        $script:Logs = 1..13 | ForEach-Object {
+            [pscustomobject]@{ Name = "install-$_.log"; FullName = "C:\logs\install-$_.log"; LastWriteTime = (Get-Date).AddMinutes($_) }
+        }
+    }
+    It 'returns nothing when at or under the keep count' {
+        Get-DotLogsToPrune ($script:Logs | Select-Object -First 5) -Keep 10 | Should -BeNullOrEmpty
+    }
+    It 'prunes everything except the newest Keep' {
+        $pruned = Get-DotLogsToPrune $script:Logs -Keep 10
+        @($pruned).Count | Should -Be 3
+        # the three OLDEST (smallest minute offsets) are the ones pruned
+        ($pruned.Name | Sort-Object) | Should -Be @('install-1.log', 'install-2.log', 'install-3.log')
+    }
+    It 'handles an empty/null input' {
+        Get-DotLogsToPrune @()   -Keep 10 | Should -BeNullOrEmpty
+        Get-DotLogsToPrune $null -Keep 10 | Should -BeNullOrEmpty
+    }
+}
+
+Describe 'Get-DotRedactedTranscript' {
+    It 'redacts a line carrying a secret and keeps ordinary lines' {
+        $out = Get-DotRedactedTranscript @('cd C:\src', 'export GH_TOKEN=ghp_secret', 'll -a')
+        ($out -join "`n") | Should -Match 'cd C:\\src'
+        ($out -join "`n") | Should -Match 'll -a'
+        ($out -join "`n") | Should -Match '<redacted'
+        ($out -join "`n") | Should -Not -Match 'ghp_secret'
+    }
+    It 'returns empty for empty input' {
+        Get-DotRedactedTranscript @() | Should -BeNullOrEmpty
+    }
+}
+
 Describe 'Get-InstallUsage' {
     It 'documents every public switch' {
         $u = (Get-InstallUsage) -join "`n"
