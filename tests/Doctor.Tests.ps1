@@ -5,11 +5,12 @@
 
 BeforeAll {
     $RepoRoot = Split-Path -Parent $PSScriptRoot
-    # Load the shared lib first (profile load order) so the renderer's glyph/colour
-    # helpers are present.
-    . (Join-Path $RepoRoot 'powershell/core/05-lib.ps1')
-    . (Join-Path $RepoRoot 'powershell/os/45-doctor.ps1')
+    # The doctor result model + pure logic now live in the Dotfiles module (B7
+    # stage 2b); import it rather than dot-sourcing the fragment (whose probes and
+    # the dotfiles-doctor verb are host-specific and not exercised here).
+    $script:Module = Import-Module (Join-Path $RepoRoot 'powershell/Dotfiles/Dotfiles.psd1') -Force -DisableNameChecking -PassThru
 }
+AfterAll { if ($script:Module) { Remove-Module $script:Module -Force -ErrorAction SilentlyContinue } }
 
 Describe 'New-DoctorResult' {
     It 'builds a result with the expected shape' {

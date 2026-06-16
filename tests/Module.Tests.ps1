@@ -41,7 +41,10 @@ Describe 'Dotfiles module exports' {
             'Read-DotConfirm', 'Get-DotConfirmAnswer', 'Test-DotGum', 'Test-DotEmailish',
             'Get-DotSpinnerFrame', 'Invoke-DotSpinner', 'Test-SensitiveHistoryLine',
             'Get-DotStringSha256', 'Get-DotToolNudge', 'Get-DotfilesLinkPlan',
-            'ConvertTo-WslPath'
+            'ConvertTo-WslPath',
+            'New-DoctorResult', 'Get-DoctorSummary', 'Get-DoctorGroup',
+            'Get-FragmentHealthResult', 'Get-DotRepoVersionDetail',
+            'Get-NvimVendorDetail', 'Get-DoctorFixPlan'
         )) {
             $exported | Should -Contain $fn
         }
