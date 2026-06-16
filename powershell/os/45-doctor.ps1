@@ -77,6 +77,19 @@ function global:Get-FragmentHealthResult {
     return New-DoctorResult 'Profile fragments' 'fail' "$($list.Count) failed: $($list[0])" 'fix the fragment, then run: reload'
 }
 
+# --- pure provenance formatter ------------------------------------------------
+# Render the repo's git state into a one-line detail: short SHA, a (dirty) marker
+# when there are uncommitted changes, and the commit date when known. Pure (the
+# git calls live in the probe), so the formatting is unit-tested.
+function global:Get-DotRepoVersionDetail {
+    param([string]$Sha, [bool]$IsDirty, [string]$When)
+    if (-not $Sha) { return 'unknown (no git metadata)' }
+    $detail = $Sha
+    if ($When)    { $detail += "  ($When)" }
+    if ($IsDirty) { $detail += '  [dirty]' }
+    return $detail
+}
+
 # --- the probes (host-specific; each returns a DoctorResult) ------------------
 function script:Get-DoctorResults {
     $r = [System.Collections.Generic.List[object]]::new()
@@ -116,6 +129,17 @@ function script:Get-DoctorResults {
         $r.Add((New-DoctorResult 'Repo root' 'fail' 'DOTFILES_WIN unset/missing' 're-run install.ps1 to set DOTFILES_WIN'))
     }
 
+    # Repo provenance: which revision is actually on this box (and is it dirty?).
+    # Informational — a copy-install with no .git is fine, just unversioned.
+    if ($root -and (Test-Path (Join-Path $root '.git')) -and (Test-Cmd git)) {
+        $sha   = (& git -C $root rev-parse --short HEAD 2>$null)
+        $when  = (& git -C $root show -s --format=%cs HEAD 2>$null)
+        $dirty = [bool]((& git -C $root status --porcelain 2>$null) | Select-Object -First 1)
+        $r.Add((New-DoctorResult 'Repo version' 'ok' (Get-DotRepoVersionDetail -Sha "$sha" -IsDirty $dirty -When "$when")))
+    } else {
+        $r.Add((New-DoctorResult 'Repo version' 'ok' 'not a git checkout (copy install — unversioned)'))
+    }
+
     # profile symlink
     if (Test-LinkIntoRepo $PROFILE) {
         $r.Add((New-DoctorResult 'Profile link' 'ok' 'symlinked into the repo'))
@@ -133,17 +157,25 @@ function script:Get-DoctorResults {
         $r.Add((New-DoctorResult 'Modules off OneDrive' 'warn' 'local module path not prepended' 'open a new shell; run modules-localize once'))
     }
 
-    # key config links
-    $links = @{
-        '.gitconfig'      = (Join-Path $HOME '.gitconfig')
-        'nvim config'     = (Join-Path $env:LOCALAPPDATA 'nvim')
-        'psmux.conf'      = (Join-Path $HOME '.config\psmux\psmux.conf')
-        'ssh config'      = (Join-Path $HOME '.ssh\config')
-    }
-    foreach ($name in $links.Keys) {
-        if (Test-LinkIntoRepo $links[$name]) { $r.Add((New-DoctorResult "link: $name" 'ok' 'linked')) }
-        elseif (Test-Path $links[$name])     { $r.Add((New-DoctorResult "link: $name" 'warn' 'present, not a repo link' 're-run install.ps1 -SkipPackages')) }
-        else                                  { $r.Add((New-DoctorResult "link: $name" 'warn' 'missing' 'run install.ps1')) }
+    # key config links — enumerated from the SAME shared plan install.ps1 wires
+    # and uninstall.ps1 removes (Get-DotfilesLinkPlan), so doctor can't fall out of
+    # sync with the actual link set. The profile link is checked separately above,
+    # so it's skipped here to avoid a duplicate row.
+    if ($root) {
+        foreach ($row in (Get-DotfilesLinkPlan -RepoRoot $root)) {
+            if ($row.Name -eq 'PowerShell profile') { continue }
+            # Honor ParentMustExist (Windows Terminal): install.ps1 deliberately skips
+            # that row when its parent folder is absent (WT not installed). Flagging it
+            # "missing → run install.ps1" would be a warning nothing could ever clear,
+            # so report it as a skip instead.
+            if ($row.ParentMustExist -and -not (Test-Path (Split-Path -Parent $row.Link))) {
+                $r.Add((New-DoctorResult "link: $($row.Name)" 'ok' 'skipped (parent app not installed)'))
+                continue
+            }
+            if (Test-LinkIntoRepo $row.Link)  { $r.Add((New-DoctorResult "link: $($row.Name)" 'ok' 'linked')) }
+            elseif (Test-Path $row.Link)      { $r.Add((New-DoctorResult "link: $($row.Name)" 'warn' 'present, not a repo link' 're-run install.ps1 -SkipPackages')) }
+            else                              { $r.Add((New-DoctorResult "link: $($row.Name)" 'warn' 'missing' 'run install.ps1')) }
+        }
     }
 
     # gitconfig.local identity
@@ -226,11 +258,7 @@ function global:dotfiles-doctor {
     $results = Get-DoctorResults
     if (-not $Quiet) {
         Write-Host ''
-        if (Test-DotColor) {
-            Write-Host ' dotfiles-doctor ' -ForegroundColor Black -BackgroundColor Cyan
-        } else {
-            Write-Host '== dotfiles-doctor =='
-        }
+        Write-DotBanner 'dotfiles-doctor'
         Write-Host ''
         foreach ($res in $results) { Write-DoctorLine $res }
         Write-Host ''

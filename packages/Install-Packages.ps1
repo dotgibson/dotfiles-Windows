@@ -14,8 +14,32 @@
 [CmdletBinding()]
 param(
     [switch]$SkipWinget,
-    [switch]$SkipScoop
+    [switch]$SkipScoop,
+    [switch]$Help
 )
+
+# Pure usage banner (returns the lines, so -Help and the test agree — same shape
+# as install.ps1's Get-InstallUsage).
+function Get-PackagesUsage {
+    @(
+        'Install-Packages.ps1 - install the host toolchain from the manifests'
+        ''
+        'USAGE'
+        '  .\packages\Install-Packages.ps1 [-SkipScoop] [-SkipWinget] [-Help]'
+        ''
+        'OPTIONS'
+        '  -SkipScoop    Skip the scoop bucket/app install pass.'
+        '  -SkipWinget   Skip the winget package install pass.'
+        '  -Help         Show this help and exit.'
+        ''
+        'NOTES'
+        '  Resilient: a package that fails is logged and skipped, never halting the'
+        '  batch. Re-run to retry — already-installed items are detected and skipped.'
+        '  PowerShell modules always install to a local (off-OneDrive) modules dir.'
+    )
+}
+
+if ($Help) { Get-PackagesUsage | ForEach-Object { Write-Host $_ }; return }
 
 $ErrorActionPreference = 'Continue'
 $here   = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -57,6 +81,22 @@ function Get-WingetInstalledIds {
     return @($ids | Where-Object { $_ })
 }
 
+# --- optional version pinning (pure, unit-tested) -----------------------------
+# Reproducibility without freezing the whole rolling toolchain: any manifest entry
+# MAY pin a version, and the rest float to latest. A scoop app object can carry a
+# Version ("Name@Version"); a winget entry can be either a bare id string or an
+# object { "id": "...", "version": "..." }. These two helpers turn a manifest entry
+# into the exact install token/spec, so the pinning logic is testable offline.
+function Get-ScoopInstallToken {
+    param($App)
+    if ($App.Version) { "$($App.Name)@$($App.Version)" } else { "$($App.Name)" }
+}
+function ConvertTo-DotWingetSpec {
+    param($Entry)
+    if ($Entry -is [string]) { return [pscustomobject]@{ Id = $Entry; Version = $null } }
+    return [pscustomobject]@{ Id = "$($Entry.id)"; Version = $(if ($Entry.version) { "$($Entry.version)" } else { $null }) }
+}
+
 # Library-only hook for the test suite: expose the helpers without installing.
 if ($env:DOTFILES_PKG_LIBONLY -eq '1') { return }
 
@@ -71,9 +111,22 @@ if (-not $SkipScoop) {
         Write-Host 'Installing scoop...' -ForegroundColor Cyan
         try {
             Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
-            Invoke-RestMethod get.scoop.sh | Invoke-Expression
+            # Fetch the installer to a string first so it can be integrity-checked
+            # before it runs, instead of piping the network straight into iex. Set
+            # DOTFILES_SCOOP_SHA256 to the expected hash to gate execution; without
+            # it we proceed (documented), but the seam for verification now exists.
+            $scoopInstaller = Invoke-RestMethod 'https://get.scoop.sh'
+            if ($env:DOTFILES_SCOOP_SHA256) {
+                $actual = Get-DotStringSha256 $scoopInstaller
+                if ($actual -ne ($env:DOTFILES_SCOOP_SHA256.ToLowerInvariant())) {
+                    Write-DotErr 'scoop installer hash mismatch — refusing to run it.' "expected $($env:DOTFILES_SCOOP_SHA256), got $actual"
+                    return
+                }
+                Write-DotOk 'scoop installer hash verified.'
+            }
+            $scoopInstaller | Invoke-Expression
         } catch {
-            Write-Error "scoop bootstrap failed: $_"
+            Write-DotErr "scoop bootstrap failed: $_"
             return
         }
     }
@@ -100,8 +153,9 @@ if (-not $SkipScoop) {
             Write-Host "  [$i/$($apps.Count)] = $name (already installed)" -ForegroundColor DarkGray
             continue
         }
-        $sw = Write-PkgStep -N $i -Total $apps.Count -Name $name
-        scoop install $name
+        $token = Get-ScoopInstallToken $app   # Name, or Name@Version when pinned
+        $sw = Write-PkgStep -N $i -Total $apps.Count -Name $token
+        scoop install $token
         $sw.Stop()
         if ($LASTEXITCODE -ne 0) { $failed.Add("scoop:$name") }
         else { Write-DotHost ("      done in {0:n0}s" -f $sw.Elapsed.TotalSeconds) -Color DarkGray }
@@ -123,8 +177,15 @@ if (-not $SkipWinget) {
         $tmp = $null
         try {
             $tmp = Join-Path $env:TEMP ("winget-export-" + [guid]::NewGuid().ToString('N') + '.json')
-            winget export -o $tmp --accept-source-agreements *> $null
-            if ($LASTEXITCODE -eq 0 -and (Test-Path $tmp)) {
+            # winget export is silent and slow on a cold source — spin while it runs
+            # (it writes $tmp on disk, so we still read the result back here). The job
+            # returns winget's exit code so the original "export ok?" gate is intact.
+            $rc = @(Invoke-DotSpinner -Label 'querying installed winget packages' -ArgumentList @($tmp) -Script {
+                param($out)
+                winget export -o $out --accept-source-agreements *> $null
+                $LASTEXITCODE
+            })[-1]
+            if ($rc -eq 0 -and (Test-Path $tmp)) {
                 $installedIds = Get-WingetInstalledIds (Get-Content $tmp -Raw)
                 $exportOk = $true
             }
@@ -136,8 +197,11 @@ if (-not $SkipWinget) {
 
         $pkgs = @($wg.packages)
         $j = 0
-        foreach ($id in $pkgs) {
+        foreach ($entry in $pkgs) {
             $j++
+            $spec = ConvertTo-DotWingetSpec $entry   # { Id; Version (optional) }
+            $id = $spec.Id
+            $label = if ($spec.Version) { "$id @$($spec.Version)" } else { $id }
             # Already installed? Prefer the exported set (-contains is
             # case-insensitive); fall back to a per-id query when export failed.
             $already = if ($exportOk) {
@@ -147,12 +211,13 @@ if (-not $SkipWinget) {
                 $LASTEXITCODE -eq 0
             }
             if ($already) {
-                Write-Host "  [$j/$($pkgs.Count)] = $id (already installed)" -ForegroundColor DarkGray
+                Write-Host "  [$j/$($pkgs.Count)] = $label (already installed)" -ForegroundColor DarkGray
                 continue
             }
-            $sw = Write-PkgStep -N $j -Total $pkgs.Count -Name $id
-            winget install --id $id -e --silent `
-                --accept-package-agreements --accept-source-agreements
+            $sw = Write-PkgStep -N $j -Total $pkgs.Count -Name $label
+            $wgInstall = @('install', '--id', $id, '-e', '--silent', '--accept-package-agreements', '--accept-source-agreements')
+            if ($spec.Version) { $wgInstall += @('--version', $spec.Version) }
+            winget @wgInstall
             $sw.Stop()
             if ($LASTEXITCODE -ne 0) {
                 Write-DotWarn "$id failed (winget exit $LASTEXITCODE) — skipping, continuing the batch"
@@ -184,11 +249,23 @@ foreach ($m in $mods) {
         continue
     }
     $sw = Write-PkgStep -N $k -Total $mods.Count -Name $m
-    # -MinimumVersion pins a reproducible floor (see packages/modules.ps1); it
-    # still resolves the latest available at/above that version.
-    $min = $script:MaintModulePins[$m]
-    try { Save-Module -Name $m -Path $localModules -MinimumVersion $min -Force -ErrorAction Stop; $sw.Stop() }
-    catch { $sw.Stop(); Write-DotWarn "module $m failed: $_"; $failed.Add("module:$m") }
+    # -RequiredVersion installs EXACTLY the pinned version (see packages/modules.ps1)
+    # so a fresh bootstrap is reproducible; the daily maint runner rolls it forward.
+    # Save-Module is silent and slow, so animate a spinner while it downloads (the
+    # job returns 'ok' or 'fail: ...' so failure handling is preserved; inline on CI).
+    $ver = $script:MaintModulePins[$m]
+    $res = Invoke-DotSpinner -Label "downloading $m $ver" -ArgumentList @($m, $localModules, $ver) -Script {
+        param($name, $path, $version)
+        try { Save-Module -Name $name -Path $path -RequiredVersion $version -Force -ErrorAction Stop; 'ok' }
+        catch { "fail: $_" }
+    }
+    $sw.Stop()
+    $status = @($res)[-1]
+    if ($status -eq 'ok') {
+        Write-DotHost ("      done in {0:n0}s" -f $sw.Elapsed.TotalSeconds) -Color DarkGray
+    } else {
+        Write-DotWarn "module $m failed: $($status -replace '^fail:\s*', '')"; $failed.Add("module:$m")
+    }
 }
 
 $script:PkgCompleted = $true

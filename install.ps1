@@ -127,9 +127,9 @@ function Confirm-Overwrite {
     if ($Yes -or $NonInteractive) { return $true }
     $item = Get-Item -LiteralPath $Link -Force -ErrorAction SilentlyContinue
     if ($item -and $item.LinkType -eq 'SymbolicLink') { return $true }
-    try { $ans = Read-Host "  '$Link' exists. Back up and replace? [Y/n]" }
-    catch { return $true }   # no interactive host: fall back to the old auto-backup
-    return ($ans -eq '' -or $ans -match '^(y|yes)$')
+    # Re-prompts on a typo'd answer; defaults to yes (back up + replace) on a
+    # non-interactive host, matching the previous auto-backup behaviour.
+    return (Read-DotConfirm "  '$Link' exists. Back up and replace?" -DefaultYes $true)
 }
 
 # --- link helper --------------------------------------------------------------
@@ -287,30 +287,23 @@ if (-not $SkipPackages) {
 # --- 3. wire symlinks ---------------------------------------------------------
 Write-Step 'Wiring configs'
 
-# PowerShell 7 profile. Resolve the Documents folder the OneDrive-aware way:
-# [Environment]::GetFolderPath('MyDocuments') follows a OneDrive redirect, so we
-# link the profile pwsh ACTUALLY loads. Hardcoding ~\Documents silently links a
-# path pwsh never reads when Documents is redirected to OneDrive.
-$docs = [Environment]::GetFolderPath('MyDocuments')
-$psProfile = Join-Path $docs 'PowerShell\Microsoft.PowerShell_profile.ps1'
-Link-Item -Target (Join-Path $RepoRoot 'powershell\profile.ps1') -Link $psProfile
-Write-Host "  (profile target: $psProfile)" -ForegroundColor DarkGray
-
-# Neovim
-Link-Item -Target (Join-Path $RepoRoot 'nvim') -Link (Join-Path $env:LOCALAPPDATA 'nvim')
-
-# git
-Link-Item -Target (Join-Path $RepoRoot 'git\.gitconfig')        -Link (Join-Path $HOME '.gitconfig')
-Link-Item -Target (Join-Path $RepoRoot 'git\.gitignore_global') -Link (Join-Path $HOME '.gitignore_global')
-
-# ssh
-Link-Item -Target (Join-Path $RepoRoot 'ssh\config') -Link (Join-Path $HOME '.ssh\config')
-
-# psmux (native Windows tmux) — reads ~/.config/psmux/psmux.conf (NOT ~/.tmux.conf).
-# Same config psmux/pmux/tmux use. reset.conf + scripts are linked alongside it.
-Link-Item -Target (Join-Path $RepoRoot 'psmux\psmux.conf') -Link (Join-Path $HOME '.config\psmux\psmux.conf')
-Link-Item -Target (Join-Path $RepoRoot 'psmux\psmux.reset.conf') -Link (Join-Path $HOME '.config\psmux\psmux.reset.conf')
-Link-Item -Target (Join-Path $RepoRoot 'psmux\scripts') -Link (Join-Path $HOME '.config\psmux\scripts')
+# All config links come from ONE shared plan (Get-DotfilesLinkPlan in 05-lib) so
+# install, uninstall, and dotfiles-doctor can never disagree about the set. The
+# Documents folder inside the plan is resolved the OneDrive-aware way via
+# [Environment]::GetFolderPath('MyDocuments'), so the profile we link is the one
+# pwsh ACTUALLY loads even when Documents is redirected to OneDrive.
+foreach ($row in (Get-DotfilesLinkPlan -RepoRoot $RepoRoot)) {
+    # A row flagged ParentMustExist (Windows Terminal) is skipped when its parent
+    # dir is absent — WT isn't installed — instead of materializing an empty tree.
+    if ($row.ParentMustExist -and -not (Test-Path (Split-Path -Parent $row.Link))) {
+        Write-DotWarn "$($row.Name): target folder not found — skipping." 'If you installed Windows Terminal via scoop, link its settings.json manually.'
+        continue
+    }
+    Link-Item -Target $row.Target -Link $row.Link
+    if ($row.Name -eq 'PowerShell profile') {
+        Write-Host "  (profile target: $($row.Link))" -ForegroundColor DarkGray
+    }
+}
 
 # --- ppm (psmux plugin manager) -------------------------------------------------
 # Mirrors psmux's documented install: clone the psmux-plugins monorepo to a temp
@@ -325,12 +318,28 @@ if (-not (Test-Path $ppmDir)) {
         Write-DotHost "  would clone psmux-plugins and install ppm -> $ppmDir" -Color Cyan
     } else {
         $tmp = Join-Path $env:TEMP ('psmux-plugins-' + [guid]::NewGuid().ToString('N'))
+        # Supply-chain: the clone tracks the default branch HEAD by default, but set
+        # DOTFILES_PPM_REF to a commit SHA or tag to pin EXACTLY what gets installed
+        # (a moved branch then can't change the code we copy in). We also verify the
+        # expected ppm\ folder actually exists in the clone before copying it.
+        $ppmRef = $env:DOTFILES_PPM_REF
         try {
             git clone --depth 1 https://github.com/psmux/psmux-plugins.git $tmp
             if ($LASTEXITCODE -eq 0) {
-                New-Item -ItemType Directory -Force -Path (Split-Path $ppmDir) | Out-Null
-                Copy-Item (Join-Path $tmp 'ppm') $ppmDir -Recurse -Force
-                Write-DotHost "  installed ppm -> $ppmDir" -Color Green
+                if ($ppmRef) {
+                    git -C $tmp fetch --depth 1 origin $ppmRef 2>$null
+                    git -C $tmp checkout --quiet $ppmRef 2>$null
+                    if ($LASTEXITCODE -ne 0) { Write-DotWarn "could not pin ppm to '$ppmRef' — using default branch." }
+                    else { Write-DotHost "  pinned ppm to $ppmRef" -Color DarkGray }
+                }
+                $ppmSrc = Join-Path $tmp 'ppm'
+                if (Test-Path $ppmSrc) {
+                    New-Item -ItemType Directory -Force -Path (Split-Path $ppmDir) | Out-Null
+                    Copy-Item $ppmSrc $ppmDir -Recurse -Force
+                    Write-DotHost "  installed ppm -> $ppmDir" -Color Green
+                } else {
+                    Write-DotWarn 'ppm folder missing from the clone — skipping.' 'The psmux-plugins layout may have changed; install ppm by hand.'
+                }
             } else {
                 Write-DotWarn 'ppm clone failed.' 'Clone psmux-plugins by hand, copy ppm\ to ~\.psmux\plugins\ppm'
             }
@@ -340,13 +349,8 @@ if (-not (Test-Path $ppmDir)) {
     }
 }
 
-# Windows Terminal settings (Store install path)
-$wtDir = Join-Path $env:LOCALAPPDATA 'Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState'
-if (Test-Path $wtDir) {
-    Link-Item -Target (Join-Path $RepoRoot 'windows-terminal\settings.json') -Link (Join-Path $wtDir 'settings.json')
-} else {
-    Write-DotWarn 'Windows Terminal LocalState not found.' 'If you installed WT via scoop, link settings.json manually.'
-}
+# Windows Terminal settings are wired by the shared plan loop above (the row is
+# flagged ParentMustExist, so it self-skips when WT isn't installed).
 
 # --- 4. .wslconfig (COPY, don't symlink - it's host-global, edit per machine) -
 Write-Step 'Seeding host-global .wslconfig'
@@ -375,13 +379,29 @@ if (-not (Test-Path $localPs)) {
 $gcLocal = Join-Path $HOME '.gitconfig.local'
 if (-not (Test-Path $gcLocal)) {
     $gitName = 'YOUR NAME'; $gitEmail = 'you@example.com'
+    # Pre-fill from any identity git already knows (a prior, non-dotfiles setup),
+    # so an existing user just presses Enter twice instead of retyping. A blank
+    # answer keeps the shown default; the placeholders only survive if there's no
+    # prior identity AND nothing is entered.
+    $priorName  = (& git config --global user.name)  2>$null
+    $priorEmail = (& git config --global user.email) 2>$null
+    if ($priorName)  { $gitName  = "$priorName".Trim() }
+    if ($priorEmail) { $gitEmail = "$priorEmail".Trim() }
     if (-not $NonInteractive -and -not $script:DryRun) {
         try {
-            $n = Read-Host '  git author name  (blank to fill in later)'
-            $e = Read-Host '  git author email (blank to fill in later)'
-            if ($n.Trim()) { $gitName  = $n.Trim() }
-            if ($e.Trim()) { $gitEmail = $e.Trim() }
-        } catch { }   # no interactive host: keep the placeholders
+            $nameDefault  = if ($gitName  -ne 'YOUR NAME')      { $gitName }  else { 'blank to fill in later' }
+            $emailDefault = if ($gitEmail -ne 'you@example.com'){ $gitEmail } else { 'blank to fill in later' }
+            $n = Read-Host "  git author name  [$nameDefault]"
+            if ($n.Trim()) { $gitName = $n.Trim() }
+            # Re-prompt a couple of times on an obviously-wrong email instead of
+            # silently writing garbage; accept blank (keep default) at any point.
+            for ($try = 0; $try -lt 3; $try++) {
+                $e = Read-Host "  git author email [$emailDefault]"
+                if (-not $e.Trim()) { break }                       # keep default
+                if (Test-DotEmailish $e.Trim()) { $gitEmail = $e.Trim(); break }
+                Write-DotWarn "that doesn't look like an email address." 'expected something like you@example.com — or leave blank to set it later'
+            }
+        } catch { }   # no interactive host: keep the defaults
     }
     if ($script:DryRun) {
         Write-DotHost "  would seed $gcLocal (git identity)" -Color Cyan
@@ -402,9 +422,8 @@ if (-not (Test-Path $gcLocal)) {
 # here would rewrite that line in-place with a machine-specific ABSOLUTE path,
 # silently dirtying the tracked repo file (it edits the symlink target).
 
-$rule = if (Test-DotUnicode) { '─' * 56 } else { '-' * 56 }
 Write-Host ''
-Write-DotHost "-- Summary $rule" -Color Cyan
+Write-DotRule -Title 'Summary'
 Get-InstallSummaryLines -Stats $script:LinkStats | ForEach-Object { Write-DotHost "  $_" -Color Gray }
 if (-not $CanSymlink) {
     Write-DotHost '  mode    : COPY (no Dev Mode / not elevated — links would not track the repo)' -Color DarkYellow

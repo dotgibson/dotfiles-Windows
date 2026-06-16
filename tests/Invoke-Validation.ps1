@@ -58,19 +58,54 @@ if (Test-Path $scoop) {
     foreach ($app in $m.apps) {
         if ($app.Name -notmatch '^[\w.+-]+$') { Fail "scoopfile.json odd app name: '$($app.Name)'" }
         if ($declared -notcontains $app.Source) { Fail "scoopfile.json app '$($app.Name)' references undeclared bucket '$($app.Source)'" }
+        # Optional version pin must be a non-whitespace token (scoop install name@ver).
+        if ($app.PSObject.Properties.Name -contains 'Version' -and "$($app.Version)" -notmatch '^\S+$') {
+            Fail "scoopfile.json app '$($app.Name)' has an empty/odd Version pin"
+        }
     }
 }
 $wg = Join-Path $RepoRoot 'packages/winget.json'
 if (Test-Path $wg) {
     $w = (Get-Content $wg -Raw | ConvertFrom-Json).packages
-    $dupWg = $w | Group-Object | Where-Object Count -gt 1
+    # Entries may be a bare id string OR an object { id, version } (optional pin).
+    # Normalize to ids for the dup/shape checks; validate any version separately.
+    $ids = foreach ($e in $w) { if ($e -is [string]) { $e } else { $e.id } }
+    $dupWg = $ids | Group-Object | Where-Object Count -gt 1
     if ($dupWg) { Fail "winget.json duplicate ids: $($dupWg.Name -join ', ')" }
     # Provenance: winget ids are Publisher.Package (at least one dot, no spaces).
-    foreach ($id in $w) {
+    foreach ($id in $ids) {
         if ($id -notmatch '^[^\s.]+(\.[^\s.]+)+$') { Fail "winget.json malformed id: '$id'" }
+    }
+    foreach ($e in $w) {
+        if ($e -isnot [string]) {
+            if (-not $e.id)      { Fail "winget.json object entry missing 'id'" }
+            if ($e.PSObject.Properties.Name -contains 'version' -and "$($e.version)" -notmatch '^\S+$') {
+                Fail "winget.json entry '$($e.id)' has an empty/odd version pin"
+            }
+        }
     }
 }
 if ($script:fail -eq $preJson) { Pass 'all JSON valid; manifests have no duplicates' }
+
+# --- 2b. module pins are EXACT versions (hermetic install gate) ---------------
+# packages/modules.ps1 must pin every managed module to an exact x.y[.z] version
+# so a fresh bootstrap is reproducible (Install-Packages uses -RequiredVersion).
+# Catch a floor/range/prerelease tag sneaking back in here, dependency-free.
+Write-Host 'Module pins (exact versions):' -ForegroundColor Cyan
+$modScript = Join-Path $RepoRoot 'packages/modules.ps1'
+if (Test-Path $modScript) {
+    $preMod = $script:fail
+    . $modScript
+    if (-not $script:MaintModulePins) {
+        Fail 'modules.ps1 did not define $script:MaintModulePins'
+    } else {
+        foreach ($name in $script:MaintModulePins.Keys) {
+            $v = $script:MaintModulePins[$name]
+            if ($v -notmatch '^\d+\.\d+(\.\d+)?$') { Fail "module pin '$name' is not an exact version: '$v'" }
+        }
+        if ($script:fail -eq $preMod) { Pass "$($script:MaintModulePins.Count) module pin(s) are exact versions" }
+    }
+}
 
 # --- 3. TOML (best-effort) ----------------------------------------------------
 Write-Host 'TOML (best-effort):' -ForegroundColor Cyan
@@ -119,6 +154,36 @@ foreach ($f in $ecFiles) {
     }
 }
 if ($script:fail -eq $preEc) { Pass "$($ecFiles.Count) file(s) match editorconfig basics" }
+
+# --- 5. PSScriptAnalyzer (opportunistic: only if already installed) -----------
+# Keeps this script's dependency-free promise — it does NOT install anything. But
+# when a contributor (or the pre-commit hook) has PSScriptAnalyzer available, run
+# it here so lint regressions are caught locally instead of only on the Windows CI
+# runner. Gates on ERRORS only (warnings are shown), matching the CI severity gate,
+# and uses the repo's shared settings so local and CI agree on the ruleset.
+# Skip with DOTFILES_VALIDATE_NO_PSSA=1.
+Write-Host 'PSScriptAnalyzer (opportunistic):' -ForegroundColor Cyan
+if ($env:DOTFILES_VALIDATE_NO_PSSA -eq '1') {
+    Write-Host '  - skipped (DOTFILES_VALIDATE_NO_PSSA=1)' -ForegroundColor DarkGray
+} elseif (Get-Module -ListAvailable PSScriptAnalyzer) {
+    Import-Module PSScriptAnalyzer
+    $settings = Join-Path $PSScriptRoot 'PSScriptAnalyzerSettings.psd1'
+    $findings = Invoke-ScriptAnalyzer -Path $RepoRoot -Recurse -Settings $settings -ErrorAction SilentlyContinue |
+        Where-Object { $_.ScriptPath -notmatch '[\\/]\.git[\\/]' }
+    $errs = @($findings | Where-Object Severity -eq 'Error')
+    $warns = @($findings | Where-Object Severity -eq 'Warning')
+    if ($warns.Count) {
+        $warns | ForEach-Object { Write-Host ("      warn {0}:{1} {2}" -f (Split-Path -Leaf $_.ScriptPath), $_.Line, $_.RuleName) -ForegroundColor DarkYellow }
+    }
+    if ($errs.Count) {
+        $errs | ForEach-Object { Write-Host ("      err  {0}:{1} {2}" -f (Split-Path -Leaf $_.ScriptPath), $_.Line, $_.RuleName) -ForegroundColor DarkRed }
+        Fail "PSScriptAnalyzer reported $($errs.Count) error(s)"
+    } else {
+        Pass "no analyzer errors ($($warns.Count) warning(s))"
+    }
+} else {
+    Write-Host '  - skipped (PSScriptAnalyzer not installed; runs on the Windows CI runner)' -ForegroundColor DarkGray
+}
 
 Write-Host ''
 if ($script:fail) {

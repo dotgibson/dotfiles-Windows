@@ -21,7 +21,30 @@
 #    MAINT_WINGET_UPGRADE   0     # 1 = also `winget upgrade --all` (see above)
 #    MAINT_NVIM_TIMEOUT     600   # seconds
 # ============================================================================
-[CmdletBinding()] param()
+[CmdletBinding()] param([switch]$Help)
+
+if ($Help) {
+    @(
+        'Maintenance.ps1 - unattended daily "update everything (that is safe)" runner'
+        ''
+        'USAGE'
+        '  pwsh -NoProfile -File maint\Maintenance.ps1 [-Help]'
+        '  (normally invoked by Task Scheduler — register it with: maint-install)'
+        ''
+        'WHAT IT DOES (all user-space, guarded, one failure never aborts the rest):'
+        '  scoop update/upgrade/cleanup; mise update/upgrade; neovim Lazy/TS/Mason'
+        '  sync (headless, timeout-guarded); navi repo update; PowerShell modules.'
+        ''
+        'ENV KNOBS'
+        '  MAINT_ENABLED=1          set 0 to make the run a no-op'
+        '  MAINT_WINGET_UPGRADE=0   set 1 to also run winget upgrade --all (can'
+        '                           launch MSI installers, so it is opt-in)'
+        '  MAINT_NVIM_TIMEOUT=600   seconds before the headless nvim step is killed'
+        ''
+        ('LOG: {0}' -f [System.IO.Path]::Combine(("$env:LOCALAPPDATA" -as [string]), 'dotfiles\maint\maint.log'))
+    ) | ForEach-Object { Write-Host $_ }
+    return
+}
 
 $ErrorActionPreference = 'Continue'
 . (Join-Path $PSScriptRoot '..\packages\modules.ps1')

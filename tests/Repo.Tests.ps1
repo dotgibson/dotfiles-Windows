@@ -126,3 +126,21 @@ Describe 'git config' {
         $gi | Should -Match 'powershell/local\.ps1'
     }
 }
+
+Describe 'dev-dependency pins match CI' {
+    BeforeAll {
+        $RepoRoot = Split-Path -Parent $PSScriptRoot
+        $env:DOTFILES_DEVDEPS_LIBONLY = '1'
+        . (Join-Path $RepoRoot 'tests/Install-DevDeps.ps1')
+        $script:Ci = Get-Content (Join-Path $RepoRoot '.github/workflows/ci.yml') -Raw
+    }
+    AfterAll { Remove-Item Env:DOTFILES_DEVDEPS_LIBONLY -ErrorAction SilentlyContinue }
+    It 'pins Pester to the CI PESTER_VERSION (no drift)' {
+        $v = (Get-DevDepVersions).Pester
+        $script:Ci | Should -Match ([regex]::Escape("PESTER_VERSION: `"$v`""))
+    }
+    It 'pins PSScriptAnalyzer to the CI PSSA_VERSION (no drift)' {
+        $v = (Get-DevDepVersions).PSScriptAnalyzer
+        $script:Ci | Should -Match ([regex]::Escape("PSSA_VERSION: `"$v`""))
+    }
+}

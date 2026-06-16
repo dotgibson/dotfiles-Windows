@@ -87,6 +87,12 @@ Then:
   machines) and you can't override it yourself.
 - **Prefer `git clone` over downloading an archive.** Cloned files don't carry
   the "Mark of the Web," so the unblock step never comes up.
+- **Pinning the bootstrap's third-party fetches (supply chain).** The scoop
+  installer can be integrity-gated: set `DOTFILES_SCOOP_SHA256` to the expected
+  hash and the installer aborts on mismatch. The psmux `ppm` plugin clone can be
+  pinned to an exact commit/tag with `DOTFILES_PPM_REF`; otherwise it tracks the
+  default branch, and the installer verifies the expected `ppm\` folder is present
+  before copying it.
 - **Use PowerShell 7 (`pwsh`), not Windows PowerShell 5.1.** The bootstrap
   tolerates 5.1 and warns you, but the profile targets the pwsh path — do daily
   work in pwsh.
@@ -146,7 +152,7 @@ dotfiles-Windows/
 | `tmux` / `psmux` / `pmux`                     | native host multiplexer (psmux; reads `~/.config/psmux/psmux.conf`)           |
 | `mux [session]`                               | attach-or-create a psmux session (defaults to `main`)                         |
 | `psmux-pill-enable` / `psmux-pill-disable`    | enable/disable the file-backed operator/VPN status pill (off the render path) |
-| `up` / `up -y`                                | apply scoop+winget updates (`-y` auto-confirms winget)                        |
+| `up` / `up -y` / `up -n`                      | apply scoop+winget updates (`-y` auto-confirms winget; `-n`/`-Preview` lists only) |
 | `update-check`                                | force the "updates available" check now                                       |
 | `maint-install [HH:MM]`                       | register the daily maintenance task                                           |
 | `maint-run` / `maint-log -f` / `maint-status` | run now / follow log / next-run                                               |
@@ -168,8 +174,14 @@ the genuine tmux for Linux work still lives in WSL.
 ## Development
 
 ```powershell
-# fast, dependency-free gate (syntax + JSON/manifests + editorconfig) — no Gallery:
+# one-time: provision the same test toolchain CI uses (Pester + PSScriptAnalyzer,
+# pinned to the CI versions; idempotent). A test gates these against ci.yml drift.
+pwsh -NoProfile -File tests/Install-DevDeps.ps1
+
+# fast, dependency-free gate (syntax + JSON/manifests + module pins + editorconfig):
 pwsh -NoProfile -File tests/Invoke-Validation.ps1
+# ^ also runs PSScriptAnalyzer automatically IF it's installed (errors gate the
+#   run); it's skipped cleanly when absent, so the gate stays Gallery-free offline.
 
 # full behavioral suite (needs Pester 5):
 Invoke-Pester -Path tests

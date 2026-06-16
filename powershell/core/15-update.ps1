@@ -25,8 +25,12 @@ function script:Show-PkgUpdateNotice {
     if ($count -match '^\d+$' -and [int]$count -gt 0) {
         $c = [int]$count
         $s = if ($c -ne 1) { 's' } else { '' }
-        Write-Host ("`u{f069a} {0} update{1} available" -f $c, $s) -ForegroundColor Blue -NoNewline
-        Write-Host "  - run 'up' to apply" -ForegroundColor DarkGray
+        # Glyph + colour route through the shared helpers so the nudge degrades on
+        # NO_COLOR (no ANSI) and DOTFILES_ASCII / legacy codepages (no tofu) like
+        # the rest of the output, instead of emitting a raw nerd-font codepoint.
+        $g = Get-DotGlyph pkg
+        Write-DotHost ("{0} {1} update{2} available" -f $g, $c, $s) -Color Blue -NoNewline
+        Write-DotHost "  - run 'up' to apply" -Color DarkGray
     }
 }
 
@@ -103,12 +107,22 @@ if ($env:FAST_START -ne '1' -and
         } else { '-1' }
         Set-Content -Path $script:PkgUpCache -Encoding ascii -Value @("$prev", "$now")
 
-        Start-Job -ScriptBlock {
+        # Prefer Start-ThreadJob (ships with pwsh 7): it runs the check on a thread
+        # in THIS process instead of spawning a whole child pwsh, so the shell-start
+        # cost of the once-a-day refresh is far lower. Fall back to Start-Job on any
+        # host without the ThreadJob module.
+        $bg = {
             param($cache, $counter)
             $n = (& ([scriptblock]::Create($counter)))
             Set-Content -Path $cache -Encoding ascii `
                 -Value @("$n", "$([DateTimeOffset]::UtcNow.ToUnixTimeSeconds())")
-        } -ArgumentList $script:PkgUpCache, $script:PkgUpCountSb.ToString() | Out-Null
+        }
+        $bgArgs = @($script:PkgUpCache, $script:PkgUpCountSb.ToString())
+        if (Get-Command Start-ThreadJob -ErrorAction SilentlyContinue) {
+            Start-ThreadJob -ScriptBlock $bg -ArgumentList $bgArgs | Out-Null
+        } else {
+            Start-Job -ScriptBlock $bg -ArgumentList $bgArgs | Out-Null
+        }
     }
 
     Show-PkgUpdateNotice
@@ -122,21 +136,47 @@ if ($env:FAST_START -ne '1' -and
 #    up -y     # auto-confirm winget upgrades
 # ============================================================================
 function up {
-    [CmdletBinding()] param([switch]$y)
+    [CmdletBinding()] param([switch]$y, [Alias('n')][switch]$Preview)
 
-    if (Get-Command scoop -ErrorAction SilentlyContinue) {
-        Write-Host '== scoop ==' -ForegroundColor Cyan
-        scoop update
-        scoop update *
-        scoop cleanup *
+    # Preview (`up -Preview` / `up -n`): list what WOULD upgrade and apply nothing,
+    # so the daily upgrade verb isn't a leap of faith. Mirrors install.ps1 -DryRun.
+    if ($Preview) {
+        Write-DotBanner 'pending updates' -Subtitle 'preview — nothing will be changed'
+        if (Get-Command scoop -ErrorAction SilentlyContinue) {
+            Write-Host ''; Write-Host '== scoop ==' -ForegroundColor Cyan
+            scoop status
+        }
+        if (Get-Command winget -ErrorAction SilentlyContinue) {
+            Write-Host ''; Write-Host '== winget ==' -ForegroundColor Cyan
+            winget upgrade --include-unknown
+        }
+        Write-Host ''
+        Write-DotHost "  run 'up' to apply (winget prompts per package), or 'up -y' to auto-confirm." -Color DarkGray
+        return
     }
-    if (Get-Command winget -ErrorAction SilentlyContinue) {
-        Write-Host '== winget ==' -ForegroundColor Cyan
-        $wargs = @('upgrade', '--all', '--include-unknown')
-        if ($y) { $wargs += @('--silent', '--accept-package-agreements', '--accept-source-agreements') }
-        winget @wargs
+
+    # Wrap the apply so a Ctrl-C mid-upgrade acknowledges itself and still refreshes
+    # the nudge cache, instead of dropping you at a bare prompt with a half-applied
+    # batch (U12: parity with install.ps1 / Install-Packages.ps1).
+    $done = $false
+    try {
+        if (Get-Command scoop -ErrorAction SilentlyContinue) {
+            Write-Host '== scoop ==' -ForegroundColor Cyan
+            scoop update
+            scoop update *
+            scoop cleanup *
+        }
+        if (Get-Command winget -ErrorAction SilentlyContinue) {
+            Write-Host '== winget ==' -ForegroundColor Cyan
+            $wargs = @('upgrade', '--all', '--include-unknown')
+            if ($y) { $wargs += @('--silent', '--accept-package-agreements', '--accept-source-agreements') }
+            winget @wargs
+        }
+        $done = $true
+    } finally {
+        update-check | Out-Null      # refresh the nudge either way (clears on success)
+        if ($done) { Write-DotOk 'done.' }
+        else { Write-DotWarn 'update interrupted — re-run `up` to finish (already-current packages are skipped).' }
     }
-    update-check | Out-Null      # clear the nudge
-    Write-Host 'done.' -ForegroundColor Green
 }
 

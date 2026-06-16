@@ -88,7 +88,7 @@ __lap 'PSReadLine'
 # Try/catch: the manifest can exist while the .psm1 it points at is missing.
 if ($env:DOTFILES_TERMINAL_ICONS -eq '1' -and (Get-Module -ListAvailable Terminal-Icons)) {
     try   { Import-Module Terminal-Icons -ErrorAction Stop }
-    catch { Write-Warning "Terminal-Icons failed to load — reinstall with: Install-Module Terminal-Icons -Scope CurrentUser -Force -AllowClobber" }
+    catch { Write-DotWarn 'Terminal-Icons failed to load' 'reinstall: Install-Module Terminal-Icons -Scope CurrentUser -Force -AllowClobber' }
 }
 __lap 'Terminal-Icons'
 
@@ -143,7 +143,7 @@ Set-Alias init-cache-clear Clear-InitCache -Scope Global
 function global:shell-bench {
     param([int]$Runs = 5)
     $pwshPath = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
-    if (-not $pwshPath) { Write-Error 'pwsh not found'; return }
+    if (-not $pwshPath) { Write-DotErr 'pwsh not found' 'install it: scoop install pwsh'; return }
     1..$Runs | ForEach-Object {
         (Measure-Command { & $pwshPath -NoLogo -Command exit }).TotalMilliseconds
     } | Measure-Object -Average -Minimum -Maximum |
@@ -163,7 +163,7 @@ function global:shell-bench {
 #     populate the trace (vs. an output-plumbing problem) — and we say so.
 function global:prof-trace {
     $pwshPath = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
-    if (-not $pwshPath) { Write-Error 'pwsh not found'; return }
+    if (-not $pwshPath) { Write-DotErr 'pwsh not found' 'install it: scoop install pwsh'; return }
     $out = Join-Path $env:TEMP 'dotfiles-proftrace.txt'
     Remove-Item $out -Force -ErrorAction SilentlyContinue
     $env:DOTFILES_TRACE_OUT = $out
@@ -188,7 +188,7 @@ function global:prof-trace {
         Write-Host "`nprofile load trace (slowest first):" -ForegroundColor Cyan
         Get-Content $out
     } else {
-        Write-Warning 'prof-trace: child wrote no file — the profile likely errored before the trace ran.'
+        Write-DotWarn 'prof-trace: child wrote no file — the profile likely errored before the trace ran.'
         Write-Host  'Fallback (loads the profile the plain way, no -Command indirection):' -ForegroundColor DarkGray
         Write-Host  "  `$env:DOTFILES_PROFILE_TRACE='1'; `$env:PSMUX_NO_AUTOLAUNCH='1'; pwsh -NoLogo" -ForegroundColor DarkGray
     }
@@ -207,7 +207,7 @@ if ((Test-Cmd starship) -and -not $global:DotfilesInit.Starship) {
         $cf = Get-InitCache -Name starship -Generate { starship init powershell }
         if ($cf) { . $cf } else { Invoke-Expression (&starship init powershell) }   # fallback: never lose the prompt
         $global:DotfilesInit.Starship = $true
-    } catch { Write-Warning "starship init failed: $_" }
+    } catch { Write-DotWarn "starship init failed: $_" }
 }
 __lap 'starship'
 

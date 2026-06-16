@@ -61,6 +61,21 @@ Describe 'Get-DoctorFixPlan' {
     }
 }
 
+Describe 'Get-DotRepoVersionDetail' {
+    It 'formats sha + date + dirty marker' {
+        $d = Get-DotRepoVersionDetail -Sha 'abc1234' -IsDirty $true -When '2026-06-16'
+        $d | Should -Match 'abc1234'
+        $d | Should -Match '2026-06-16'
+        $d | Should -Match '\[dirty\]'
+    }
+    It 'omits the dirty marker on a clean tree' {
+        (Get-DotRepoVersionDetail -Sha 'abc1234' -IsDirty $false) | Should -Not -Match '\[dirty\]'
+    }
+    It 'reports unknown when there is no sha' {
+        (Get-DotRepoVersionDetail -Sha '' -IsDirty $false) | Should -Match 'unknown'
+    }
+}
+
 Describe 'Get-DoctorSummary' {
     It 'counts ok/warn/fail correctly' {
         $s = Get-DoctorSummary @(
