@@ -12,10 +12,12 @@ root="$(git rev-parse --show-toplevel)"
 script="$root/tests/Invoke-Validation.ps1"
 [ -f "$script" ] || exit 0   # nothing to validate (partial checkout)
 
+# -ExecutionPolicy Bypass (process-scoped) so a restrictive CurrentUser/Machine
+# policy can't block the commit from running this trusted in-repo validator.
 if command -v pwsh >/dev/null 2>&1; then
-    pwsh -NoProfile -File "$script"
+    pwsh -NoProfile -ExecutionPolicy Bypass -File "$script"
 elif command -v powershell >/dev/null 2>&1; then
-    powershell -NoProfile -File "$script"
+    powershell -NoProfile -ExecutionPolicy Bypass -File "$script"
 else
     echo "pre-commit: no pwsh/powershell on PATH — skipping validation" >&2
     exit 0

@@ -23,17 +23,25 @@ $failed = [System.Collections.Generic.List[string]]::new()
 . (Join-Path $here 'modules.ps1')
 
 # Shared rendering helpers (Write-DotWarn / Write-DotHost / glyphs). Dot-sourced
-# so a standalone run gets the same NO_COLOR-aware layout as install.ps1; no-op
-# if the file is missing (older checkout).
+# so a standalone run gets the same NO_COLOR-aware layout as install.ps1.
 $lib = Join-Path $here '..\powershell\core\05-lib.ps1'
 if (Test-Path $lib) { . $lib }
 
+# Make "best-effort if the lib is missing" actually true: if 05-lib didn't load
+# (older/partial checkout), define minimal shims for the helpers this script uses
+# so it degrades to plain output instead of erroring on an undefined command.
+if (-not (Get-Command Write-DotHost -ErrorAction SilentlyContinue)) {
+    function Write-DotHost { param([Parameter(Position = 0)][string]$Text = '', [string]$Color, [switch]$NoNewline) Write-Host $Text -NoNewline:$NoNewline }
+    function Write-DotWarn { param([Parameter(Mandatory)][string]$Message, [string]$Hint) Write-Warning $Message; if ($Hint) { Write-Warning "  $Hint" } }
+}
+
 # Tiny progress line: "  [n/total] -> name" so a long, silent install doesn't look
-# frozen. Returns a stopwatch the caller stops to print the elapsed time.
+# frozen. Returns a stopwatch the caller stops to print the elapsed time. Uses
+# Write-DotHost so the progress line honours NO_COLOR like the rest of the output.
 function Write-PkgStep {
     param([int]$N, [int]$Total, [string]$Name)
-    Write-Host ("  [{0}/{1}] " -f $N, $Total) -ForegroundColor Cyan -NoNewline
-    Write-Host "-> $Name" -ForegroundColor DarkGray
+    Write-DotHost ("  [{0}/{1}] " -f $N, $Total) -Color Cyan -NoNewline
+    Write-DotHost "-> $Name" -Color DarkGray
     [System.Diagnostics.Stopwatch]::StartNew()
 }
 

@@ -52,6 +52,15 @@ Describe 'Test-LinkIntoRepo' {
         New-Item -ItemType SymbolicLink -Path $link -Target $script:Outside -Force | Out-Null
         Test-LinkIntoRepo -Link $link -Root $script:Repo | Should -BeFalse
     }
+    It 'is false for a sibling dir that shares the repo name as a prefix' {
+        # Guards the substring-vs-prefix bug: <repo> must not match <repo>2.
+        $sibling = "$($script:Repo)2"
+        New-Item -ItemType Directory -Force -Path $sibling | Out-Null
+        $sibFile = Join-Path $sibling 'thing.conf'; 'x' | Set-Content $sibFile
+        $link = Join-Path $script:Tmp 'sibling-link'
+        New-Item -ItemType SymbolicLink -Path $link -Target $sibFile -Force | Out-Null
+        Test-LinkIntoRepo -Link $link -Root $script:Repo | Should -BeFalse
+    }
 }
 
 Describe 'Get-UninstallUsage' {

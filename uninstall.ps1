@@ -58,13 +58,24 @@ function Get-DotfilesLinkMap {
 
 # True when $Link is a symlink whose target resolves inside this repo. Pure-ish
 # (filesystem read only), shared shape with install.ps1's Test-SymlinkCurrent.
+# Uses a real path-PREFIX check (not a substring) so a target under C:\repo2 is
+# never mistaken for one under C:\repo — this gates a delete, so a false positive
+# would remove an unrelated symlink.
 function Test-LinkIntoRepo {
     param([string]$Link, [string]$Root)
     if (-not (Test-Path -LiteralPath $Link)) { return $false }
     $item = Get-Item -LiteralPath $Link -Force -ErrorAction SilentlyContinue
     if (-not $item -or $item.LinkType -ne 'SymbolicLink') { return $false }
     $target = @($item.Target)[0]
-    return ($target -and $Root -and ($target -like "*$Root*"))
+    if (-not $target -or -not $Root) { return $false }
+    try {
+        $t = [System.IO.Path]::GetFullPath($target)
+        $r = [System.IO.Path]::GetFullPath($Root).TrimEnd('\', '/')
+    } catch { return $false }
+    $cmp = [System.StringComparison]::OrdinalIgnoreCase
+    return ([string]::Equals($t, $r, $cmp) -or
+            $t.StartsWith($r + '\', $cmp) -or
+            $t.StartsWith($r + '/', $cmp))
 }
 
 function Get-UninstallUsage {
