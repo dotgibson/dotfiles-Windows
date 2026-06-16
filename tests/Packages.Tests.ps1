@@ -24,3 +24,12 @@ Describe 'Get-WingetInstalledIds' {
         Get-WingetInstalledIds 'not json {{' | Should -BeNullOrEmpty
     }
 }
+
+Describe 'Get-PackagesUsage' {
+    It 'documents every public switch' {
+        $u = (Get-PackagesUsage) -join "`n"
+        foreach ($flag in '-SkipScoop', '-SkipWinget', '-Help') {
+            $u | Should -Match ([regex]::Escape($flag))
+        }
+    }
+}

@@ -14,8 +14,32 @@
 [CmdletBinding()]
 param(
     [switch]$SkipWinget,
-    [switch]$SkipScoop
+    [switch]$SkipScoop,
+    [switch]$Help
 )
+
+# Pure usage banner (returns the lines, so -Help and the test agree — same shape
+# as install.ps1's Get-InstallUsage).
+function Get-PackagesUsage {
+    @(
+        'Install-Packages.ps1 - install the host toolchain from the manifests'
+        ''
+        'USAGE'
+        '  .\packages\Install-Packages.ps1 [-SkipScoop] [-SkipWinget] [-Help]'
+        ''
+        'OPTIONS'
+        '  -SkipScoop    Skip the scoop bucket/app install pass.'
+        '  -SkipWinget   Skip the winget package install pass.'
+        '  -Help         Show this help and exit.'
+        ''
+        'NOTES'
+        '  Resilient: a package that fails is logged and skipped, never halting the'
+        '  batch. Re-run to retry — already-installed items are detected and skipped.'
+        '  PowerShell modules always install to a local (off-OneDrive) modules dir.'
+    )
+}
+
+if ($Help) { Get-PackagesUsage | ForEach-Object { Write-Host $_ }; return }
 
 $ErrorActionPreference = 'Continue'
 $here   = Split-Path -Parent $MyInvocation.MyCommand.Path
