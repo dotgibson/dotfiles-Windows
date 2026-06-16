@@ -109,9 +109,30 @@ function global:Get-InitCache {
     )
     $src = (Get-Command $Name -ErrorAction SilentlyContinue).Source
     $cacheFile = Join-Path $global:DotfilesInitCacheDir "$Name.ps1"
+
+    # The cache key has TWO inputs, so a hit means BOTH the tool and the recipe are
+    # unchanged:
+    #   • binary mtime  — a scoop/winget upgrade rewrites the exe and bumps its
+    #                     mtime, so a new tool version regenerates (version drift).
+    #   • generator hash — a SHA-256 of THIS call's scriptblock text, stored as a
+    #                     marker comment on the cache file's first line. Editing the
+    #                     flags here (e.g. `zoxide init powershell --cmd cd`) changes
+    #                     the hash, so the stale cache self-busts on the next shell
+    #                     instead of silently serving the old init until someone
+    #                     remembers `init-cache-clear` (B2).
+    $genHash = if (Get-Command Get-DotStringSha256 -ErrorAction SilentlyContinue) {
+        Get-DotStringSha256 $Generate.ToString()
+    } else { $null }
+    $marker = "# initcache-hash: $genHash"
+
     $stale = $true
     if ((Test-Path $cacheFile) -and $src -and (Test-Path $src)) {
-        $stale = (Get-Item $cacheFile).LastWriteTimeUtc -lt (Get-Item $src).LastWriteTimeUtc
+        $mtimeOk = (Get-Item $cacheFile).LastWriteTimeUtc -ge (Get-Item $src).LastWriteTimeUtc
+        # First line carries the generator hash; reuse only when it still matches.
+        # When hashing is unavailable (05-lib didn't load), fall back to mtime only.
+        $hashOk = if ($null -eq $genHash) { $true }
+                  else { (Get-Content $cacheFile -TotalCount 1 -ErrorAction SilentlyContinue) -eq $marker }
+        $stale = -not ($mtimeOk -and $hashOk)
     }
     if ($stale) {
         try {
@@ -120,7 +141,9 @@ function global:Get-InitCache {
             }
             $out = (& $Generate | Out-String)
             if ([string]::IsNullOrWhiteSpace($out)) { return $null }
-            Set-Content -Path $cacheFile -Value $out -Encoding utf8
+            # Prepend the marker (a PowerShell comment, so dot-sourcing ignores it).
+            $payload = if ($genHash) { $marker + "`n" + $out } else { $out }
+            Set-Content -Path $cacheFile -Value $payload -Encoding utf8
         } catch { return $null }
     }
     return $cacheFile

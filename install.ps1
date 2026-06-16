@@ -117,6 +117,36 @@ function Get-InstallSummaryLines {
     )
 }
 
+# --- transcript hygiene (pure helpers, unit-tested) ----------------------------
+# Get-DotLogsToPrune: keep the newest $Keep install logs and return the rest (the
+# older ones, newest-of-them first — order is irrelevant since the caller just
+# deletes them) so install-*.log can't accumulate without bound across re-runs.
+# Pure (the Get-ChildItem / Remove-Item live at the call site), so the retention
+# policy is unit-tested. (B8)
+function Get-DotLogsToPrune {
+    param([object[]]$Logs, [int]$Keep = 10)
+    if (-not $Logs) { return @() }
+    @($Logs | Sort-Object LastWriteTime -Descending | Select-Object -Skip $Keep)
+}
+
+# Get-DotRedactedTranscript: replace any captured line that looks like it carries a
+# secret (reusing the PSReadLine history-filter heuristic) with a marker, so a
+# token/password that scrolled past during the run can't persist in the on-disk
+# transcript. Best-effort and pure, so it's unit-tested. (B8)
+function Get-DotRedactedTranscript {
+    param([string[]]$Lines)
+    if (-not $Lines) { return @() }
+    # Resolve the filter's presence ONCE, not per line — the answer is constant for
+    # the whole call, and a large transcript would otherwise pay repeated command
+    # discovery on every line.
+    $hasFilter = [bool](Get-Command Test-SensitiveHistoryLine -ErrorAction SilentlyContinue)
+    $Lines | ForEach-Object {
+        if ($hasFilter -and (Test-SensitiveHistoryLine $_)) {
+            '  <redacted: line matched a secret pattern>'
+        } else { $_ }
+    }
+}
+
 # --- overwrite confirmation ----------------------------------------------------
 # A REAL (non-symlink) file at $Link is the user's own config; backing it up and
 # replacing it without asking is the one genuinely destructive thing the bootstrap
@@ -204,6 +234,10 @@ if (-not $script:DryRun -and $env:LOCALAPPDATA) {
     try {
         $logDir = Join-Path $env:LOCALAPPDATA 'dotfiles\logs'
         New-Item -ItemType Directory -Force -Path $logDir | Out-Null
+        # Retention: prune all but the newest 10 install logs so they don't pile up
+        # unbounded across re-runs (B8).
+        Get-DotLogsToPrune (Get-ChildItem -Path $logDir -Filter 'install-*.log' -File -ErrorAction SilentlyContinue) -Keep 10 |
+            ForEach-Object { Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue }
         $logFile = Join-Path $logDir ("install-{0}.log" -f (Get-Date -Format 'yyyyMMdd-HHmmss'))
         Start-Transcript -Path $logFile -Force | Out-Null
         $script:Transcribing = $true
@@ -455,6 +489,12 @@ $script:Completed = $true
     }
     if ($script:Transcribing) {
         try { Stop-Transcript | Out-Null } catch { }
+        # Redact secret-looking lines before the transcript rests on disk (B8).
+        try {
+            if ($logFile -and (Test-Path $logFile)) {
+                Set-Content -Path $logFile -Encoding UTF8 -Value (Get-DotRedactedTranscript (Get-Content $logFile))
+            }
+        } catch { }
         Write-DotHost "  log: $logFile" -Color DarkGray
     }
 }

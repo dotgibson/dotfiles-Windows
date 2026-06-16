@@ -42,6 +42,24 @@ Describe 'Test-DotUnicode' {
     It 'falls back to ASCII when forced'   { Test-DotUnicode -Ascii '1' | Should -BeFalse }
 }
 
+Describe 'Test-DotGum' {
+    It 'is true when gum is present, colour on, interactive, and not opted out' {
+        Test-DotGum -NoGum '' -HasGum $true -Color $true -Interactive $true | Should -BeTrue
+    }
+    It 'is false when DOTFILES_NO_GUM=1 (the escape hatch wins over everything)' {
+        Test-DotGum -NoGum '1' -HasGum $true -Color $true -Interactive $true | Should -BeFalse
+    }
+    It 'is false when gum is not on PATH' {
+        Test-DotGum -NoGum '' -HasGum $false -Color $true -Interactive $true | Should -BeFalse
+    }
+    It 'is false under NO_COLOR / TERM=dumb (colour off)' {
+        Test-DotGum -NoGum '' -HasGum $true -Color $false -Interactive $true | Should -BeFalse
+    }
+    It 'is false when stdin is redirected / non-interactive' {
+        Test-DotGum -NoGum '' -HasGum $true -Color $true -Interactive $false | Should -BeFalse
+    }
+}
+
 Describe 'Get-DotGlyph' {
     It 'returns the unicode glyph by default'   { Get-DotGlyph -Name fail -Unicode $true | Should -Be '✗' }
     It 'returns an ASCII fallback when asked'   { Get-DotGlyph -Name fail -Unicode $false | Should -Be 'x' }
@@ -91,6 +109,24 @@ Describe 'Get-DotConfirmAnswer' {
     It 'accepts y / yes (any case/space)'            { Get-DotConfirmAnswer '  YES ' | Should -Be 'yes' }
     It 'accepts n / no'                              { Get-DotConfirmAnswer 'n' | Should -Be 'no' }
     It 'flags a typo as invalid (not a silent no)'   { Get-DotConfirmAnswer 'yse' | Should -Be 'invalid' }
+}
+
+Describe 'Get-DotToolNudge' {
+    It 'is empty when nothing is missing' {
+        Get-DotToolNudge @()        | Should -BeNullOrEmpty
+        Get-DotToolNudge @($null)   | Should -BeNullOrEmpty
+    }
+    It 'uses the singular for one missing tool and names it' {
+        $n = Get-DotToolNudge @('eza')
+        $n | Should -Match '1 core tool missing'
+        $n | Should -Match 'eza'
+        $n | Should -Match 'dotfiles-doctor'
+    }
+    It 'uses the plural and lists all missing tools' {
+        $n = Get-DotToolNudge @('starship', 'zoxide', 'fzf')
+        $n | Should -Match '3 core tools missing'
+        $n | Should -Match 'starship, zoxide, fzf'
+    }
 }
 
 Describe 'Get-DotStringSha256' {
@@ -167,6 +203,12 @@ Describe 'Write-DotRule' {
 }
 
 Describe 'Read-DotConfirm' {
+    # Force the plain Read-Host path so these tests are deterministic even when the
+    # dev box has gum installed and an interactive console (Test-DotGum would
+    # otherwise route to `gum confirm` and bypass the mocked Read-Host).
+    BeforeAll { $script:prevNoGum = $env:DOTFILES_NO_GUM; $env:DOTFILES_NO_GUM = '1' }
+    AfterAll  { $env:DOTFILES_NO_GUM = $script:prevNoGum }
+
     It 'returns true when the user answers yes' {
         Mock Read-Host { 'y' }
         Read-DotConfirm 'go?' | Should -BeTrue

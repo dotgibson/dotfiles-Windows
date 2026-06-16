@@ -90,11 +90,18 @@ if (Test-Path $LocalProfile) { . $LocalProfile }
 # worse than a visible warning. `dotfiles-doctor` has the per-fragment detail.
 if ($global:DotfilesLoadErrors.Count -and $env:FAST_START -ne '1') {
     $n = $global:DotfilesLoadErrors.Count
-    $msg = "dotfiles: $n profile fragment(s) failed to load — run dotfiles-doctor for detail."
+    # Name the fragments that failed (the "<layer>/<file>" prefix recorded before
+    # each error message), not just the count, so the nudge is actionable on its own
+    # instead of forcing a second `dotfiles-doctor` run just to see WHICH ones (U8).
+    $names = $global:DotfilesLoadErrors | ForEach-Object { ($_ -split ':\s', 2)[0] }
+    $msg = "dotfiles: $n profile fragment(s) failed to load: $($names -join ', ')"
     # Prefer the shared warning layout, but fall back to Write-Warning: 05-lib could
     # itself be the fragment that failed, in which case Write-DotWarn won't exist.
-    if (Get-Command Write-DotWarn -ErrorAction SilentlyContinue) { Write-DotWarn $msg }
-    else { Write-Warning $msg }
+    if (Get-Command Write-DotWarn -ErrorAction SilentlyContinue) {
+        Write-DotWarn $msg 'run dotfiles-doctor for the error detail, then: reload'
+    } else {
+        Write-Warning "$msg — run dotfiles-doctor for detail."
+    }
 }
 
 # --- Emit the trace table (if tracing) ----------------------------------------
