@@ -85,6 +85,14 @@ Describe 'Write-DotWarn' {
     }
 }
 
+Describe 'Get-DotConfirmAnswer' {
+    It 'treats an empty answer as the default (yes)' { Get-DotConfirmAnswer '' $true  | Should -Be 'yes' }
+    It 'treats an empty answer as the default (no)'  { Get-DotConfirmAnswer '' $false | Should -Be 'no' }
+    It 'accepts y / yes (any case/space)'            { Get-DotConfirmAnswer '  YES ' | Should -Be 'yes' }
+    It 'accepts n / no'                              { Get-DotConfirmAnswer 'n' | Should -Be 'no' }
+    It 'flags a typo as invalid (not a silent no)'   { Get-DotConfirmAnswer 'yse' | Should -Be 'invalid' }
+}
+
 Describe 'Test-DotEmailish' {
     It 'accepts a plausible address'      { Test-DotEmailish 'me@example.com' | Should -BeTrue }
     It 'accepts a sub-domain address'     { Test-DotEmailish 'a.b@mail.corp.io' | Should -BeTrue }

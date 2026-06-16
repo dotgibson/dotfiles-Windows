@@ -127,9 +127,9 @@ function Confirm-Overwrite {
     if ($Yes -or $NonInteractive) { return $true }
     $item = Get-Item -LiteralPath $Link -Force -ErrorAction SilentlyContinue
     if ($item -and $item.LinkType -eq 'SymbolicLink') { return $true }
-    try { $ans = Read-Host "  '$Link' exists. Back up and replace? [Y/n]" }
-    catch { return $true }   # no interactive host: fall back to the old auto-backup
-    return ($ans -eq '' -or $ans -match '^(y|yes)$')
+    # Re-prompts on a typo'd answer; defaults to yes (back up + replace) on a
+    # non-interactive host, matching the previous auto-backup behaviour.
+    return (Read-DotConfirm "  '$Link' exists. Back up and replace?" -DefaultYes $true)
 }
 
 # --- link helper --------------------------------------------------------------

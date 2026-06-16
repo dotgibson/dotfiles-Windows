@@ -110,13 +110,10 @@ foreach ($link in Get-DotfilesLinkMap) {
         continue
     }
 
-    if (-not ($Yes)) {
-        try { $ans = Read-Host "  remove '$link'? [Y/n]" } catch { $ans = 'y' }
-        if (-not ($ans -eq '' -or $ans -match '^(y|yes)$')) {
-            Write-DotHost "  kept    $link" -Color DarkGray
-            $skipped++
-            continue
-        }
+    if (-not $Yes -and -not (Read-DotConfirm "  remove '$link'?" -DefaultYes $true)) {
+        Write-DotHost "  kept    $link" -Color DarkGray
+        $skipped++
+        continue
     }
 
     Remove-Item -LiteralPath $link -Force -Recurse -ErrorAction SilentlyContinue

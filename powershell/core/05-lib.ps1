@@ -41,6 +41,38 @@ function global:Test-SensitiveHistoryLine {
     return $false
 }
 
+# --- Get-DotConfirmAnswer / Read-DotConfirm -----------------------------------
+# A yes/no prompt that doesn't take garbage for an answer. Get-DotConfirmAnswer is
+# the PURE classifier (unit-tested): it maps a raw string to 'yes' | 'no' |
+# 'invalid', honouring the default for an empty answer. Read-DotConfirm wraps it
+# in a Read-Host loop that re-asks on 'invalid' (instead of silently treating a
+# typo'd "yse" as no) and degrades to the default on a non-interactive host.
+function global:Get-DotConfirmAnswer {
+    [OutputType([string])]
+    param([string]$Answer, [bool]$DefaultYes = $true)
+    $a = "$Answer".Trim().ToLowerInvariant()
+    if ($a -eq '') { return $(if ($DefaultYes) { 'yes' } else { 'no' }) }
+    if ($a -in 'y', 'yes') { return 'yes' }
+    if ($a -in 'n', 'no')  { return 'no' }
+    return 'invalid'
+}
+
+function global:Read-DotConfirm {
+    [OutputType([bool])]
+    param([Parameter(Mandatory)][string]$Prompt, [bool]$DefaultYes = $true)
+    $suffix = if ($DefaultYes) { '[Y/n]' } else { '[y/N]' }
+    for ($i = 0; $i -lt 3; $i++) {
+        try { $ans = Read-Host "$Prompt $suffix" }
+        catch { return $DefaultYes }   # no interactive host: take the default
+        switch (Get-DotConfirmAnswer $ans $DefaultYes) {
+            'yes'   { return $true }
+            'no'    { return $false }
+            default { Write-DotHost '  please answer y or n.' -Color DarkYellow }
+        }
+    }
+    return $DefaultYes   # exhausted retries: fall back to the default
+}
+
 # --- Test-DotEmailish ---------------------------------------------------------
 # A deliberately loose "does this look like an email?" check for the install-time
 # git-identity prompt — enough to catch a fat-fingered "me@" or a name typed into
