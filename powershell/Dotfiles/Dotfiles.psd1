@@ -44,6 +44,13 @@
         'Get-DotRepoVersionDetail'
         'Get-NvimVendorDetail'
         'Get-DoctorFixPlan'
+        # help: command catalog + pure derivations (the dothelp verb stays in the fragment)
+        'Get-DotfilesHelpData'
+        'Get-DotHelpFilters'
+        'Get-DotHelpFlatLines'
+        'Get-DotHelpPrimaryVerb'
+        'Get-DotLevenshtein'
+        'Get-DotDidYouMean'
     )
     CmdletsToExport   = @()
     AliasesToExport   = @()

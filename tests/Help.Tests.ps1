@@ -4,11 +4,13 @@
 
 BeforeAll {
     $RepoRoot = Split-Path -Parent $PSScriptRoot
-    # Load the shared lib first (profile load order) so dothelp's colour helper
-    # (Write-DotHost / Test-DotColor) is available when it renders.
-    . (Join-Path $RepoRoot 'powershell/core/05-lib.ps1')
+    # The help catalog + pure helpers now live in the Dotfiles module (B7 stage 2c);
+    # import it for them (and for the renderer's Write-DotHost / Write-DotBanner). The
+    # dothelp VERB stays host-side, so dot-source the fragment too to exercise it.
+    $script:Module = Import-Module (Join-Path $RepoRoot 'powershell/Dotfiles/Dotfiles.psd1') -Force -DisableNameChecking -PassThru
     . (Join-Path $RepoRoot 'powershell/core/55-help.ps1')
 }
+AfterAll { if ($script:Module) { Remove-Module $script:Module -Force -ErrorAction SilentlyContinue } }
 
 Describe 'Get-DotfilesHelpData' {
     It 'returns an ordered set of non-trivial groups' {
