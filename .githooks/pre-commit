@@ -1,0 +1,24 @@
+#!/usr/bin/env sh
+# dotfiles-Windows pre-commit gate.
+#
+# Runs the dependency-free validator (syntax + JSON/manifests + editorconfig)
+# before every commit so regressions are caught locally, not in CI. Enable with:
+#   git config core.hooksPath .githooks      # install.ps1 does this for a clone
+# Bypass a single commit with:
+#   git commit --no-verify
+set -e
+
+root="$(git rev-parse --show-toplevel)"
+script="$root/tests/Invoke-Validation.ps1"
+[ -f "$script" ] || exit 0   # nothing to validate (partial checkout)
+
+# -ExecutionPolicy Bypass (process-scoped) so a restrictive CurrentUser/Machine
+# policy can't block the commit from running this trusted in-repo validator.
+if command -v pwsh >/dev/null 2>&1; then
+    pwsh -NoProfile -ExecutionPolicy Bypass -File "$script"
+elif command -v powershell >/dev/null 2>&1; then
+    powershell -NoProfile -ExecutionPolicy Bypass -File "$script"
+else
+    echo "pre-commit: no pwsh/powershell on PATH — skipping validation" >&2
+    exit 0
+fi

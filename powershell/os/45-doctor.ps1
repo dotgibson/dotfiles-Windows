@@ -34,18 +34,20 @@ function global:Get-DoctorSummary {
 }
 
 # --- render one result line ---------------------------------------------------
+# Glyphs/colour route through the shared helpers (core/05-lib.ps1) so the report
+# degrades cleanly under NO_COLOR / DOTFILES_ASCII like every other renderer.
 function script:Write-DoctorLine {
     param([object]$Result)
     $glyph, $color = switch ($Result.Status) {
-        'ok'   { '✓', 'Green' }
-        'warn' { '!', 'Yellow' }
-        'fail' { '✗', 'Red' }
+        'ok'   { (Get-DotGlyph ok),   'Green' }
+        'warn' { (Get-DotGlyph warn), 'Yellow' }
+        'fail' { (Get-DotGlyph fail), 'Red' }
     }
-    Write-Host "  $glyph " -ForegroundColor $color -NoNewline
+    Write-DotHost "  $glyph " -Color $color -NoNewline
     Write-Host ("{0,-26}" -f $Result.Name) -NoNewline
-    Write-Host " $($Result.Detail)" -ForegroundColor Gray
+    Write-DotHost " $($Result.Detail)" -Color Gray
     if ($Result.Status -ne 'ok' -and $Result.Hint) {
-        Write-Host ("      → {0}" -f $Result.Hint) -ForegroundColor DarkGray
+        Write-DotHost ("      {0} {1}" -f (Get-DotGlyph arrow), $Result.Hint) -Color DarkGray
     }
 }
 
@@ -57,6 +59,22 @@ function script:Test-LinkIntoRepo {
     if (-not $item -or $item.LinkType -ne 'SymbolicLink') { return $false }
     $target = @($item.Target)[0]
     return ($target -and $global:DOTFILES -and $target -like "*$($global:DOTFILES)*")
+}
+
+# --- fragment-load health (pure: maps the loader's error list to a result) ----
+# $null  -> profile never loaded (probably a direct dot-source, not a real shell)
+# empty  -> every fragment loaded clean
+# items  -> at least one fragment threw; surface the count + the first failure.
+function global:Get-FragmentHealthResult {
+    param($LoadErrors)
+    if ($null -eq $LoadErrors) {
+        return New-DoctorResult 'Profile fragments' 'warn' 'not loaded via the profile' 'open a new pwsh shell so the profile loads'
+    }
+    $list = @($LoadErrors)
+    if ($list.Count -eq 0) {
+        return New-DoctorResult 'Profile fragments' 'ok' 'all fragments loaded clean'
+    }
+    return New-DoctorResult 'Profile fragments' 'fail' "$($list.Count) failed: $($list[0])" 'fix the fragment, then run: reload'
 }
 
 # --- the probes (host-specific; each returns a DoctorResult) ------------------
@@ -136,6 +154,10 @@ function script:Get-DoctorResults {
         $r.Add((New-DoctorResult 'git identity' 'warn' 'placeholder or missing' 'set your name/email in ~/.gitconfig.local'))
     }
 
+    # profile fragment load health (B7): the loader records any fragment that
+    # threw into $global:DotfilesLoadErrors. Classification is pure (unit-tested).
+    $r.Add((Get-FragmentHealthResult $global:DotfilesLoadErrors))
+
     # core toolchain on PATH
     $core = 'git', 'starship', 'zoxide', 'fzf', 'rg', 'fd', 'bat', 'eza', 'nvim', 'psmux'
     $missing = $core | Where-Object { -not (Test-Cmd $_) }
@@ -148,14 +170,67 @@ function script:Get-DoctorResults {
     return $r
 }
 
+# --- pure remediation planner -------------------------------------------------
+# Map the non-ok results to a DEDUPED, ordered list of fix actions dotfiles-doctor
+# -Fix can run. Pure (no host calls), so the routing is unit-tested; the actions
+# themselves live in Invoke-DoctorFix below.
+function global:Get-DoctorFixPlan {
+    param([object[]]$Results)
+    $plan = [System.Collections.Generic.List[string]]::new()
+    $add  = { param($k) if ($plan -notcontains $k) { $plan.Add($k) } }
+    foreach ($res in $Results) {
+        if ($res.Status -eq 'ok') { continue }
+        switch -Regex ($res.Name) {
+            '^Execution policy$'     { & $add 'execpolicy' }
+            '^Profile link$'         { & $add 'rewire' }
+            '^link: '                { & $add 'rewire' }
+            '^Modules off OneDrive$' { & $add 'localize-modules' }
+            '^Core toolchain$'       { & $add 'install-packages' }
+        }
+    }
+    return $plan
+}
+
+# Run one planned action. Side-effecting (host), so it's kept tiny and out of the
+# pure planner. Unknown keys are a no-op.
+function script:Invoke-DoctorFix {
+    param([string]$Key)
+    switch ($Key) {
+        'execpolicy' {
+            Write-DotHost '  → setting CurrentUser execution policy to RemoteSigned' -Color Cyan
+            try { Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force } catch { Write-DotErr "failed: $_" }
+        }
+        'rewire' {
+            $install = Join-Path $global:DOTFILES 'install.ps1'
+            if (Test-Path $install) {
+                Write-DotHost '  → re-wiring config symlinks (install.ps1 -SkipPackages)' -Color Cyan
+                & $install -SkipPackages -NonInteractive
+            } else { Write-DotErr 'install.ps1 not found' 'set DOTFILES_WIN / re-clone the repo' }
+        }
+        'localize-modules' {
+            if (Get-Command modules-localize -ErrorAction SilentlyContinue) {
+                Write-DotHost '  → moving modules off OneDrive (modules-localize)' -Color Cyan
+                modules-localize
+            } else { Write-DotErr 'modules-localize not available' 'open a new pwsh shell, then run it' }
+        }
+        'install-packages' {
+            Write-DotWarn 'missing tools need the package installer.' 'run: .\packages\Install-Packages.ps1'
+        }
+    }
+}
+
 function global:dotfiles-doctor {
     [CmdletBinding()]
-    param([switch]$Quiet, [switch]$PassThru)
+    param([switch]$Quiet, [switch]$PassThru, [switch]$Fix)
 
     $results = Get-DoctorResults
     if (-not $Quiet) {
         Write-Host ''
-        Write-Host ' dotfiles-doctor ' -ForegroundColor Black -BackgroundColor Cyan
+        if (Test-DotColor) {
+            Write-Host ' dotfiles-doctor ' -ForegroundColor Black -BackgroundColor Cyan
+        } else {
+            Write-Host '== dotfiles-doctor =='
+        }
         Write-Host ''
         foreach ($res in $results) { Write-DoctorLine $res }
         Write-Host ''
@@ -163,7 +238,28 @@ function global:dotfiles-doctor {
 
     $s = Get-DoctorSummary $results
     $color = switch ($s.Overall) { 'ok' { 'Green' } 'warn' { 'Yellow' } 'fail' { 'Red' } }
-    Write-Host ("  {0} ok · {1} warn · {2} fail" -f $s.Ok, $s.Warn, $s.Fail) -ForegroundColor $color
+    $sep = if (Test-DotUnicode) { '·' } else { '|' }
+    Write-DotHost ("  {0} ok {3} {1} warn {3} {2} fail" -f $s.Ok, $s.Warn, $s.Fail, $sep) -Color $color
+
+    # Opt-in remediation: only acts on the checks it knows how to fix, and says
+    # exactly what it's doing for each. Re-runs the probes afterward so you see
+    # the result without another command.
+    if ($Fix) {
+        $plan = Get-DoctorFixPlan $results
+        Write-Host ''
+        if (-not $plan.Count) {
+            Write-DotHost '  nothing auto-fixable here.' -Color DarkGray
+        } else {
+            Write-DotHost ("  applying {0} fix(es)..." -f $plan.Count) -Color Cyan
+            foreach ($key in $plan) { Invoke-DoctorFix $key }
+            Write-Host ''
+            Write-DotHost '  re-checking...' -Color Cyan
+            $results = Get-DoctorResults
+            $s = Get-DoctorSummary $results
+            $color = switch ($s.Overall) { 'ok' { 'Green' } 'warn' { 'Yellow' } 'fail' { 'Red' } }
+            Write-DotHost ("  {0} ok {3} {1} warn {3} {2} fail" -f $s.Ok, $s.Warn, $s.Fail, $sep) -Color $color
+        }
+    }
 
     if ($PassThru) { return $results }
 }

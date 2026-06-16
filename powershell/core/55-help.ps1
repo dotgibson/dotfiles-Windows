@@ -53,7 +53,7 @@ function global:Get-DotfilesHelpData {
         @{ Command = 'maint-install [HH:MM]'; Desc = 'register the daily maint task' }
         @{ Command = 'maint-run / maint-log / maint-status'; Desc = 'run / tail / next-run' }
         @{ Command = 'shell-bench / prof-trace'; Desc = 'measure cold-start / trace load' }
-        @{ Command = 'dotfiles-doctor'; Desc = 'health-check this setup' }
+        @{ Command = 'dotfiles-doctor [-Fix]'; Desc = 'health-check this setup (and auto-remediate)' }
     )
     $g['Packages'] = @(
         @{ Command = 'scs / sci / scl / scu'; Desc = 'scoop search / install / list / update' }
@@ -77,20 +77,78 @@ function global:Get-DotfilesHelpData {
     $g['Shell'] = @(
         @{ Command = 'reload';       Desc = 'reload the PowerShell profile' }
         @{ Command = 'which <name>'; Desc = 'resolve a command (source / kind)' }
-        @{ Command = 'dothelp [filter]'; Desc = 'this index' }
+        @{ Command = 'dothelp [filter]'; Desc = 'this index (-i for an fzf picker)' }
     )
     return $g
 }
 
+# --- Get-DotHelpFilters -------------------------------------------------------
+# The set of useful `dothelp <filter>` arguments: every group name plus every
+# individual command verb (so "ll / la / lt" yields ll, la, lt). Pure, so the
+# tab-completer in core/50-completions.ps1 can offer them and it's unit-tested.
+function global:Get-DotHelpFilters {
+    $data = Get-DotfilesHelpData
+    $out = [System.Collections.Generic.List[string]]::new()
+    foreach ($group in $data.Keys) {
+        $out.Add($group)
+        foreach ($row in $data[$group]) {
+            foreach ($tok in ($row.Command -split '[\s/]+')) {
+                # skip placeholders like <dir>, [filter], <name>
+                if ($tok -and $tok -notmatch '^[<\[]') { $out.Add($tok) }
+            }
+        }
+    }
+    $out | Sort-Object -Unique
+}
+
+# --- Get-DotHelpFlatLines -----------------------------------------------------
+# One tab-delimited "command<TAB>description<TAB>group" line per entry, for the
+# interactive (fzf) picker. Pure, so it's unit-tested.
+function global:Get-DotHelpFlatLines {
+    $data = Get-DotfilesHelpData
+    $out = [System.Collections.Generic.List[string]]::new()
+    foreach ($group in $data.Keys) {
+        foreach ($row in $data[$group]) {
+            $out.Add(("{0}`t{1}`t{2}" -f $row.Command, $row.Desc, $group))
+        }
+    }
+    return $out
+}
+
 function global:dothelp {
     [CmdletBinding()]
-    param([string]$Filter)
+    param([string]$Filter, [switch]$Interactive)
+
+    # Interactive picker: fuzzy-filter every command, and copy the pick to the
+    # clipboard so it's ready to paste. Falls back with a hint if fzf is absent.
+    if ($Interactive) {
+        if (-not (Get-Command fzf -ErrorAction SilentlyContinue)) {
+            Write-DotErr 'interactive dothelp needs fzf' 'scoop install fzf'
+            return
+        }
+        $picked = Get-DotHelpFlatLines |
+            fzf --delimiter "`t" --with-nth '1,2' --height '60%' --layout=reverse --border `
+                --prompt 'dothelp > ' --preview-window 'hidden'
+        if ($picked) {
+            $cmd = ($picked -split "`t")[0]
+            Write-DotHost $cmd -Color Green
+            if (Get-Command Set-Clipboard -ErrorAction SilentlyContinue) {
+                $cmd | Set-Clipboard
+                Write-DotHost '  (copied to clipboard)' -Color DarkGray
+            }
+        }
+        return
+    }
 
     $data = Get-DotfilesHelpData
     Write-Host ''
-    Write-Host ' dotfiles-Windows ' -ForegroundColor Black -BackgroundColor Blue -NoNewline
-    Write-Host '  custom commands' -ForegroundColor Cyan
-    if ($Filter) { Write-Host "  (filtered by '$Filter')" -ForegroundColor DarkGray }
+    if (Test-DotColor) {
+        Write-Host ' dotfiles-Windows ' -ForegroundColor Black -BackgroundColor Blue -NoNewline
+        Write-Host '  custom commands' -ForegroundColor Cyan
+    } else {
+        Write-Host '== dotfiles-Windows :: custom commands =='
+    }
+    if ($Filter) { Write-DotHost "  (filtered by '$Filter')" -Color DarkGray }
     Write-Host ''
 
     $shown = 0
@@ -100,17 +158,17 @@ function global:dothelp {
             $rows = $rows | Where-Object { $_.Command -match [regex]::Escape($Filter) -or $_.Desc -match [regex]::Escape($Filter) }
         }
         if (-not $rows) { continue }
-        Write-Host "  $group" -ForegroundColor Yellow
+        Write-DotHost "  $group" -Color Yellow
         $width = ($rows.Command | Measure-Object -Maximum -Property Length).Maximum
         foreach ($r in $rows) {
             $shown++
-            Write-Host ("    {0,-$width}" -f $r.Command) -ForegroundColor Green -NoNewline
-            Write-Host "   $($r.Desc)" -ForegroundColor Gray
+            Write-DotHost ("    {0,-$width}" -f $r.Command) -Color Green -NoNewline
+            Write-DotHost "   $($r.Desc)" -Color Gray
         }
         Write-Host ''
     }
     if ($Filter -and $shown -eq 0) {
-        Write-Host "  no commands match '$Filter'." -ForegroundColor DarkYellow
+        Write-DotHost "  no commands match '$Filter'." -Color DarkYellow
         Write-Host ''
     }
 }

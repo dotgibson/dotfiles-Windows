@@ -51,6 +51,21 @@ cd dotfiles-Windows
 .\install.ps1                # packages + symlinks
 # or, to only re-wire links:
 .\install.ps1 -SkipPackages
+# preview every change without touching anything:
+.\install.ps1 -DryRun
+# unattended (CI / no prompts):
+.\install.ps1 -NonInteractive
+.\install.ps1 -Help          # full option list
+```
+
+The installer is idempotent (re-running only fixes what drifted), prompts before
+backing up a real file it's about to replace, and on the first run asks for your
+git name/email. To reverse it:
+
+```powershell
+.\uninstall.ps1              # remove only the symlinks that point into this repo
+.\uninstall.ps1 -RestoreBackups   # also restore the newest *.bak per link
+.\uninstall.ps1 -DryRun
 ```
 
 Then:
@@ -80,12 +95,22 @@ Then:
   are skipped). Some scoop packages with `persist` blocks (e.g. `btop-lhm`) can
   trip on a leftover config from an interrupted run — `scoop uninstall <name>`
   then reinstall, or drop it from `packages\scoopfile.json`.
+- **Garbled glyphs or unwanted colour?** Output honours
+  [`NO_COLOR`](https://no-color.org) (set it to strip all colour) and
+  `DOTFILES_ASCII=1` (swap the `✓ ✗ → •` glyphs for ASCII on a legacy codepage
+  console). Both also apply to `install.ps1`, `dotfiles-doctor`, and `dothelp`.
+- **Something half-loaded?** Run `dotfiles-doctor` — the _Profile fragments_
+  check reports any fragment that failed to load, and `dotfiles-doctor -Fix`
+  auto-remediates the common issues (execution policy, missing links, modules on
+  OneDrive).
 
 ## Layout
 
 ```
 dotfiles-Windows/
 ├── install.ps1                  bootstrap (env var, packages, symlinks)
+├── uninstall.ps1                remove repo symlinks (optionally restore backups)
+├── .githooks/pre-commit         runs tests/Invoke-Validation.ps1 before commits
 ├── powershell/
 │   ├── profile.ps1              loader (core→os→local)
 │   ├── core/                    aliases, tools init, functions, update, op
@@ -129,6 +154,8 @@ dotfiles-Windows/
 | `kali` / `cdwsl`                              | jump into Kali / into Kali at the current dir                                 |
 | `wsls` / `hostip`                             | WSL distro status / host LAN IP                                               |
 | `tools`                                       | open the host tool docs                                                       |
+| `dothelp [filter]` / `dothelp -i`             | in-shell command index (`-i` = fzf picker, copies the pick)                   |
+| `dotfiles-doctor [-Fix]`                      | health-check the setup, and optionally auto-remediate                         |
 
 ## Scope note
 
@@ -137,3 +164,20 @@ installed or configured here. That role lives on the **Kali station** (its own
 repo, inside WSL). The bridge functions (`kali`, `cdwsl`) are just how you get
 there from the host shell. psmux gives you tmux-style multiplexing _on the host_;
 the genuine tmux for Linux work still lives in WSL.
+
+## Development
+
+```powershell
+# fast, dependency-free gate (syntax + JSON/manifests + editorconfig) — no Gallery:
+pwsh -NoProfile -File tests/Invoke-Validation.ps1
+
+# full behavioral suite (needs Pester 5):
+Invoke-Pester -Path tests
+```
+
+`install.ps1` wires `core.hooksPath = .githooks`, so the validator runs on every
+commit (bypass a single one with `git commit --no-verify`). CI mirrors this: a
+fast Linux gate, then PSScriptAnalyzer + Pester (with a coverage gate) on Windows
+— heavy jobs are skipped for docs-only changes. Actions are pinned to commit
+SHAs and kept current by Dependabot. See [CHANGELOG.md](CHANGELOG.md) for the
+DX/UX overhaul history.

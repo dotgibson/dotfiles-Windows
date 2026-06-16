@@ -22,6 +22,29 @@ $here   = Split-Path -Parent $MyInvocation.MyCommand.Path
 $failed = [System.Collections.Generic.List[string]]::new()
 . (Join-Path $here 'modules.ps1')
 
+# Shared rendering helpers (Write-DotWarn / Write-DotHost / glyphs). Dot-sourced
+# so a standalone run gets the same NO_COLOR-aware layout as install.ps1.
+$lib = Join-Path $here '..\powershell\core\05-lib.ps1'
+if (Test-Path $lib) { . $lib }
+
+# Make "best-effort if the lib is missing" actually true: if 05-lib didn't load
+# (older/partial checkout), define minimal shims for the helpers this script uses
+# so it degrades to plain output instead of erroring on an undefined command.
+if (-not (Get-Command Write-DotHost -ErrorAction SilentlyContinue)) {
+    function Write-DotHost { param([Parameter(Position = 0)][string]$Text = '', [string]$Color, [switch]$NoNewline) Write-Host $Text -NoNewline:$NoNewline }
+    function Write-DotWarn { param([Parameter(Mandatory)][string]$Message, [string]$Hint) Write-Warning $Message; if ($Hint) { Write-Warning "  $Hint" } }
+}
+
+# Tiny progress line: "  [n/total] -> name" so a long, silent install doesn't look
+# frozen. Returns a stopwatch the caller stops to print the elapsed time. Uses
+# Write-DotHost so the progress line honours NO_COLOR like the rest of the output.
+function Write-PkgStep {
+    param([int]$N, [int]$Total, [string]$Name)
+    Write-DotHost ("  [{0}/{1}] " -f $N, $Total) -Color Cyan -NoNewline
+    Write-DotHost "-> $Name" -Color DarkGray
+    [System.Diagnostics.Stopwatch]::StartNew()
+}
+
 # --- Get-WingetInstalledIds ---------------------------------------------------
 # Parse the PackageIdentifiers out of `winget export` JSON. Pulling the installed
 # set ONCE this way replaces the old per-package `winget list --id` spawn (N
@@ -36,6 +59,11 @@ function Get-WingetInstalledIds {
 
 # Library-only hook for the test suite: expose the helpers without installing.
 if ($env:DOTFILES_PKG_LIBONLY -eq '1') { return }
+
+# Wrap the whole batch so a Ctrl-C mid-install still prints the skipped/failed
+# summary (U2) instead of vanishing — you can see exactly how far it got.
+$script:PkgCompleted = $false
+try {
 
 # --- scoop --------------------------------------------------------------------
 if (-not $SkipScoop) {
@@ -63,15 +91,20 @@ if (-not $SkipScoop) {
 
     Write-Host 'Installing scoop apps...' -ForegroundColor Cyan
     $installed = (scoop list 6>$null).Name
-    foreach ($app in $manifest.apps) {
+    $apps = @($manifest.apps)
+    $i = 0
+    foreach ($app in $apps) {
+        $i++
         $name = $app.Name
         if ($installed -contains $name) {
-            Write-Host "  = $name (already installed)" -ForegroundColor DarkGray
+            Write-Host "  [$i/$($apps.Count)] = $name (already installed)" -ForegroundColor DarkGray
             continue
         }
-        Write-Host "  -> $name" -ForegroundColor DarkGray
+        $sw = Write-PkgStep -N $i -Total $apps.Count -Name $name
         scoop install $name
+        $sw.Stop()
         if ($LASTEXITCODE -ne 0) { $failed.Add("scoop:$name") }
+        else { Write-DotHost ("      done in {0:n0}s" -f $sw.Elapsed.TotalSeconds) -Color DarkGray }
     }
 }
 
@@ -98,10 +131,13 @@ if (-not $SkipWinget) {
         } catch { }
         finally { if ($tmp -and (Test-Path $tmp)) { Remove-Item $tmp -Force -ErrorAction SilentlyContinue } }
         if (-not $exportOk) {
-            Write-Warning '  winget export unavailable - falling back to per-package checks (slower).'
+            Write-DotWarn 'winget export unavailable — falling back to per-package checks (slower).'
         }
 
-        foreach ($id in $wg.packages) {
+        $pkgs = @($wg.packages)
+        $j = 0
+        foreach ($id in $pkgs) {
+            $j++
             # Already installed? Prefer the exported set (-contains is
             # case-insensitive); fall back to a per-id query when export failed.
             $already = if ($exportOk) {
@@ -111,19 +147,22 @@ if (-not $SkipWinget) {
                 $LASTEXITCODE -eq 0
             }
             if ($already) {
-                Write-Host "  = $id (already installed)" -ForegroundColor DarkGray
+                Write-Host "  [$j/$($pkgs.Count)] = $id (already installed)" -ForegroundColor DarkGray
                 continue
             }
-            Write-Host "  -> $id" -ForegroundColor DarkGray
+            $sw = Write-PkgStep -N $j -Total $pkgs.Count -Name $id
             winget install --id $id -e --silent `
                 --accept-package-agreements --accept-source-agreements
+            $sw.Stop()
             if ($LASTEXITCODE -ne 0) {
-                Write-Warning "  $id failed (winget exit $LASTEXITCODE) - skipping, continuing the batch"
+                Write-DotWarn "$id failed (winget exit $LASTEXITCODE) — skipping, continuing the batch"
                 $failed.Add("winget:$id")
+            } else {
+                Write-DotHost ("      done in {0:n0}s" -f $sw.Elapsed.TotalSeconds) -Color DarkGray
             }
         }
     } else {
-        Write-Warning 'winget not found - install "App Installer" from the Microsoft Store, then re-run with -SkipScoop.'
+        Write-DotWarn 'winget not found.' 'Install "App Installer" from the Microsoft Store, then re-run with -SkipScoop.'
     }
 }
 
@@ -136,22 +175,35 @@ if (-not $SkipWinget) {
 Write-Host 'Installing PowerShell modules (local, off OneDrive)...' -ForegroundColor Cyan
 $localModules = Join-Path $env:LOCALAPPDATA 'PowerShell\Modules'
 New-Item -ItemType Directory -Force -Path $localModules | Out-Null
-foreach ($m in $script:MaintModuleNames) {
+$mods = @($script:MaintModuleNames)
+$k = 0
+foreach ($m in $mods) {
+    $k++
     if (Test-Path (Join-Path $localModules $m)) {
-        Write-Host "  = $m (already local)" -ForegroundColor DarkGray
+        Write-Host "  [$k/$($mods.Count)] = $m (already local)" -ForegroundColor DarkGray
         continue
     }
-    Write-Host "  -> $m" -ForegroundColor DarkGray
-    try { Save-Module -Name $m -Path $localModules -Force -ErrorAction Stop }
-    catch { Write-Warning "  module $m failed: $_"; $failed.Add("module:$m") }
+    $sw = Write-PkgStep -N $k -Total $mods.Count -Name $m
+    # -MinimumVersion pins a reproducible floor (see packages/modules.ps1); it
+    # still resolves the latest available at/above that version.
+    $min = $script:MaintModulePins[$m]
+    try { Save-Module -Name $m -Path $localModules -MinimumVersion $min -Force -ErrorAction Stop; $sw.Stop() }
+    catch { $sw.Stop(); Write-DotWarn "module $m failed: $_"; $failed.Add("module:$m") }
 }
 
-# --- summary ------------------------------------------------------------------
-Write-Host ''
-if ($failed.Count -eq 0) {
-    Write-Host 'Package install complete - no failures.' -ForegroundColor Green
-} else {
-    Write-Host "Package install complete, with $($failed.Count) item(s) skipped:" -ForegroundColor Yellow
-    $failed | ForEach-Object { Write-Host "  - $_" -ForegroundColor Yellow }
-    Write-Host 'Re-run this script to retry them (already-installed apps are skipped).' -ForegroundColor Yellow
+$script:PkgCompleted = $true
+
+} finally {
+    # --- summary (prints on completion AND on Ctrl-C) -------------------------
+    Write-Host ''
+    if (-not $script:PkgCompleted) {
+        Write-DotWarn 'Package install interrupted — partial state below.' 'Re-run to resume (already-installed items are skipped).'
+    }
+    if ($failed.Count -eq 0 -and $script:PkgCompleted) {
+        Write-DotHost 'Package install complete - no failures.' -Color Green
+    } elseif ($failed.Count) {
+        Write-DotHost "$($failed.Count) item(s) skipped:" -Color Yellow
+        $failed | ForEach-Object { Write-DotHost "  - $_" -Color Yellow }
+        Write-DotHost 'Re-run this script to retry them (already-installed apps are skipped).' -Color Yellow
+    }
 }

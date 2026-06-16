@@ -50,6 +50,30 @@ Describe 'Package manifests' {
         $w | Should -Not -BeNullOrEmpty
         ($w | Group-Object | Where-Object Count -gt 1) | Should -BeNullOrEmpty
     }
+    It 'every winget id is a Publisher.Package form (provenance)' {
+        $w = (Get-Content (Join-Path $RepoRoot 'packages/winget.json') -Raw | ConvertFrom-Json).packages
+        foreach ($id in $w) { $id | Should -Match '^[^\s.]+(\.[^\s.]+)+$' }
+    }
+    It 'every scoop app has a plausible id (provenance)' {
+        $m = Get-Content (Join-Path $RepoRoot 'packages/scoopfile.json') -Raw | ConvertFrom-Json
+        foreach ($app in $m.apps) { $app.Name | Should -Match '^[\w.+-]+$' }
+    }
+}
+
+Describe 'Managed module pins' {
+    BeforeAll {
+        $RepoRoot = Split-Path -Parent $PSScriptRoot
+        . (Join-Path $RepoRoot 'packages/modules.ps1')
+    }
+    It 'pins a version floor for every managed module' {
+        $script:MaintModulePins.Count | Should -BeGreaterThan 0
+        foreach ($name in $script:MaintModulePins.Keys) {
+            $script:MaintModulePins[$name] | Should -Match '^\d+\.\d+'
+        }
+    }
+    It 'keeps the name list in sync with the pins' {
+        @($script:MaintModuleNames).Count | Should -Be $script:MaintModulePins.Count
+    }
 }
 
 Describe 'repo hygiene' {
@@ -64,6 +88,14 @@ Describe 'repo hygiene' {
     It 'Maintenance.ps1 has no garbled nested-hash comment' {
         $m = Get-Content (Join-Path $RepoRoot 'maint/Maintenance.ps1') -Raw
         $m | Should -Not -Match '#\s+#\s+#'
+    }
+    It '<RelPath> ends with a final newline (editorconfig)' -ForEach (
+        $script:Ps1Files | ForEach-Object {
+            @{ Path = $_.FullName; RelPath = $_.FullName.Substring($script:RepoRoot.Length + 1) }
+        }
+    ) {
+        $bytes = [System.IO.File]::ReadAllBytes($Path)
+        if ($bytes.Length) { $bytes[-1] | Should -Be 0x0A }
     }
 }
 

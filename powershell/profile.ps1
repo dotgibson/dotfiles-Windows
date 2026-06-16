@@ -55,6 +55,11 @@ function global:Add-DotfilesTrace {
 
 # --- Layer loader -------------------------------------------------------------
 # Each layer is a directory of NN-name.ps1 fragments, dot-sourced in name order.
+# A fragment that throws is logged but never aborts the rest of the load — and
+# the failure is RECORDED in $global:DotfilesLoadErrors so it isn't a silent
+# mystery: dotfiles-doctor reports it, and a one-line nudge prints below. A clean
+# load leaves the list empty.
+$global:DotfilesLoadErrors = [System.Collections.Generic.List[string]]::new()
 foreach ($layer in @('core', 'os')) {
     $dir = Join-Path $ProfileDir $layer
     if (Test-Path $dir) {
@@ -64,7 +69,10 @@ foreach ($layer in @('core', 'os')) {
                 $fragment = $_
                 if ($global:DotfilesTraceOn) { $__sw = [System.Diagnostics.Stopwatch]::StartNew() }
                 try   { . $fragment.FullName }
-                catch { Write-Warning "dotfiles: failed to load $($fragment.Name): $_" }
+                catch {
+                    $global:DotfilesLoadErrors.Add("$layer/$($fragment.Name): $_")
+                    Write-Warning "dotfiles: failed to load $($fragment.Name): $_"
+                }
                 if ($global:DotfilesTraceOn) {
                     $__sw.Stop()
                     Add-DotfilesTrace "fragment $layer/$($fragment.Name)" $__sw.Elapsed.TotalMilliseconds
@@ -76,6 +84,14 @@ foreach ($layer in @('core', 'os')) {
 # --- Local, machine-specific overrides (gitignored) ---------------------------
 $LocalProfile = Join-Path $ProfileDir 'local.ps1'
 if (Test-Path $LocalProfile) { . $LocalProfile }
+
+# --- surface a degraded load (B7) ---------------------------------------------
+# If any fragment failed, say so once — a half-loaded profile that looks fine is
+# worse than a visible warning. `dotfiles-doctor` has the per-fragment detail.
+if ($global:DotfilesLoadErrors.Count -and $env:FAST_START -ne '1') {
+    $n = $global:DotfilesLoadErrors.Count
+    Write-Warning ("dotfiles: {0} profile fragment(s) failed to load — run dotfiles-doctor for detail." -f $n)
+}
 
 # --- Emit the trace table (if tracing) ----------------------------------------
 if ($global:DotfilesTraceOn -and $global:DotfilesTrace.Count) {

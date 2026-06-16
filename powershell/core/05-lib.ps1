@@ -41,26 +41,105 @@ function global:Test-SensitiveHistoryLine {
     return $false
 }
 
+# --- defensive output: NO_COLOR + non-Unicode terminals -----------------------
+# Two universal escape hatches so the colored, glyph-decorated output degrades on
+# hosts that can't render it instead of spraying ANSI codes or mojibake:
+#   • NO_COLOR (https://no-color.org) — any non-empty value strips colour. We also
+#     treat TERM=dumb as no-colour (CI logs, redirected output).
+#   • DOTFILES_ASCII=1 — swap the Unicode glyphs (✓ ✗ → •) for ASCII so a legacy
+#     codepage console (437/1252) shows readable markers, not boxes.
+# Both are PURE given their parameters (defaults read the environment at call
+# time), so the decision logic is unit-tested in tests/Lib.Tests.ps1.
+function global:Test-DotColor {
+    [OutputType([bool])]
+    param([string]$NoColor = $env:NO_COLOR, [string]$Term = $env:TERM)
+    if (-not [string]::IsNullOrEmpty($NoColor)) { return $false }
+    if ($Term -eq 'dumb') { return $false }
+    return $true
+}
+
+function global:Test-DotUnicode {
+    [OutputType([bool])]
+    param([string]$Ascii = $env:DOTFILES_ASCII)
+    return ($Ascii -ne '1')
+}
+
+# Status/decoration glyphs, resolved once here so every renderer agrees and the
+# ASCII fallback is in exactly one place.
+function global:Get-DotGlyph {
+    param(
+        [Parameter(Mandatory)][ValidateSet('ok', 'warn', 'fail', 'arrow', 'bullet')][string]$Name,
+        [bool]$Unicode = (Test-DotUnicode)
+    )
+    $uni = @{ ok = '✓'; warn = '!'; fail = '✗'; arrow = '→'; bullet = '•' }
+    $asc = @{ ok = 'OK'; warn = '!'; fail = 'x'; arrow = '->'; bullet = '-' }
+    if ($Unicode) { $uni[$Name] } else { $asc[$Name] }
+}
+
+# Colour-aware Write-Host: honours NO_COLOR by dropping the -ForegroundColor so
+# every helper can stay a one-liner instead of branching on colour at each call.
+function global:Write-DotHost {
+    param(
+        [Parameter(Position = 0)][string]$Text = '',
+        [string]$Color,
+        [switch]$NoNewline
+    )
+    if ($Color -and (Test-DotColor)) {
+        Write-Host $Text -ForegroundColor $Color -NoNewline:$NoNewline
+    } else {
+        Write-Host $Text -NoNewline:$NoNewline
+    }
+}
+
 # --- Write-DotErr -------------------------------------------------------------
 # One consistent error layout for the interactive helpers: a red "✗ <message>"
 # and, when supplied, a dimmed "→ <hint>" telling the user how to fix it (usually
 # the exact install command). Replaces the bare, hint-less `Write-Error 'needs x'`
-# scattered across the helpers. -PassThru returns the composed text (for tests).
+# scattered across the helpers. Glyphs/colour degrade via the helpers above.
+# -PassThru returns the composed text (for tests).
 function global:Write-DotErr {
     param(
         [Parameter(Mandatory)][string]$Message,
         [string]$Hint,
         [switch]$PassThru
     )
-    Write-Host '  ✗ ' -ForegroundColor Red -NoNewline
-    Write-Host $Message -ForegroundColor Red
+    $x = Get-DotGlyph fail
+    $arrow = Get-DotGlyph arrow
+    Write-DotHost "  $x " -Color Red -NoNewline
+    Write-DotHost $Message -Color Red
     if ($Hint) {
-        Write-Host '    → ' -ForegroundColor DarkGray -NoNewline
-        Write-Host $Hint -ForegroundColor DarkGray
+        Write-DotHost "    $arrow " -Color DarkGray -NoNewline
+        Write-DotHost $Hint -Color DarkGray
     }
     if ($PassThru) {
-        $out = "✗ $Message"
-        if ($Hint) { $out += "`n→ $Hint" }
+        $out = "$x $Message"
+        if ($Hint) { $out += "`n$arrow $Hint" }
+        return $out
+    }
+}
+
+# --- Write-DotWarn ------------------------------------------------------------
+# The non-fatal sibling of Write-DotErr: a yellow "! <message>" with an optional
+# dimmed "→ <hint>". Used in place of bare Write-Warning at the user-facing entry
+# points (install.ps1, the package installer) so warnings share one layout and
+# honour NO_COLOR / DOTFILES_ASCII. -PassThru returns the composed text.
+function global:Write-DotWarn {
+    param(
+        [Parameter(Mandatory)][string]$Message,
+        [string]$Hint,
+        [switch]$PassThru
+    )
+    $bang = Get-DotGlyph warn
+    $arrow = Get-DotGlyph arrow
+    Write-DotHost "  $bang " -Color Yellow -NoNewline
+    Write-DotHost $Message -Color Yellow
+    if ($Hint) {
+        Write-DotHost "    $arrow " -Color DarkGray -NoNewline
+        Write-DotHost $Hint -Color DarkGray
+    }
+    if ($PassThru) {
+        $out = "$bang $Message"
+        if ($Hint) { $out += "`n$arrow $Hint" }
         return $out
     }
 }
