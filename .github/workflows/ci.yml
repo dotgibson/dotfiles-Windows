@@ -40,18 +40,29 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          ZERO='0000000000000000000000000000000000000000'
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             base='${{ github.event.pull_request.base.sha }}'
-            range="$base...HEAD"
           else
             base='${{ github.event.before }}'
-            if [ -z "$base" ] || ! git cat-file -e "${base}^{commit}" 2>/dev/null; then
-              base='HEAD~1'
-            fi
-            range="${base}...HEAD"
           fi
-          changed="$(git diff --name-only "$range" 2>/dev/null || git diff --name-only HEAD~1)"
-          echo "changed files:"; echo "$changed"
+          # An empty / all-zero (new branch) / unreachable base can't anchor a diff.
+          # Fall back to HEAD~1; if even that is missing (root commit, shallow clone),
+          # we have no usable base.
+          if [ -z "$base" ] || [ "$base" = "$ZERO" ] || ! git cat-file -e "${base}^{commit}" 2>/dev/null; then
+            if git rev-parse HEAD~1 >/dev/null 2>&1; then base='HEAD~1'; else base=''; fi
+          fi
+          # FAIL SAFE: when the base is unknown, run EVERYTHING rather than skipping
+          # the heavy jobs on a guess — the old HEAD~1 fallback could yield an empty
+          # diff and silently skip tests on a root commit / new branch / force-push.
+          if [ -z "$base" ]; then
+            echo "no usable diff base (root commit / new branch) — running all jobs"
+            echo 'code=true' >> "$GITHUB_OUTPUT"
+            echo 'lua=true'  >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          changed="$(git diff --name-only "${base}...HEAD")"
+          echo "diff base: $base"; echo "changed files:"; echo "$changed"
           # code=true if at least one changed path is NOT a docs/markdown file
           # (anything under docs/ or any *.md is treated as docs-only).
           if printf '%s\n' "$changed" | grep -qvE '^(docs/.*|.*\.md)$'; then
