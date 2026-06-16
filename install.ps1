@@ -363,13 +363,29 @@ if (-not (Test-Path $localPs)) {
 $gcLocal = Join-Path $HOME '.gitconfig.local'
 if (-not (Test-Path $gcLocal)) {
     $gitName = 'YOUR NAME'; $gitEmail = 'you@example.com'
+    # Pre-fill from any identity git already knows (a prior, non-dotfiles setup),
+    # so an existing user just presses Enter twice instead of retyping. A blank
+    # answer keeps the shown default; the placeholders only survive if there's no
+    # prior identity AND nothing is entered.
+    $priorName  = (& git config --global user.name)  2>$null
+    $priorEmail = (& git config --global user.email) 2>$null
+    if ($priorName)  { $gitName  = "$priorName".Trim() }
+    if ($priorEmail) { $gitEmail = "$priorEmail".Trim() }
     if (-not $NonInteractive -and -not $script:DryRun) {
         try {
-            $n = Read-Host '  git author name  (blank to fill in later)'
-            $e = Read-Host '  git author email (blank to fill in later)'
-            if ($n.Trim()) { $gitName  = $n.Trim() }
-            if ($e.Trim()) { $gitEmail = $e.Trim() }
-        } catch { }   # no interactive host: keep the placeholders
+            $nameDefault  = if ($gitName  -ne 'YOUR NAME')      { $gitName }  else { 'blank to fill in later' }
+            $emailDefault = if ($gitEmail -ne 'you@example.com'){ $gitEmail } else { 'blank to fill in later' }
+            $n = Read-Host "  git author name  [$nameDefault]"
+            if ($n.Trim()) { $gitName = $n.Trim() }
+            # Re-prompt a couple of times on an obviously-wrong email instead of
+            # silently writing garbage; accept blank (keep default) at any point.
+            for ($try = 0; $try -lt 3; $try++) {
+                $e = Read-Host "  git author email [$emailDefault]"
+                if (-not $e.Trim()) { break }                       # keep default
+                if (Test-DotEmailish $e.Trim()) { $gitEmail = $e.Trim(); break }
+                Write-DotWarn "that doesn't look like an email address." 'expected something like you@example.com — or leave blank to set it later'
+            }
+        } catch { }   # no interactive host: keep the defaults
     }
     if ($script:DryRun) {
         Write-DotHost "  would seed $gcLocal (git identity)" -Color Cyan

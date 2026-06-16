@@ -41,6 +41,17 @@ function global:Test-SensitiveHistoryLine {
     return $false
 }
 
+# --- Test-DotEmailish ---------------------------------------------------------
+# A deliberately loose "does this look like an email?" check for the install-time
+# git-identity prompt — enough to catch a fat-fingered "me@" or a name typed into
+# the email field, without pretending to be RFC 5322. Pure, so it's unit-tested.
+function global:Test-DotEmailish {
+    [OutputType([bool])]
+    param([string]$Email)
+    if ([string]::IsNullOrWhiteSpace($Email)) { return $false }
+    return ($Email -match '^[^@\s]+@[^@\s]+\.[^@\s]+$')
+}
+
 # --- Get-DotfilesLinkPlan -----------------------------------------------------
 # THE single source of truth for every symlink this repo wires: one ordered list
 # that install.ps1 creates, uninstall.ps1 removes, and dotfiles-doctor verifies.

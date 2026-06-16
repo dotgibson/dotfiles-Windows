@@ -85,6 +85,15 @@ Describe 'Write-DotWarn' {
     }
 }
 
+Describe 'Test-DotEmailish' {
+    It 'accepts a plausible address'      { Test-DotEmailish 'me@example.com' | Should -BeTrue }
+    It 'accepts a sub-domain address'     { Test-DotEmailish 'a.b@mail.corp.io' | Should -BeTrue }
+    It 'rejects a bare local part'        { Test-DotEmailish 'me@' | Should -BeFalse }
+    It 'rejects a missing domain dot'     { Test-DotEmailish 'me@host' | Should -BeFalse }
+    It 'rejects a name with no @'         { Test-DotEmailish 'Jane Doe' | Should -BeFalse }
+    It 'rejects whitespace/empty'         { Test-DotEmailish '   ' | Should -BeFalse }
+}
+
 Describe 'Get-DotfilesLinkPlan' {
     It 'derives every link from the injected roots' {
         $plan = Get-DotfilesLinkPlan -RepoRoot 'R:\repo' -HomeDir 'H:\me' -LocalAppData 'L:\app' -Documents 'D:\docs'
