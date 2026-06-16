@@ -90,6 +90,27 @@ Describe 'Get-NvimVendorDetail' {
     }
 }
 
+Describe 'Get-DoctorGroup' {
+    It 'buckets shell/environment probes' {
+        Get-DoctorGroup 'PowerShell 7 (pwsh)' | Should -Be 'Shell & environment'
+        Get-DoctorGroup 'Execution policy'    | Should -Be 'Shell & environment'
+        Get-DoctorGroup 'Symlink capability'  | Should -Be 'Shell & environment'
+    }
+    It 'buckets repo/link probes (including nvim vendor and link: rows)' {
+        Get-DoctorGroup 'Repo root'        | Should -Be 'Repo & links'
+        Get-DoctorGroup 'Profile link'     | Should -Be 'Repo & links'
+        Get-DoctorGroup 'link: .gitconfig' | Should -Be 'Repo & links'
+        Get-DoctorGroup 'nvim vendor'      | Should -Be 'Repo & links'
+    }
+    It 'keeps Profile fragments and Core toolchain in health (not repo)' {
+        Get-DoctorGroup 'Profile fragments' | Should -Be 'Health & toolchain'
+        Get-DoctorGroup 'Core toolchain'    | Should -Be 'Health & toolchain'
+    }
+    It 'puts an unknown probe in Other so it still renders' {
+        Get-DoctorGroup 'Some Future Probe' | Should -Be 'Other'
+    }
+}
+
 Describe 'Get-DoctorSummary' {
     It 'counts ok/warn/fail correctly' {
         $s = Get-DoctorSummary @(

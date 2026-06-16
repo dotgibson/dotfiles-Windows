@@ -33,6 +33,23 @@ function global:Get-DoctorSummary {
     [pscustomobject]@{ Ok = $ok; Warn = $warn; Fail = $fail; Total = $Results.Count; Overall = $overall }
 }
 
+# --- pure group classifier ----------------------------------------------------
+# Bucket a result into a display section from its Name so the report reads as
+# scannable groups instead of one flat list (U4). Pure, so it's unit-tested; the
+# renderer just walks the fixed group order below. Anything unmatched lands in
+# 'Other', so a newly-added probe still shows up (merely ungrouped) instead of
+# silently vanishing from the report.
+function global:Get-DoctorGroup {
+    [OutputType([string])]
+    param([string]$Name)
+    switch -Regex ($Name) {
+        '^(PowerShell|Execution policy|Symlink)'                      { return 'Shell & environment' }
+        '^(Repo|Profile link|link:|Modules|git identity|nvim vendor)' { return 'Repo & links' }
+        '^(Profile fragments|Core toolchain)'                         { return 'Health & toolchain' }
+        default                                                       { return 'Other' }
+    }
+}
+
 # --- render one result line ---------------------------------------------------
 # Glyphs/colour route through the shared helpers (core/05-lib.ps1) so the report
 # degrades cleanly under NO_COLOR / DOTFILES_ASCII like every other renderer.
@@ -47,7 +64,19 @@ function script:Write-DoctorLine {
     Write-Host ("{0,-26}" -f $Result.Name) -NoNewline
     Write-DotHost " $($Result.Detail)" -Color Gray
     if ($Result.Status -ne 'ok' -and $Result.Hint) {
-        Write-DotHost ("      {0} {1}" -f (Get-DotGlyph arrow), $Result.Hint) -Color DarkGray
+        # Word-wrap the hint to the console so a long fix instruction (or path)
+        # doesn't run off a narrow terminal (U12). Derive the continuation indent
+        # from the ACTUAL first-line lead-in ("      <arrow> "), whose width differs
+        # between the Unicode arrow (1 col) and the ASCII '->' (2 cols), so the
+        # wrapped lines stay aligned under the text — and the wrap width stays
+        # correct — in both glyph modes.
+        $lead    = "      {0} " -f (Get-DotGlyph arrow)
+        $indent  = ' ' * $lead.Length
+        $wrapped = @(Format-DotWrap -Text $Result.Hint -Width (Get-DotConsoleWidth) -Indent $indent)
+        for ($i = 0; $i -lt $wrapped.Count; $i++) {
+            if ($i -eq 0) { Write-DotHost ($lead + $wrapped[$i].TrimStart()) -Color DarkGray }
+            else          { Write-DotHost $wrapped[$i] -Color DarkGray }
+        }
     }
 }
 
@@ -283,15 +312,30 @@ function script:Invoke-DoctorFix {
 
 function global:dotfiles-doctor {
     [CmdletBinding()]
-    param([switch]$Quiet, [switch]$PassThru, [switch]$Fix)
+    param([switch]$Quiet, [switch]$PassThru, [switch]$Fix, [switch]$Json)
 
     $results = Get-DoctorResults
+
+    # -Json: emit a machine-readable summary+results object for tooling/CI and
+    # return early — no human render, no colour, no -Fix (it's a query) (U4).
+    if ($Json) {
+        return ([pscustomobject]@{ summary = (Get-DoctorSummary $results); results = $results } |
+            ConvertTo-Json -Depth 4)
+    }
+
     if (-not $Quiet) {
         Write-Host ''
         Write-DotBanner 'dotfiles-doctor'
         Write-Host ''
-        foreach ($res in $results) { Write-DoctorLine $res }
-        Write-Host ''
+        # Grouped, in a fixed section order, so the report scans top-to-bottom
+        # instead of as one undifferentiated list (U4). Get-DoctorGroup is pure.
+        foreach ($group in 'Shell & environment', 'Repo & links', 'Health & toolchain', 'Other') {
+            $rows = @($results | Where-Object { (Get-DoctorGroup $_.Name) -eq $group })
+            if (-not $rows.Count) { continue }
+            Write-DotHost "  $group" -Color Yellow
+            foreach ($res in $rows) { Write-DoctorLine $res }
+            Write-Host ''
+        }
     }
 
     $s = Get-DoctorSummary $results

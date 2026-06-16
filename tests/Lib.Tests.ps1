@@ -200,6 +200,40 @@ Describe 'Write-DotRule' {
         try { $env:DOTFILES_ASCII = '1'; (Write-DotRule -Width 4 6>&1 | Out-String).Trim() | Should -Be '----' }
         finally { $env:DOTFILES_ASCII = $prev }
     }
+    It 'auto-sizes (does not throw) when no width is given' {
+        { Write-DotRule -Title 'Summary' 6>$null } | Should -Not -Throw
+    }
+}
+
+Describe 'Get-DotConsoleWidth' {
+    It 'returns the fallback when no real console is present' {
+        # Under the test host there is usually no window; either way it must be a
+        # positive int, and the fallback is honoured when the console width is 0.
+        Get-DotConsoleWidth -Fallback 80 | Should -BeGreaterThan 0
+    }
+}
+
+Describe 'Format-DotWrap' {
+    It 'returns empty for empty/whitespace text' {
+        Format-DotWrap -Text ''     -Width 40 | Should -BeNullOrEmpty
+        Format-DotWrap -Text '   '  -Width 40 | Should -BeNullOrEmpty
+    }
+    It 'keeps a short string on one indented line' {
+        # @() guards the single-element-array -> scalar unwrap so [0] indexes the
+        # line, not its first character (the consumer wraps with @() for the same reason).
+        $r = @(Format-DotWrap -Text 'scoop install fzf' -Width 40 -Indent '  ')
+        $r.Count | Should -Be 1
+        $r[0] | Should -Be '  scoop install fzf'
+    }
+    It 'wraps long text onto multiple lines within the width' {
+        $r = Format-DotWrap -Text 'the quick brown fox jumps over the lazy dog again and again' -Width 20
+        @($r).Count | Should -BeGreaterThan 1
+        ($r | ForEach-Object { $_.Length } | Measure-Object -Maximum).Maximum | Should -BeLessOrEqual 20
+    }
+    It 'emits an over-long word whole rather than hard-splitting it' {
+        $r = Format-DotWrap -Text 'C:\some\really\long\path\that\exceeds\the\width' -Width 10
+        @($r).Count | Should -Be 1
+    }
 }
 
 Describe 'Read-DotConfirm' {
