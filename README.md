@@ -174,6 +174,10 @@ the genuine tmux for Linux work still lives in WSL.
 ## Development
 
 ```powershell
+# one-time: provision the same test toolchain CI uses (Pester + PSScriptAnalyzer,
+# pinned to the CI versions; idempotent). A test gates these against ci.yml drift.
+pwsh -NoProfile -File tests/Install-DevDeps.ps1
+
 # fast, dependency-free gate (syntax + JSON/manifests + module pins + editorconfig):
 pwsh -NoProfile -File tests/Invoke-Validation.ps1
 # ^ also runs PSScriptAnalyzer automatically IF it's installed (errors gate the
