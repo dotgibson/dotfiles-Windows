@@ -5,6 +5,15 @@
 #  uses these helpers. NOTHING here shells out, registers a hook, or prints on
 #  load — which is also what lets the test suite dot-source this one file in
 #  isolation and assert on the functions (see tests/Lib.Tests.ps1).
+#
+#  Scope note (B7): these are declared as plain `function Name`, not
+#  `function global:Name`. The Dotfiles module (powershell/Dotfiles) dot-sources
+#  this file and re-exports the curated surface, so the helpers reach the session
+#  through the module instead of each one force-installing itself into global
+#  scope. Dot-sourcing this file DIRECTLY (the test suite, install.ps1,
+#  uninstall.ps1, Install-Packages.ps1) still lands the functions in the caller's
+#  scope exactly as before — dot-sourcing is scope-agnostic — so those consumers
+#  are unchanged.
 # ============================================================================
 
 # --- Test-SensitiveHistoryLine ------------------------------------------------
@@ -18,7 +27,7 @@
 # and context-aware: secret-bearing KEYWORDS only as whole words, secret-carrying
 # FLAGS only when dash-prefixed, and the 1Password live-read verbs as phrases.
 # `pwd`, `compass`, "first pass", etc. are no longer false positives.
-function global:Test-SensitiveHistoryLine {
+function Test-SensitiveHistoryLine {
     [OutputType([bool])]
     param([string]$Line)
 
@@ -47,7 +56,7 @@ function global:Test-SensitiveHistoryLine {
 # 'invalid', honouring the default for an empty answer. Read-DotConfirm wraps it
 # in a Read-Host loop that re-asks on 'invalid' (instead of silently treating a
 # typo'd "yse" as no) and degrades to the default on a non-interactive host.
-function global:Get-DotConfirmAnswer {
+function Get-DotConfirmAnswer {
     [OutputType([string])]
     param([string]$Answer, [bool]$DefaultYes = $true)
     $a = "$Answer".Trim().ToLowerInvariant()
@@ -72,7 +81,7 @@ function global:Get-DotConfirmAnswer {
 # The four inputs are injectable params (env/host defaults read at call time), the
 # same pattern as Test-DotColor/Test-DotUnicode, so the decision is unit-tested in
 # every branch (tests/Lib.Tests.ps1) without needing gum or a TTY present.
-function global:Test-DotGum {
+function Test-DotGum {
     [OutputType([bool])]
     param(
         [string]$NoGum       = $env:DOTFILES_NO_GUM,
@@ -87,7 +96,7 @@ function global:Test-DotGum {
     return $true
 }
 
-function global:Read-DotConfirm {
+function Read-DotConfirm {
     [OutputType([bool])]
     param([Parameter(Mandatory)][string]$Prompt, [bool]$DefaultYes = $true)
 
@@ -117,7 +126,7 @@ function global:Read-DotConfirm {
 # --- Get-DotStringSha256 ------------------------------------------------------
 # Lowercase hex SHA-256 of a string, used to integrity-check a downloaded
 # bootstrap script against a pinned hash before executing it. Pure, unit-tested.
-function global:Get-DotStringSha256 {
+function Get-DotStringSha256 {
     [OutputType([string])]
     param([Parameter(Mandatory)][AllowEmptyString()][string]$Text)
     $bytes = [System.Text.Encoding]::UTF8.GetBytes($Text)
@@ -134,7 +143,7 @@ function global:Get-DotStringSha256 {
 # runs the work in a background job and animates one in-place line until it
 # finishes, returning the job's output. It deliberately does NOT wrap chatty tools
 # (scoop/winget app installs) that print their own progress and want the console.
-function global:Get-DotSpinnerFrame {
+function Get-DotSpinnerFrame {
     [OutputType([string])]
     param([int]$Tick, [bool]$Unicode = (Test-DotUnicode))
     $frames = if ($Unicode) { '⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏' } else { '|', '/', '-', '\' }
@@ -142,7 +151,7 @@ function global:Get-DotSpinnerFrame {
     return $frames[$i]
 }
 
-function global:Invoke-DotSpinner {
+function Invoke-DotSpinner {
     param(
         [Parameter(Mandatory)][string]$Label,
         [Parameter(Mandatory)][scriptblock]$Script,
@@ -192,7 +201,7 @@ function global:Invoke-DotSpinner {
 # A deliberately loose "does this look like an email?" check for the install-time
 # git-identity prompt — enough to catch a fat-fingered "me@" or a name typed into
 # the email field, without pretending to be RFC 5322. Pure, so it's unit-tested.
-function global:Test-DotEmailish {
+function Test-DotEmailish {
     [OutputType([bool])]
     param([string]$Email)
     if ([string]::IsNullOrWhiteSpace($Email)) { return $false }
@@ -203,7 +212,7 @@ function global:Test-DotEmailish {
 # Compose the one-line "core tools missing" startup nudge from a list of missing
 # tool names ('' when nothing is missing). Pure — the Test-Cmd probing lives in
 # the fragment that calls this (core/57-health-nudge.ps1) — so it's unit-tested.
-function global:Get-DotToolNudge {
+function Get-DotToolNudge {
     [OutputType([string])]
     param([string[]]$Missing)
     $m = @($Missing | Where-Object { $_ })
@@ -227,7 +236,7 @@ function global:Get-DotToolNudge {
 # ParentMustExist flags a link whose parent we must NOT create on demand: the
 # Windows Terminal LocalState dir only exists when WT (Store build) is installed,
 # so install.ps1 skips that row rather than materializing an empty tree.
-function global:Get-DotfilesLinkPlan {
+function Get-DotfilesLinkPlan {
     param(
         [Parameter(Mandatory)][string]$RepoRoot,
         [string]$HomeDir      = $HOME,
@@ -264,7 +273,7 @@ function global:Get-DotfilesLinkPlan {
 #     codepage console (437/1252) shows readable markers, not boxes.
 # Both are PURE given their parameters (defaults read the environment at call
 # time), so the decision logic is unit-tested in tests/Lib.Tests.ps1.
-function global:Test-DotColor {
+function Test-DotColor {
     [OutputType([bool])]
     param([string]$NoColor = $env:NO_COLOR, [string]$Term = $env:TERM)
     if (-not [string]::IsNullOrEmpty($NoColor)) { return $false }
@@ -272,7 +281,7 @@ function global:Test-DotColor {
     return $true
 }
 
-function global:Test-DotUnicode {
+function Test-DotUnicode {
     [OutputType([bool])]
     param([string]$Ascii = $env:DOTFILES_ASCII)
     return ($Ascii -ne '1')
@@ -280,7 +289,7 @@ function global:Test-DotUnicode {
 
 # Status/decoration glyphs, resolved once here so every renderer agrees and the
 # ASCII fallback is in exactly one place.
-function global:Get-DotGlyph {
+function Get-DotGlyph {
     param(
         [Parameter(Mandatory)][ValidateSet('ok', 'warn', 'fail', 'arrow', 'bullet', 'pkg')][string]$Name,
         [bool]$Unicode = (Test-DotUnicode)
@@ -292,7 +301,7 @@ function global:Get-DotGlyph {
 
 # Colour-aware Write-Host: honours NO_COLOR by dropping the -ForegroundColor so
 # every helper can stay a one-liner instead of branching on colour at each call.
-function global:Write-DotHost {
+function Write-DotHost {
     param(
         [Parameter(Position = 0)][string]$Text = '',
         [string]$Color,
@@ -311,7 +320,7 @@ function global:Write-DotHost {
 # plain "== Title ==" / "== Title :: subtitle ==" under NO_COLOR/TERM=dumb. Pulls
 # dotfiles-doctor and dothelp onto a single visual language instead of each
 # re-implementing the Test-DotColor branch.
-function global:Write-DotBanner {
+function Write-DotBanner {
     param(
         [Parameter(Mandatory)][string]$Text,
         [string]$Subtitle,
@@ -334,7 +343,7 @@ function global:Write-DotBanner {
 # (redirected output, a transcript, CI). Guarded so it never throws on a host
 # without a window. Lets the rule/wrap helpers below size to the actual terminal
 # instead of a hardcoded column count (U5/U12).
-function global:Get-DotConsoleWidth {
+function Get-DotConsoleWidth {
     [OutputType([int])]
     param([int]$Fallback = 80)
     try { $w = [Console]::WindowWidth; if ($w -gt 0) { return $w } } catch { }
@@ -346,7 +355,7 @@ function global:Get-DotConsoleWidth {
 # with $Indent, and return the lines. A word longer than the available width is
 # emitted whole rather than hard-split (paths stay clickable). Pure, so it's
 # unit-tested; used to keep long hint lines from overflowing a narrow terminal (U12).
-function global:Format-DotWrap {
+function Format-DotWrap {
     [OutputType([string[]])]
     param(
         [Parameter(Mandatory)][AllowEmptyString()][string]$Text,
@@ -373,7 +382,7 @@ function global:Format-DotWrap {
 # glyph so install/uninstall/maint summaries line up. With no explicit -Width it
 # now fills the actual console (U5) instead of a fixed 56 columns; an explicit
 # -Width still wins (so the existing callers/tests are unaffected).
-function global:Write-DotRule {
+function Write-DotRule {
     param([string]$Title, [int]$Width = 0, [string]$Color = 'Cyan')
     $ch = if (Test-DotUnicode) { '─' } else { '-' }
     if ($Width -le 0) {
@@ -390,7 +399,7 @@ function global:Write-DotRule {
 # the exact install command). Replaces the bare, hint-less `Write-Error 'needs x'`
 # scattered across the helpers. Glyphs/colour degrade via the helpers above.
 # -PassThru returns the composed text (for tests).
-function global:Write-DotErr {
+function Write-DotErr {
     param(
         [Parameter(Mandatory)][string]$Message,
         [string]$Hint,
@@ -417,7 +426,7 @@ function global:Write-DotErr {
 # Green` scattered across the helpers, which ignored NO_COLOR and printed a raw
 # glyph under DOTFILES_ASCII. Glyph/colour degrade via the helpers above.
 # -PassThru returns the composed text (for tests).
-function global:Write-DotOk {
+function Write-DotOk {
     param(
         [Parameter(Mandatory)][string]$Message,
         [string]$Hint,
@@ -443,7 +452,7 @@ function global:Write-DotOk {
 # dimmed "→ <hint>". Used in place of bare Write-Warning at the user-facing entry
 # points (install.ps1, the package installer) so warnings share one layout and
 # honour NO_COLOR / DOTFILES_ASCII. -PassThru returns the composed text.
-function global:Write-DotWarn {
+function Write-DotWarn {
     param(
         [Parameter(Mandatory)][string]$Message,
         [string]$Hint,

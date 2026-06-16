@@ -60,6 +60,28 @@ function global:Add-DotfilesTrace {
 # mystery: dotfiles-doctor reports it, and a one-line nudge prints below. A clean
 # load leaves the list empty.
 $global:DotfilesLoadErrors = [System.Collections.Generic.List[string]]::new()
+
+# --- Dotfiles module (B7) -----------------------------------------------------
+# The non-interactive helper surface (core/05-lib.ps1) lives in a real module
+# now; import it FIRST so its exported helpers exist before any fragment (or
+# local.ps1) calls them. The INTERACTIVE layer — tool inits/prompt, PSReadLine
+# keybinds, argument completers, CommandNotFoundAction — stays dot-sourced as
+# fragments below on purpose (a module-scoped `prompt` is ignored by the host).
+# If the import fails we leave 05-lib in the fragment loader (it is NOT skipped
+# below), so a broken module degrades to the old dot-source path rather than a
+# helperless shell.
+$script:DotfilesModuleLoaded = $false
+$DotfilesModule = Join-Path $ProfileDir 'Dotfiles/Dotfiles.psd1'
+if (Test-Path $DotfilesModule) {
+    try {
+        Import-Module $DotfilesModule -Force -Global -DisableNameChecking -ErrorAction Stop
+        $script:DotfilesModuleLoaded = $true
+    } catch {
+        $global:DotfilesLoadErrors.Add("module Dotfiles: $_")
+        Write-Warning "dotfiles: failed to import the Dotfiles module: $_"
+    }
+}
+
 foreach ($layer in @('core', 'os')) {
     $dir = Join-Path $ProfileDir $layer
     if (Test-Path $dir) {
@@ -67,6 +89,10 @@ foreach ($layer in @('core', 'os')) {
             Sort-Object Name |
             ForEach-Object {
                 $fragment = $_
+                # 05-lib is owned by the Dotfiles module (imported above). Skip it in
+                # the loader ONLY when that import succeeded; otherwise fall through
+                # and dot-source it here so the shell still gets its helpers.
+                if ($script:DotfilesModuleLoaded -and $fragment.Name -eq '05-lib.ps1') { return }
                 if ($global:DotfilesTraceOn) { $__sw = [System.Diagnostics.Stopwatch]::StartNew() }
                 try   { . $fragment.FullName }
                 catch {
