@@ -168,8 +168,10 @@ the genuine tmux for Linux work still lives in WSL.
 ## Development
 
 ```powershell
-# fast, dependency-free gate (syntax + JSON/manifests + editorconfig) — no Gallery:
+# fast, dependency-free gate (syntax + JSON/manifests + module pins + editorconfig):
 pwsh -NoProfile -File tests/Invoke-Validation.ps1
+# ^ also runs PSScriptAnalyzer automatically IF it's installed (errors gate the
+#   run); it's skipped cleanly when absent, so the gate stays Gallery-free offline.
 
 # full behavioral suite (needs Pester 5):
 Invoke-Pester -Path tests

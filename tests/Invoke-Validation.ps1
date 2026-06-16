@@ -140,6 +140,36 @@ foreach ($f in $ecFiles) {
 }
 if ($script:fail -eq $preEc) { Pass "$($ecFiles.Count) file(s) match editorconfig basics" }
 
+# --- 5. PSScriptAnalyzer (opportunistic: only if already installed) -----------
+# Keeps this script's dependency-free promise — it does NOT install anything. But
+# when a contributor (or the pre-commit hook) has PSScriptAnalyzer available, run
+# it here so lint regressions are caught locally instead of only on the Windows CI
+# runner. Gates on ERRORS only (warnings are shown), matching the CI severity gate,
+# and uses the repo's shared settings so local and CI agree on the ruleset.
+# Skip with DOTFILES_VALIDATE_NO_PSSA=1.
+Write-Host 'PSScriptAnalyzer (opportunistic):' -ForegroundColor Cyan
+if ($env:DOTFILES_VALIDATE_NO_PSSA -eq '1') {
+    Write-Host '  - skipped (DOTFILES_VALIDATE_NO_PSSA=1)' -ForegroundColor DarkGray
+} elseif (Get-Module -ListAvailable PSScriptAnalyzer) {
+    Import-Module PSScriptAnalyzer
+    $settings = Join-Path $PSScriptRoot 'PSScriptAnalyzerSettings.psd1'
+    $findings = Invoke-ScriptAnalyzer -Path $RepoRoot -Recurse -Settings $settings -ErrorAction SilentlyContinue |
+        Where-Object { $_.ScriptPath -notmatch '[\\/]\.git[\\/]' }
+    $errs = @($findings | Where-Object Severity -eq 'Error')
+    $warns = @($findings | Where-Object Severity -eq 'Warning')
+    if ($warns.Count) {
+        $warns | ForEach-Object { Write-Host ("      warn {0}:{1} {2}" -f (Split-Path -Leaf $_.ScriptPath), $_.Line, $_.RuleName) -ForegroundColor DarkYellow }
+    }
+    if ($errs.Count) {
+        $errs | ForEach-Object { Write-Host ("      err  {0}:{1} {2}" -f (Split-Path -Leaf $_.ScriptPath), $_.Line, $_.RuleName) -ForegroundColor DarkRed }
+        Fail "PSScriptAnalyzer reported $($errs.Count) error(s)"
+    } else {
+        Pass "no analyzer errors ($($warns.Count) warning(s))"
+    }
+} else {
+    Write-Host '  - skipped (PSScriptAnalyzer not installed; runs on the Windows CI runner)' -ForegroundColor DarkGray
+}
+
 Write-Host ''
 if ($script:fail) {
     Write-Host "VALIDATION FAILED ($script:fail issue(s))" -ForegroundColor Red
