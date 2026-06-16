@@ -115,6 +115,57 @@ function global:Get-DotHelpFlatLines {
     return $out
 }
 
+# --- "did you mean?" matching (pure) ------------------------------------------
+# Get-DotLevenshtein: classic edit distance, used to rank near-misses. Get-DotDid
+# YouMean ranks the catalog verbs against a mistyped name (exact-prefix and
+# substring beat edit distance) and returns the best few. Both pure, unit-tested;
+# the CommandNotFoundAction hook below wires them to the shell.
+function global:Get-DotLevenshtein {
+    [OutputType([int])]
+    param([string]$A, [string]$B)
+    $a = "$A"; $b = "$B"
+    if ($a -eq $b) { return 0 }
+    if (-not $a) { return $b.Length }
+    if (-not $b) { return $a.Length }
+    $prev = 0..$b.Length
+    for ($i = 1; $i -le $a.Length; $i++) {
+        $cur = @($i) + (1..$b.Length | ForEach-Object { 0 })
+        for ($j = 1; $j -le $b.Length; $j++) {
+            $cost = if ($a[$i - 1] -eq $b[$j - 1]) { 0 } else { 1 }
+            $cur[$j] = [Math]::Min([Math]::Min($cur[$j - 1] + 1, $prev[$j] + 1), $prev[$j - 1] + $cost)
+        }
+        $prev = $cur
+    }
+    return $prev[$b.Length]
+}
+
+function global:Get-DotDidYouMean {
+    [OutputType([string[]])]
+    param([string]$Name, [string[]]$Candidates, [int]$Max = 3)
+    if ([string]::IsNullOrWhiteSpace($Name) -or -not $Candidates) { return @() }
+    $n = $Name.ToLowerInvariant()
+    # Only word-like verbs of length >= 2 make good suggestions: drop one-char
+    # aliases (z/g/l), flags (-n), and symbol verbs (~, .., Ctrl+t) that would
+    # otherwise "match" as substrings of a long typo and add noise.
+    $usable = $Candidates | Where-Object { $_ -match '^[A-Za-z][A-Za-z0-9_-]{1,}$' }
+    $scored = foreach ($c in ($usable | Sort-Object -Unique)) {
+        if (-not $c) { continue }
+        $cl = $c.ToLowerInvariant()
+        if ($cl -eq $n) { continue }
+        $score = $null
+        if ($cl.StartsWith($n) -or $n.StartsWith($cl)) { $score = 0 }
+        # substring only counts when the candidate is long enough to be meaningful
+        elseif (($cl.Length -ge 4 -and $n.Contains($cl)) -or ($n.Length -ge 4 -and $cl.Contains($n))) { $score = 1 }
+        else {
+            $d = Get-DotLevenshtein $n $cl
+            # only suggest genuinely close names (scaled to the shorter length)
+            if ($d -le [Math]::Max(1, [Math]::Min(2, [int]($n.Length / 3)))) { $score = 2 + $d }
+        }
+        if ($null -ne $score) { [pscustomobject]@{ Name = $c; Score = $score } }
+    }
+    @($scored | Sort-Object Score, Name | Select-Object -First $Max -ExpandProperty Name)
+}
+
 function global:dothelp {
     [CmdletBinding()]
     param([string]$Filter, [switch]$Interactive)
@@ -166,4 +217,27 @@ function global:dothelp {
         Write-DotHost "  no commands match '$Filter'." -Color DarkYellow
         Write-Host ''
     }
+}
+
+# --- CommandNotFoundAction: a gentle "did you mean?" --------------------------
+# When you fat-finger one of this profile's verbs, nudge toward the real one and
+# point at dothelp — instead of just the bare "not recognized" error. Print-only
+# (never substitutes or suppresses the real error) and bulletproof (any failure
+# inside is swallowed), so it can't break command resolution. Stays quiet unless
+# there's a genuinely close match in the catalog, so random typos don't get noise.
+if ($env:FAST_START -ne '1') {
+    try {
+        $ExecutionContext.InvokeCommand.CommandNotFoundAction = {
+            param($CommandName, $eventArgs)
+            try {
+                if ([string]::IsNullOrWhiteSpace($CommandName)) { return }
+                if ($CommandName.Length -lt 2) { return }
+                if ($CommandName -match '[\\/:.]') { return }   # skip paths / file-ish names
+                $suggest = Get-DotDidYouMean -Name $CommandName -Candidates (Get-DotHelpFilters)
+                if ($suggest) {
+                    Write-DotHost ("  did you mean: {0}?   (run 'dothelp' for the full index)" -f ($suggest -join ', ')) -Color DarkYellow
+                }
+            } catch { }
+        }
+    } catch { }
 }

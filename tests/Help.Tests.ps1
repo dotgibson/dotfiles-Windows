@@ -57,6 +57,29 @@ Describe 'Get-DotHelpFilters' {
     }
 }
 
+Describe 'Get-DotLevenshtein' {
+    It 'is zero for identical strings' { Get-DotLevenshtein 'reload' 'reload' | Should -Be 0 }
+    It 'counts a single deletion'      { Get-DotLevenshtein 'reload' 'relod' | Should -Be 1 }
+    It 'handles an empty operand'      { Get-DotLevenshtein '' 'abc' | Should -Be 3 }
+}
+
+Describe 'Get-DotDidYouMean' {
+    BeforeAll { $script:Cands = Get-DotHelpFilters }
+    It 'suggests the real verb for a near typo' {
+        Get-DotDidYouMean -Name 'dohelp' -Candidates $script:Cands | Should -Contain 'dothelp'
+    }
+    It 'resolves a dropped-letter typo' {
+        Get-DotDidYouMean -Name 'relod' -Candidates $script:Cands | Should -Contain 'reload'
+    }
+    It 'stays silent for a wholly unrelated token' {
+        Get-DotDidYouMean -Name 'xyzzy' -Candidates $script:Cands | Should -BeNullOrEmpty
+    }
+    It 'does not suggest a short flag/alias for a long typo' {
+        # a long mistype that happens to contain "-n" must not surface "-n"
+        Get-DotDidYouMean -Name 'relodd-nonexistent' -Candidates $script:Cands | Should -Not -Contain '-n'
+    }
+}
+
 Describe 'dothelp' {
     It 'runs without error for the full index' {
         { dothelp } | Should -Not -Throw
