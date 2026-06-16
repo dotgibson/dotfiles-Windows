@@ -43,7 +43,7 @@ function script:Test-InMux { [bool]($env:TMUX -or $env:PSMUX_SESSION) }
 function script:Get-PillScript {
     $p = if ($global:DOTFILES) { Join-Path $global:DOTFILES 'psmux\scripts\psmux-netinfo.ps1' } else { $null }
     if (-not $p -or -not (Test-Path $p)) {
-        Write-Error "psmux-pill: netinfo script not found at $p"
+        Write-DotErr "psmux-pill: netinfo script not found at $p" 're-run install.ps1 -SkipPackages to relink the psmux scripts'
         return $null
     }
     return $p

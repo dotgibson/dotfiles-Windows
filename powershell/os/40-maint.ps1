@@ -23,7 +23,7 @@ $script:FollowArgs    = @('-f', '--follow')
 
 function Get-MaintRunnerPath {
     if (-not $script:MaintScript -or -not (Test-Path $script:MaintScript)) {
-        Write-Error "maint: runner not found at $script:MaintScript"
+        Write-DotErr "maint: runner not found at $script:MaintScript" 'set DOTFILES_WIN / re-clone the repo'
         return $null
     }
     return $script:MaintScript
@@ -32,7 +32,7 @@ function Get-MaintRunnerPath {
 function Get-PwshPath {
     $pwshPath = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
     if (-not $pwshPath) {
-        Write-Error 'maint: pwsh (PowerShell 7) not found on PATH'
+        Write-DotErr 'maint: pwsh (PowerShell 7) not found on PATH' 'install it: scoop install pwsh (or winget install Microsoft.PowerShell)'
         return $null
     }
     return $pwshPath
@@ -42,7 +42,7 @@ function maint-install {
     param([string]$When = '13:00')
 
     if ($When -notmatch '^([01]?\d|2[0-3]):[0-5]\d$') {
-        Write-Error 'usage: maint-install [HH:MM]   (24h, e.g. 13:00)'; return
+        Write-DotErr "not a valid 24h time: '$When'" 'usage: maint-install [HH:MM]   e.g. maint-install 13:00'; return
     }
     $maintScript = Get-MaintRunnerPath
     if (-not $maintScript) { return }
@@ -69,7 +69,7 @@ function maint-install {
         Write-Host '  winget upgrades are OFF by default — to include them, edit the task to set' -ForegroundColor DarkGray
         Write-Host '  the MAINT_WINGET_UPGRADE=1 environment variable, or run maint manually with it set.' -ForegroundColor DarkGray
     } catch {
-        Write-Error "maint-install failed: $_"
+        Write-DotErr "maint-install failed: $_"
     }
 }
 
@@ -95,7 +95,7 @@ function maint-log {
     } else {
         $lineCount = 0
         if (-not [int]::TryParse("$Arg", [ref]$lineCount) -or $lineCount -le 0) {
-            Write-Error 'usage: maint-log [N|-f]   (N must be a positive integer)'
+            Write-DotErr "not a positive integer: '$Arg'" 'usage: maint-log [N|-f]   e.g. maint-log 50  or  maint-log -f'
             return
         }
         Get-Content $script:MaintLog -Tail $lineCount

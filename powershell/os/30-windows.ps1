@@ -72,7 +72,7 @@ function modules-localize {
     # in THIS session can't block the operation. The prepend makes the local copy
     # win regardless; delete the OneDrive Modules folder by hand later if you like.
     robocopy $src $dst /E /NFL /NDL /NJH /NJS /NP | Out-Null
-    if ($LASTEXITCODE -ge 8) { Write-Error "robocopy failed (exit $LASTEXITCODE)"; return }
+    if ($LASTEXITCODE -ge 8) { Write-DotErr "robocopy failed (exit $LASTEXITCODE)" 'check that the source/destination paths are writable, then retry'; return }
     Write-Host "done — open a NEW shell. Modules now load from $dst (off OneDrive)." -ForegroundColor Green
     Write-Host "verify with: (Get-Module -ListAvailable PSReadLine).Path" -ForegroundColor DarkGray
 }

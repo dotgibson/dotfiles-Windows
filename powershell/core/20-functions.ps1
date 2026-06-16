@@ -103,7 +103,7 @@ function fif {
 
 # --- fbr: fuzzy git branch checkout -------------------------------------------
 function fbr {
-    if (-not (Test-Cmd fzf)) { Write-Error 'fbr needs fzf'; return }
+    if (-not (Test-Cmd fzf)) { Write-DotErr 'fbr needs fzf' 'scoop install fzf'; return }
     # Clean the branch names in PowerShell BEFORE handing them to fzf, so {} in
     # the preview (run by fzf's shell, not PowerShell) is already a valid ref.
     $branches = git branch --all 2>$null |

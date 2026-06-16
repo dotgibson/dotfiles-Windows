@@ -90,7 +90,11 @@ if (Test-Path $LocalProfile) { . $LocalProfile }
 # worse than a visible warning. `dotfiles-doctor` has the per-fragment detail.
 if ($global:DotfilesLoadErrors.Count -and $env:FAST_START -ne '1') {
     $n = $global:DotfilesLoadErrors.Count
-    Write-Warning ("dotfiles: {0} profile fragment(s) failed to load — run dotfiles-doctor for detail." -f $n)
+    $msg = "dotfiles: $n profile fragment(s) failed to load — run dotfiles-doctor for detail."
+    # Prefer the shared warning layout, but fall back to Write-Warning: 05-lib could
+    # itself be the fragment that failed, in which case Write-DotWarn won't exist.
+    if (Get-Command Write-DotWarn -ErrorAction SilentlyContinue) { Write-DotWarn $msg }
+    else { Write-Warning $msg }
 }
 
 # --- Emit the trace table (if tracing) ----------------------------------------
