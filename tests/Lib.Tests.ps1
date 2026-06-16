@@ -85,6 +85,32 @@ Describe 'Write-DotWarn' {
     }
 }
 
+Describe 'Get-DotfilesLinkPlan' {
+    It 'derives every link from the injected roots' {
+        $plan = Get-DotfilesLinkPlan -RepoRoot 'R:\repo' -HomeDir 'H:\me' -LocalAppData 'L:\app' -Documents 'D:\docs'
+        $links = $plan.Link
+        $links | Should -Contain 'H:\me\.gitconfig'
+        $links | Should -Contain 'L:\app\nvim'
+        $links | Should -Contain 'D:\docs\PowerShell\Microsoft.PowerShell_profile.ps1'
+    }
+    It 'derives every target from the repo root' {
+        $plan = Get-DotfilesLinkPlan -RepoRoot 'R:\repo' -HomeDir 'H:' -LocalAppData 'L:' -Documents 'D:'
+        ($plan.Target -join ';') | Should -Match ([regex]::Escape('R:\repo\git\.gitconfig'))
+        ($plan.Target -join ';') | Should -Match ([regex]::Escape('R:\repo\windows-terminal\settings.json'))
+    }
+    It 'covers the full family of configs (parity with the installer)' {
+        $links = (Get-DotfilesLinkPlan -RepoRoot 'R:' -HomeDir 'H:' -LocalAppData 'L:' -Documents 'D:').Link -join ';'
+        foreach ($needle in 'profile.ps1', 'nvim', '.gitconfig', '.gitignore_global', 'ssh\config',
+                            'psmux.conf', 'psmux.reset.conf', 'psmux\scripts', 'settings.json') {
+            $links | Should -Match ([regex]::Escape($needle))
+        }
+    }
+    It 'flags only Windows Terminal as ParentMustExist' {
+        $plan = Get-DotfilesLinkPlan -RepoRoot 'R:' -HomeDir 'H:' -LocalAppData 'L:' -Documents 'D:'
+        @($plan | Where-Object ParentMustExist).Name | Should -Be 'Windows Terminal settings'
+    }
+}
+
 Describe 'Write-DotOk' {
     It 'composes a success line with the ok glyph and hint' {
         $out = Write-DotOk -Message 'all set' -Hint 'next: reload' -PassThru 6>$null

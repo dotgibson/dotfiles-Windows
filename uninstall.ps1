@@ -28,32 +28,22 @@ $RepoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $LibPath = Join-Path $RepoRoot 'powershell\core\05-lib.ps1'
 if (Test-Path $LibPath) { . $LibPath }
 
-# --- the set of links install.ps1 creates (pure: testable with injected env) ---
+# --- the set of links install.ps1 creates -------------------------------------
+# Thin projection of the shared link plan (Get-DotfilesLinkPlan in 05-lib) down to
+# just the destination paths uninstall reasons about. Keeping this a wrapper — not
+# a second hand-maintained list — is the whole point: a link added to the plan is
+# automatically removed here and checked by dotfiles-doctor, with no third edit.
+# Still pure/testable: the injected roots flow straight through to the plan.
 function Get-DotfilesLinkMap {
     param(
         [string]$HomeDir      = $HOME,
         [string]$LocalAppData = $env:LOCALAPPDATA,
         [string]$Documents    = [Environment]::GetFolderPath('MyDocuments')
     )
-    # Defensive: a host with no resolvable Documents (or LOCALAPPDATA) must not
-    # crash the map — fall back under HOME so the rest of the links still resolve.
-    # Use [IO.Path]::Combine (pure string join) rather than Join-Path: Join-Path
-    # resolves the drive PROVIDER and throws DriveNotFoundException for a path on
-    # a drive that doesn't exist on this host — which is exactly what tests inject.
-    $join = { param($a, $b) [System.IO.Path]::Combine($a, $b) }
-    if (-not $Documents)    { $Documents    = & $join $HomeDir 'Documents' }
-    if (-not $LocalAppData) { $LocalAppData = & $join $HomeDir 'AppData\Local' }
-    @(
-        (& $join $Documents    'PowerShell\Microsoft.PowerShell_profile.ps1')
-        (& $join $LocalAppData 'nvim')
-        (& $join $HomeDir      '.gitconfig')
-        (& $join $HomeDir      '.gitignore_global')
-        (& $join $HomeDir      '.ssh\config')
-        (& $join $HomeDir      '.config\psmux\psmux.conf')
-        (& $join $HomeDir      '.config\psmux\psmux.reset.conf')
-        (& $join $HomeDir      '.config\psmux\scripts')
-        (& $join $LocalAppData 'Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json')
-    )
+    # RepoRoot only feeds the plan's Target (the repo side); the Link paths we
+    # return depend solely on the injected user-dir roots, so $RepoRoot is fine.
+    (Get-DotfilesLinkPlan -RepoRoot $RepoRoot -HomeDir $HomeDir `
+        -LocalAppData $LocalAppData -Documents $Documents).Link
 }
 
 # True when $Link is a symlink whose target resolves inside this repo. Pure-ish

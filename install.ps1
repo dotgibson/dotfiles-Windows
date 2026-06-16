@@ -287,30 +287,23 @@ if (-not $SkipPackages) {
 # --- 3. wire symlinks ---------------------------------------------------------
 Write-Step 'Wiring configs'
 
-# PowerShell 7 profile. Resolve the Documents folder the OneDrive-aware way:
-# [Environment]::GetFolderPath('MyDocuments') follows a OneDrive redirect, so we
-# link the profile pwsh ACTUALLY loads. Hardcoding ~\Documents silently links a
-# path pwsh never reads when Documents is redirected to OneDrive.
-$docs = [Environment]::GetFolderPath('MyDocuments')
-$psProfile = Join-Path $docs 'PowerShell\Microsoft.PowerShell_profile.ps1'
-Link-Item -Target (Join-Path $RepoRoot 'powershell\profile.ps1') -Link $psProfile
-Write-Host "  (profile target: $psProfile)" -ForegroundColor DarkGray
-
-# Neovim
-Link-Item -Target (Join-Path $RepoRoot 'nvim') -Link (Join-Path $env:LOCALAPPDATA 'nvim')
-
-# git
-Link-Item -Target (Join-Path $RepoRoot 'git\.gitconfig')        -Link (Join-Path $HOME '.gitconfig')
-Link-Item -Target (Join-Path $RepoRoot 'git\.gitignore_global') -Link (Join-Path $HOME '.gitignore_global')
-
-# ssh
-Link-Item -Target (Join-Path $RepoRoot 'ssh\config') -Link (Join-Path $HOME '.ssh\config')
-
-# psmux (native Windows tmux) — reads ~/.config/psmux/psmux.conf (NOT ~/.tmux.conf).
-# Same config psmux/pmux/tmux use. reset.conf + scripts are linked alongside it.
-Link-Item -Target (Join-Path $RepoRoot 'psmux\psmux.conf') -Link (Join-Path $HOME '.config\psmux\psmux.conf')
-Link-Item -Target (Join-Path $RepoRoot 'psmux\psmux.reset.conf') -Link (Join-Path $HOME '.config\psmux\psmux.reset.conf')
-Link-Item -Target (Join-Path $RepoRoot 'psmux\scripts') -Link (Join-Path $HOME '.config\psmux\scripts')
+# All config links come from ONE shared plan (Get-DotfilesLinkPlan in 05-lib) so
+# install, uninstall, and dotfiles-doctor can never disagree about the set. The
+# Documents folder inside the plan is resolved the OneDrive-aware way via
+# [Environment]::GetFolderPath('MyDocuments'), so the profile we link is the one
+# pwsh ACTUALLY loads even when Documents is redirected to OneDrive.
+foreach ($row in (Get-DotfilesLinkPlan -RepoRoot $RepoRoot)) {
+    # A row flagged ParentMustExist (Windows Terminal) is skipped when its parent
+    # dir is absent — WT isn't installed — instead of materializing an empty tree.
+    if ($row.ParentMustExist -and -not (Test-Path (Split-Path -Parent $row.Link))) {
+        Write-DotWarn "$($row.Name): target folder not found — skipping." 'If you installed Windows Terminal via scoop, link its settings.json manually.'
+        continue
+    }
+    Link-Item -Target $row.Target -Link $row.Link
+    if ($row.Name -eq 'PowerShell profile') {
+        Write-Host "  (profile target: $($row.Link))" -ForegroundColor DarkGray
+    }
+}
 
 # --- ppm (psmux plugin manager) -------------------------------------------------
 # Mirrors psmux's documented install: clone the psmux-plugins monorepo to a temp
@@ -340,13 +333,8 @@ if (-not (Test-Path $ppmDir)) {
     }
 }
 
-# Windows Terminal settings (Store install path)
-$wtDir = Join-Path $env:LOCALAPPDATA 'Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState'
-if (Test-Path $wtDir) {
-    Link-Item -Target (Join-Path $RepoRoot 'windows-terminal\settings.json') -Link (Join-Path $wtDir 'settings.json')
-} else {
-    Write-DotWarn 'Windows Terminal LocalState not found.' 'If you installed WT via scoop, link settings.json manually.'
-}
+# Windows Terminal settings are wired by the shared plan loop above (the row is
+# flagged ParentMustExist, so it self-skips when WT isn't installed).
 
 # --- 4. .wslconfig (COPY, don't symlink - it's host-global, edit per machine) -
 Write-Step 'Seeding host-global .wslconfig'

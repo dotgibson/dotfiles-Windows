@@ -41,6 +41,49 @@ function global:Test-SensitiveHistoryLine {
     return $false
 }
 
+# --- Get-DotfilesLinkPlan -----------------------------------------------------
+# THE single source of truth for every symlink this repo wires: one ordered list
+# that install.ps1 creates, uninstall.ps1 removes, and dotfiles-doctor verifies.
+# Before this existed the set was hand-maintained in three places, so adding a
+# link meant editing all three or silently drifting (uninstall would orphan it,
+# doctor would never check it). Pure: every path is derived from injected roots,
+# so it's unit-tested and the consumers can't disagree about what "the links" are.
+#
+# Uses [IO.Path]::Combine (a pure string join), NOT Join-Path: Join-Path resolves
+# the drive PROVIDER and throws DriveNotFoundException for a path on a drive that
+# doesn't exist on this host — which is exactly what the tests inject (H:, L:, D:).
+#
+# ParentMustExist flags a link whose parent we must NOT create on demand: the
+# Windows Terminal LocalState dir only exists when WT (Store build) is installed,
+# so install.ps1 skips that row rather than materializing an empty tree.
+function global:Get-DotfilesLinkPlan {
+    param(
+        [Parameter(Mandatory)][string]$RepoRoot,
+        [string]$HomeDir      = $HOME,
+        [string]$LocalAppData = $env:LOCALAPPDATA,
+        [string]$Documents    = [Environment]::GetFolderPath('MyDocuments')
+    )
+    $join = { param($a, $b) [System.IO.Path]::Combine($a, $b) }
+    if (-not $Documents)    { $Documents    = & $join $HomeDir 'Documents' }
+    if (-not $LocalAppData) { $LocalAppData = & $join $HomeDir 'AppData\Local' }
+    $repo = { param($p) & $join $RepoRoot $p }
+    $row  = {
+        param($Name, $Target, $Link, $ParentMustExist = $false)
+        [pscustomobject]@{ Name = $Name; Target = $Target; Link = $Link; ParentMustExist = $ParentMustExist }
+    }
+    @(
+        & $row 'PowerShell profile'        (& $repo 'powershell\profile.ps1')        (& $join $Documents    'PowerShell\Microsoft.PowerShell_profile.ps1')
+        & $row 'nvim config'               (& $repo 'nvim')                          (& $join $LocalAppData 'nvim')
+        & $row '.gitconfig'                (& $repo 'git\.gitconfig')                (& $join $HomeDir      '.gitconfig')
+        & $row '.gitignore_global'         (& $repo 'git\.gitignore_global')         (& $join $HomeDir      '.gitignore_global')
+        & $row 'ssh config'                (& $repo 'ssh\config')                    (& $join $HomeDir      '.ssh\config')
+        & $row 'psmux.conf'                (& $repo 'psmux\psmux.conf')              (& $join $HomeDir      '.config\psmux\psmux.conf')
+        & $row 'psmux.reset.conf'          (& $repo 'psmux\psmux.reset.conf')        (& $join $HomeDir      '.config\psmux\psmux.reset.conf')
+        & $row 'psmux scripts'             (& $repo 'psmux\scripts')                 (& $join $HomeDir      '.config\psmux\scripts')
+        & $row 'Windows Terminal settings' (& $repo 'windows-terminal\settings.json') (& $join $LocalAppData 'Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json') $true
+    )
+}
+
 # --- defensive output: NO_COLOR + non-Unicode terminals -----------------------
 # Two universal escape hatches so the colored, glyph-decorated output degrades on
 # hosts that can't render it instead of spraying ANSI codes or mojibake:

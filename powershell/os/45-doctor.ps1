@@ -133,17 +133,17 @@ function script:Get-DoctorResults {
         $r.Add((New-DoctorResult 'Modules off OneDrive' 'warn' 'local module path not prepended' 'open a new shell; run modules-localize once'))
     }
 
-    # key config links
-    $links = @{
-        '.gitconfig'      = (Join-Path $HOME '.gitconfig')
-        'nvim config'     = (Join-Path $env:LOCALAPPDATA 'nvim')
-        'psmux.conf'      = (Join-Path $HOME '.config\psmux\psmux.conf')
-        'ssh config'      = (Join-Path $HOME '.ssh\config')
-    }
-    foreach ($name in $links.Keys) {
-        if (Test-LinkIntoRepo $links[$name]) { $r.Add((New-DoctorResult "link: $name" 'ok' 'linked')) }
-        elseif (Test-Path $links[$name])     { $r.Add((New-DoctorResult "link: $name" 'warn' 'present, not a repo link' 're-run install.ps1 -SkipPackages')) }
-        else                                  { $r.Add((New-DoctorResult "link: $name" 'warn' 'missing' 'run install.ps1')) }
+    # key config links — enumerated from the SAME shared plan install.ps1 wires
+    # and uninstall.ps1 removes (Get-DotfilesLinkPlan), so doctor can't fall out of
+    # sync with the actual link set. The profile link is checked separately above,
+    # so it's skipped here to avoid a duplicate row.
+    if ($root) {
+        foreach ($row in (Get-DotfilesLinkPlan -RepoRoot $root)) {
+            if ($row.Name -eq 'PowerShell profile') { continue }
+            if (Test-LinkIntoRepo $row.Link)  { $r.Add((New-DoctorResult "link: $($row.Name)" 'ok' 'linked')) }
+            elseif (Test-Path $row.Link)      { $r.Add((New-DoctorResult "link: $($row.Name)" 'warn' 'present, not a repo link' 're-run install.ps1 -SkipPackages')) }
+            else                              { $r.Add((New-DoctorResult "link: $($row.Name)" 'warn' 'missing' 'run install.ps1')) }
+        }
     }
 
     # gitconfig.local identity
