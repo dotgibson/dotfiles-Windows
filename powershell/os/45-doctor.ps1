@@ -65,12 +65,16 @@ function script:Write-DoctorLine {
     Write-DotHost " $($Result.Detail)" -Color Gray
     if ($Result.Status -ne 'ok' -and $Result.Hint) {
         # Word-wrap the hint to the console so a long fix instruction (or path)
-        # doesn't run off a narrow terminal (U12). The arrow leads the first line;
-        # continuation lines keep the 8-space indent so they sit under the text.
-        $indent = '        '
+        # doesn't run off a narrow terminal (U12). Derive the continuation indent
+        # from the ACTUAL first-line lead-in ("      <arrow> "), whose width differs
+        # between the Unicode arrow (1 col) and the ASCII '->' (2 cols), so the
+        # wrapped lines stay aligned under the text — and the wrap width stays
+        # correct — in both glyph modes.
+        $lead    = "      {0} " -f (Get-DotGlyph arrow)
+        $indent  = ' ' * $lead.Length
         $wrapped = @(Format-DotWrap -Text $Result.Hint -Width (Get-DotConsoleWidth) -Indent $indent)
         for ($i = 0; $i -lt $wrapped.Count; $i++) {
-            if ($i -eq 0) { Write-DotHost ("      {0} {1}" -f (Get-DotGlyph arrow), $wrapped[$i].TrimStart()) -Color DarkGray }
+            if ($i -eq 0) { Write-DotHost ($lead + $wrapped[$i].TrimStart()) -Color DarkGray }
             else          { Write-DotHost $wrapped[$i] -Color DarkGray }
         }
     }
