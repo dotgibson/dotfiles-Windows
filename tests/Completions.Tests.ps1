@@ -4,8 +4,10 @@
 
 BeforeAll {
     $RepoRoot = Split-Path -Parent $PSScriptRoot
-    # 55-help defines Get-DotfilesHelpData/Get-DotHelpFilters/dothelp that the
-    # dothelp completer leans on; load it before registering completers.
+    # The dothelp completer leans on Get-DotHelpFilters, which now lives in the
+    # Dotfiles module (B7 stage 2c) — import it so the completer resolves it. Still
+    # dot-source 55-help for the dothelp VERB the completer is registered against.
+    $script:Module = Import-Module (Join-Path $RepoRoot 'powershell/Dotfiles/Dotfiles.psd1') -Force -DisableNameChecking -PassThru
     . (Join-Path $RepoRoot 'powershell/core/55-help.ps1')
     # Stub the remaining target commands so completion resolves against real names.
     function global:mux       { param([string]$Session = 'main') }
@@ -19,6 +21,7 @@ BeforeAll {
 }
 AfterAll {
     Remove-Item Function:\mux, Function:\cdwsl, Function:\maint-log, Function:\sci, Function:\wgi -ErrorAction SilentlyContinue
+    if ($script:Module) { Remove-Module $script:Module -Force -ErrorAction SilentlyContinue }
 }
 
 Describe 'New-DotCompletions' {
