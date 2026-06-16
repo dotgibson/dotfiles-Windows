@@ -57,9 +57,50 @@ function global:Get-DotConfirmAnswer {
     return 'invalid'
 }
 
+# --- Test-DotGum --------------------------------------------------------------
+# Should we hand an interactive prompt to gum (charmbracelet/gum) instead of a
+# raw Read-Host? gum is in packages/scoopfile.json, so the host has it — this lets
+# the few interactive moments (the install overwrite/identity prompts) use gum's
+# styled, key-driven widgets while every non-gum path stays exactly as tested.
+# True ONLY when ALL of these hold, so scripted/CI/redirected/NO_COLOR runs never
+# get an unexpected TUI:
+#   • DOTFILES_NO_GUM is unset (the escape hatch — set it to 1 to force plain
+#     Read-Host prompts; parity with FAST_START / DOTFILES_CARAPACE),
+#   • gum is on PATH,
+#   • colour is allowed (NO_COLOR/TERM=dumb opt out), and
+#   • stdin is a real interactive console (not redirected / piped / a test host).
+# The four inputs are injectable params (env/host defaults read at call time), the
+# same pattern as Test-DotColor/Test-DotUnicode, so the decision is unit-tested in
+# every branch (tests/Lib.Tests.ps1) without needing gum or a TTY present.
+function global:Test-DotGum {
+    [OutputType([bool])]
+    param(
+        [string]$NoGum       = $env:DOTFILES_NO_GUM,
+        [bool]  $HasGum      = [bool](Get-Command gum -ErrorAction SilentlyContinue),
+        [bool]  $Color       = (Test-DotColor),
+        [bool]  $Interactive = $(try { -not [Console]::IsInputRedirected } catch { $true })
+    )
+    if ($NoGum -eq '1') { return $false }
+    if (-not $HasGum)      { return $false }
+    if (-not $Color)       { return $false }
+    if (-not $Interactive) { return $false }
+    return $true
+}
+
 function global:Read-DotConfirm {
     [OutputType([bool])]
     param([Parameter(Mandatory)][string]$Prompt, [bool]$DefaultYes = $true)
+
+    # gum confirm: a styled y/n with arrow/enter selection. Exit 0 = affirmative,
+    # 1 = negative, anything else (e.g. 130 on Ctrl-C) = treat as "no" — the safe
+    # answer for the destructive prompts this guards. Only taken on a genuine
+    # interactive console (Test-DotGum); otherwise the Read-Host loop below runs,
+    # unchanged, so the mocked-Read-Host tests and non-interactive default still hold.
+    if (Test-DotGum) {
+        & gum confirm $Prompt --default="$($DefaultYes.ToString().ToLowerInvariant())" 2>$null
+        return ($LASTEXITCODE -eq 0)
+    }
+
     $suffix = if ($DefaultYes) { '[Y/n]' } else { '[y/N]' }
     for ($i = 0; $i -lt 3; $i++) {
         try { $ans = Read-Host "$Prompt $suffix" }
