@@ -329,13 +329,57 @@ function global:Write-DotBanner {
     }
 }
 
+# --- Get-DotConsoleWidth ------------------------------------------------------
+# The usable console width, or $Fallback (80) when there's no real console handle
+# (redirected output, a transcript, CI). Guarded so it never throws on a host
+# without a window. Lets the rule/wrap helpers below size to the actual terminal
+# instead of a hardcoded column count (U5/U12).
+function global:Get-DotConsoleWidth {
+    [OutputType([int])]
+    param([int]$Fallback = 80)
+    try { $w = [Console]::WindowWidth; if ($w -gt 0) { return $w } } catch { }
+    return $Fallback
+}
+
+# --- Format-DotWrap -----------------------------------------------------------
+# Word-wrap $Text to $Width columns, prefixing every line (including continuations)
+# with $Indent, and return the lines. A word longer than the available width is
+# emitted whole rather than hard-split (paths stay clickable). Pure, so it's
+# unit-tested; used to keep long hint lines from overflowing a narrow terminal (U12).
+function global:Format-DotWrap {
+    [OutputType([string[]])]
+    param(
+        [Parameter(Mandatory)][AllowEmptyString()][string]$Text,
+        [int]$Width = 80,
+        [string]$Indent = ''
+    )
+    $avail = [Math]::Max(1, $Width - $Indent.Length)
+    $words = @($Text -split '\s+' | Where-Object { $_ -ne '' })
+    if (-not $words.Count) { return @() }
+    $lines = [System.Collections.Generic.List[string]]::new()
+    $cur = ''
+    foreach ($w in $words) {
+        if (-not $cur)                                       { $cur = $w }
+        elseif (($cur.Length + 1 + $w.Length) -le $avail)    { $cur += ' ' + $w }
+        else                                                 { $lines.Add($Indent + $cur); $cur = $w }
+    }
+    if ($cur) { $lines.Add($Indent + $cur) }
+    return $lines.ToArray()
+}
+
 # --- Write-DotRule ------------------------------------------------------------
 # A titled horizontal rule ("-- Summary ─────…"), Unicode by default and ASCII
 # under DOTFILES_ASCII, colour-aware via Write-DotHost. One place for the box-rule
-# glyph so install/uninstall/maint summaries line up.
+# glyph so install/uninstall/maint summaries line up. With no explicit -Width it
+# now fills the actual console (U5) instead of a fixed 56 columns; an explicit
+# -Width still wins (so the existing callers/tests are unaffected).
 function global:Write-DotRule {
-    param([string]$Title, [int]$Width = 56, [string]$Color = 'Cyan')
+    param([string]$Title, [int]$Width = 0, [string]$Color = 'Cyan')
     $ch = if (Test-DotUnicode) { '─' } else { '-' }
+    if ($Width -le 0) {
+        $prefix = if ($Title) { ("-- $Title ").Length } else { 0 }
+        $Width = [Math]::Max(8, (Get-DotConsoleWidth) - $prefix)
+    }
     $line = if ($Title) { "-- $Title " + ($ch * $Width) } else { ($ch * $Width) }
     Write-DotHost $line -Color $Color
 }

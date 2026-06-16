@@ -64,7 +64,15 @@ function script:Write-DoctorLine {
     Write-Host ("{0,-26}" -f $Result.Name) -NoNewline
     Write-DotHost " $($Result.Detail)" -Color Gray
     if ($Result.Status -ne 'ok' -and $Result.Hint) {
-        Write-DotHost ("      {0} {1}" -f (Get-DotGlyph arrow), $Result.Hint) -Color DarkGray
+        # Word-wrap the hint to the console so a long fix instruction (or path)
+        # doesn't run off a narrow terminal (U12). The arrow leads the first line;
+        # continuation lines keep the 8-space indent so they sit under the text.
+        $indent = '        '
+        $wrapped = @(Format-DotWrap -Text $Result.Hint -Width (Get-DotConsoleWidth) -Indent $indent)
+        for ($i = 0; $i -lt $wrapped.Count; $i++) {
+            if ($i -eq 0) { Write-DotHost ("      {0} {1}" -f (Get-DotGlyph arrow), $wrapped[$i].TrimStart()) -Color DarkGray }
+            else          { Write-DotHost $wrapped[$i] -Color DarkGray }
+        }
     }
 }
 
