@@ -259,6 +259,12 @@ if ($env:FAST_START -ne '1') {
                 if ([string]::IsNullOrWhiteSpace($CommandName)) { return }
                 if ($CommandName.Length -lt 2) { return }
                 if ($CommandName -match '[\\/:.]') { return }   # skip paths / file-ish names
+                # Critical: Get-Command/Test-Cmd probes (used pervasively across the
+                # profile) raise THIS SAME event for every missing tool. Such probes
+                # run from inside a script/function, so their call stack has a frame
+                # with a ScriptName; a command typed at the prompt does not. Only react
+                # to the prompt case — otherwise every tool probe spews suggestions.
+                if (@(Get-PSCallStack | Select-Object -Skip 1 | Where-Object { $_.ScriptName }).Count -gt 0) { return }
                 $suggest = Get-DotDidYouMean -Name $CommandName -Candidates (Get-DotHelpFilters)
                 if ($suggest) {
                     Write-DotHost ("  did you mean: {0}?   (run 'dothelp' for the full index)" -f ($suggest -join ', ')) -Color DarkYellow
