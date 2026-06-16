@@ -58,16 +58,31 @@ if (Test-Path $scoop) {
     foreach ($app in $m.apps) {
         if ($app.Name -notmatch '^[\w.+-]+$') { Fail "scoopfile.json odd app name: '$($app.Name)'" }
         if ($declared -notcontains $app.Source) { Fail "scoopfile.json app '$($app.Name)' references undeclared bucket '$($app.Source)'" }
+        # Optional version pin must be a non-whitespace token (scoop install name@ver).
+        if ($app.PSObject.Properties.Name -contains 'Version' -and "$($app.Version)" -notmatch '^\S+$') {
+            Fail "scoopfile.json app '$($app.Name)' has an empty/odd Version pin"
+        }
     }
 }
 $wg = Join-Path $RepoRoot 'packages/winget.json'
 if (Test-Path $wg) {
     $w = (Get-Content $wg -Raw | ConvertFrom-Json).packages
-    $dupWg = $w | Group-Object | Where-Object Count -gt 1
+    # Entries may be a bare id string OR an object { id, version } (optional pin).
+    # Normalize to ids for the dup/shape checks; validate any version separately.
+    $ids = foreach ($e in $w) { if ($e -is [string]) { $e } else { $e.id } }
+    $dupWg = $ids | Group-Object | Where-Object Count -gt 1
     if ($dupWg) { Fail "winget.json duplicate ids: $($dupWg.Name -join ', ')" }
     # Provenance: winget ids are Publisher.Package (at least one dot, no spaces).
-    foreach ($id in $w) {
+    foreach ($id in $ids) {
         if ($id -notmatch '^[^\s.]+(\.[^\s.]+)+$') { Fail "winget.json malformed id: '$id'" }
+    }
+    foreach ($e in $w) {
+        if ($e -isnot [string]) {
+            if (-not $e.id)      { Fail "winget.json object entry missing 'id'" }
+            if ($e.PSObject.Properties.Name -contains 'version' -and "$($e.version)" -notmatch '^\S+$') {
+                Fail "winget.json entry '$($e.id)' has an empty/odd version pin"
+            }
+        }
     }
 }
 if ($script:fail -eq $preJson) { Pass 'all JSON valid; manifests have no duplicates' }

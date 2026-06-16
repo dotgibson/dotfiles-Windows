@@ -25,6 +25,26 @@ Describe 'Get-WingetInstalledIds' {
     }
 }
 
+Describe 'Get-ScoopInstallToken' {
+    It 'returns the bare name when unpinned' {
+        Get-ScoopInstallToken ([pscustomobject]@{ Name = 'fzf'; Source = 'main' }) | Should -Be 'fzf'
+    }
+    It 'returns name@version when pinned' {
+        Get-ScoopInstallToken ([pscustomobject]@{ Name = 'fzf'; Version = '0.54.0' }) | Should -Be 'fzf@0.54.0'
+    }
+}
+
+Describe 'ConvertTo-DotWingetSpec' {
+    It 'treats a bare string as an unpinned id' {
+        $s = ConvertTo-DotWingetSpec 'Git.Git'
+        $s.Id | Should -Be 'Git.Git'; $s.Version | Should -BeNullOrEmpty
+    }
+    It 'reads id + version from an object entry' {
+        $s = ConvertTo-DotWingetSpec ([pscustomobject]@{ id = 'Git.Git'; version = '2.45.0' })
+        $s.Id | Should -Be 'Git.Git'; $s.Version | Should -Be '2.45.0'
+    }
+}
+
 Describe 'Get-PackagesUsage' {
     It 'documents every public switch' {
         $u = (Get-PackagesUsage) -join "`n"

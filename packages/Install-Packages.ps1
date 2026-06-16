@@ -81,6 +81,22 @@ function Get-WingetInstalledIds {
     return @($ids | Where-Object { $_ })
 }
 
+# --- optional version pinning (pure, unit-tested) -----------------------------
+# Reproducibility without freezing the whole rolling toolchain: any manifest entry
+# MAY pin a version, and the rest float to latest. A scoop app object can carry a
+# Version ("Name@Version"); a winget entry can be either a bare id string or an
+# object { "id": "...", "version": "..." }. These two helpers turn a manifest entry
+# into the exact install token/spec, so the pinning logic is testable offline.
+function Get-ScoopInstallToken {
+    param($App)
+    if ($App.Version) { "$($App.Name)@$($App.Version)" } else { "$($App.Name)" }
+}
+function ConvertTo-DotWingetSpec {
+    param($Entry)
+    if ($Entry -is [string]) { return [pscustomobject]@{ Id = $Entry; Version = $null } }
+    return [pscustomobject]@{ Id = "$($Entry.id)"; Version = $(if ($Entry.version) { "$($Entry.version)" } else { $null }) }
+}
+
 # Library-only hook for the test suite: expose the helpers without installing.
 if ($env:DOTFILES_PKG_LIBONLY -eq '1') { return }
 
@@ -124,8 +140,9 @@ if (-not $SkipScoop) {
             Write-Host "  [$i/$($apps.Count)] = $name (already installed)" -ForegroundColor DarkGray
             continue
         }
-        $sw = Write-PkgStep -N $i -Total $apps.Count -Name $name
-        scoop install $name
+        $token = Get-ScoopInstallToken $app   # Name, or Name@Version when pinned
+        $sw = Write-PkgStep -N $i -Total $apps.Count -Name $token
+        scoop install $token
         $sw.Stop()
         if ($LASTEXITCODE -ne 0) { $failed.Add("scoop:$name") }
         else { Write-DotHost ("      done in {0:n0}s" -f $sw.Elapsed.TotalSeconds) -Color DarkGray }
@@ -167,8 +184,11 @@ if (-not $SkipWinget) {
 
         $pkgs = @($wg.packages)
         $j = 0
-        foreach ($id in $pkgs) {
+        foreach ($entry in $pkgs) {
             $j++
+            $spec = ConvertTo-DotWingetSpec $entry   # { Id; Version (optional) }
+            $id = $spec.Id
+            $label = if ($spec.Version) { "$id @$($spec.Version)" } else { $id }
             # Already installed? Prefer the exported set (-contains is
             # case-insensitive); fall back to a per-id query when export failed.
             $already = if ($exportOk) {
@@ -178,12 +198,13 @@ if (-not $SkipWinget) {
                 $LASTEXITCODE -eq 0
             }
             if ($already) {
-                Write-Host "  [$j/$($pkgs.Count)] = $id (already installed)" -ForegroundColor DarkGray
+                Write-Host "  [$j/$($pkgs.Count)] = $label (already installed)" -ForegroundColor DarkGray
                 continue
             }
-            $sw = Write-PkgStep -N $j -Total $pkgs.Count -Name $id
-            winget install --id $id -e --silent `
-                --accept-package-agreements --accept-source-agreements
+            $sw = Write-PkgStep -N $j -Total $pkgs.Count -Name $label
+            $wgInstall = @('install', '--id', $id, '-e', '--silent', '--accept-package-agreements', '--accept-source-agreements')
+            if ($spec.Version) { $wgInstall += @('--version', $spec.Version) }
+            winget @wgInstall
             $sw.Stop()
             if ($LASTEXITCODE -ne 0) {
                 Write-DotWarn "$id failed (winget exit $LASTEXITCODE) — skipping, continuing the batch"
