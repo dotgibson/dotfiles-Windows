@@ -147,8 +147,15 @@ if (-not $SkipWinget) {
         $tmp = $null
         try {
             $tmp = Join-Path $env:TEMP ("winget-export-" + [guid]::NewGuid().ToString('N') + '.json')
-            winget export -o $tmp --accept-source-agreements *> $null
-            if ($LASTEXITCODE -eq 0 -and (Test-Path $tmp)) {
+            # winget export is silent and slow on a cold source — spin while it runs
+            # (it writes $tmp on disk, so we still read the result back here). The job
+            # returns winget's exit code so the original "export ok?" gate is intact.
+            $rc = @(Invoke-DotSpinner -Label 'querying installed winget packages' -ArgumentList @($tmp) -Script {
+                param($out)
+                winget export -o $out --accept-source-agreements *> $null
+                $LASTEXITCODE
+            })[-1]
+            if ($rc -eq 0 -and (Test-Path $tmp)) {
                 $installedIds = Get-WingetInstalledIds (Get-Content $tmp -Raw)
                 $exportOk = $true
             }
@@ -210,9 +217,21 @@ foreach ($m in $mods) {
     $sw = Write-PkgStep -N $k -Total $mods.Count -Name $m
     # -RequiredVersion installs EXACTLY the pinned version (see packages/modules.ps1)
     # so a fresh bootstrap is reproducible; the daily maint runner rolls it forward.
+    # Save-Module is silent and slow, so animate a spinner while it downloads (the
+    # job returns 'ok' or 'fail: ...' so failure handling is preserved; inline on CI).
     $ver = $script:MaintModulePins[$m]
-    try { Save-Module -Name $m -Path $localModules -RequiredVersion $ver -Force -ErrorAction Stop; $sw.Stop() }
-    catch { $sw.Stop(); Write-DotWarn "module $m failed: $_"; $failed.Add("module:$m") }
+    $res = Invoke-DotSpinner -Label "downloading $m $ver" -ArgumentList @($m, $localModules, $ver) -Script {
+        param($name, $path, $version)
+        try { Save-Module -Name $name -Path $path -RequiredVersion $version -Force -ErrorAction Stop; 'ok' }
+        catch { "fail: $_" }
+    }
+    $sw.Stop()
+    $status = @($res)[-1]
+    if ($status -eq 'ok') {
+        Write-DotHost ("      done in {0:n0}s" -f $sw.Elapsed.TotalSeconds) -Color DarkGray
+    } else {
+        Write-DotWarn "module $m failed: $($status -replace '^fail:\s*', '')"; $failed.Add("module:$m")
+    }
 }
 
 $script:PkgCompleted = $true

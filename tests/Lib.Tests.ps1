@@ -93,6 +93,33 @@ Describe 'Get-DotConfirmAnswer' {
     It 'flags a typo as invalid (not a silent no)'   { Get-DotConfirmAnswer 'yse' | Should -Be 'invalid' }
 }
 
+Describe 'Get-DotSpinnerFrame' {
+    It 'cycles through the unicode frames' {
+        Get-DotSpinnerFrame -Tick 0  -Unicode $true | Should -Be '⠋'
+        Get-DotSpinnerFrame -Tick 10 -Unicode $true | Should -Be '⠋'   # wraps (10 frames)
+    }
+    It 'uses an ASCII spinner when not unicode' {
+        Get-DotSpinnerFrame -Tick 0 -Unicode $false | Should -Be '|'
+        Get-DotSpinnerFrame -Tick 1 -Unicode $false | Should -Be '/'
+    }
+    It 'handles a negative tick without erroring' {
+        { Get-DotSpinnerFrame -Tick -3 -Unicode $true } | Should -Not -Throw
+    }
+}
+
+Describe 'Invoke-DotSpinner' {
+    It 'runs the script inline and returns its output when not animating (NO_COLOR)' {
+        $prev = $env:NO_COLOR
+        try { $env:NO_COLOR = '1'; Invoke-DotSpinner -Label 'x' -Script { 21 * 2 } | Should -Be 42 }
+        finally { $env:NO_COLOR = $prev }
+    }
+    It 'passes ArgumentList through inline' {
+        $prev = $env:NO_COLOR
+        try { $env:NO_COLOR = '1'; Invoke-DotSpinner -Label 'x' -ArgumentList @(3, 4) -Script { param($a, $b) $a + $b } | Should -Be 7 }
+        finally { $env:NO_COLOR = $prev }
+    }
+}
+
 Describe 'Test-DotEmailish' {
     It 'accepts a plausible address'      { Test-DotEmailish 'me@example.com' | Should -BeTrue }
     It 'accepts a sub-domain address'     { Test-DotEmailish 'a.b@mail.corp.io' | Should -BeTrue }

@@ -73,6 +73,51 @@ function global:Read-DotConfirm {
     return $DefaultYes   # exhausted retries: fall back to the default
 }
 
+# --- Get-DotSpinnerFrame / Invoke-DotSpinner ----------------------------------
+# A non-blocking progress indicator for steps that are SILENT and slow (a cold
+# `winget export`, Save-Module downloads) — without it they look frozen between
+# the step header and the result. Get-DotSpinnerFrame is the pure frame picker
+# (Braille under Unicode, ASCII spinner otherwise), unit-tested. Invoke-DotSpinner
+# runs the work in a background job and animates one in-place line until it
+# finishes, returning the job's output. It deliberately does NOT wrap chatty tools
+# (scoop/winget app installs) that print their own progress and want the console.
+function global:Get-DotSpinnerFrame {
+    [OutputType([string])]
+    param([int]$Tick, [bool]$Unicode = (Test-DotUnicode))
+    $frames = if ($Unicode) { '⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏' } else { '|', '/', '-', '\' }
+    $i = [Math]::Abs($Tick) % $frames.Count
+    return $frames[$i]
+}
+
+function global:Invoke-DotSpinner {
+    param(
+        [Parameter(Mandatory)][string]$Label,
+        [Parameter(Mandatory)][scriptblock]$Script,
+        [object[]]$ArgumentList = @()
+    )
+    # No animation unless stdout is an interactive, colour-capable console: under
+    # NO_COLOR/TERM=dumb, redirected output, or CI, run the work INLINE so logs stay
+    # clean and a transcript never captures spinner spam. Same result either way.
+    $animate = Test-DotColor
+    try { if ([Console]::IsOutputRedirected) { $animate = $false } } catch { }
+    if (-not $animate) { return (& $Script @ArgumentList) }
+
+    $job = Start-Job -ScriptBlock $Script -ArgumentList $ArgumentList
+    $t = 0
+    try {
+        while ($job.State -eq 'Running') {
+            Write-Host ("`r  {0} {1}" -f (Get-DotSpinnerFrame $t), $Label) -NoNewline -ForegroundColor Cyan
+            Start-Sleep -Milliseconds 120
+            $t++
+        }
+    } finally {
+        Write-Host ("`r{0}`r" -f (' ' * ($Label.Length + 6))) -NoNewline   # wipe the spinner line
+    }
+    $out = Receive-Job $job -ErrorAction SilentlyContinue
+    Remove-Job $job -Force -ErrorAction SilentlyContinue
+    return $out
+}
+
 # --- Test-DotEmailish ---------------------------------------------------------
 # A deliberately loose "does this look like an email?" check for the install-time
 # git-identity prompt — enough to catch a fat-fingered "me@" or a name typed into
