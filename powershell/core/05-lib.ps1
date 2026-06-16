@@ -134,6 +134,41 @@ function global:Write-DotHost {
     }
 }
 
+# --- Write-DotBanner ----------------------------------------------------------
+# The one section header every report uses: an inverse " Title " chip (with an
+# optional dimmer subtitle on the same line) when colour is on, degrading to a
+# plain "== Title ==" / "== Title :: subtitle ==" under NO_COLOR/TERM=dumb. Pulls
+# dotfiles-doctor and dothelp onto a single visual language instead of each
+# re-implementing the Test-DotColor branch.
+function global:Write-DotBanner {
+    param(
+        [Parameter(Mandatory)][string]$Text,
+        [string]$Subtitle,
+        [string]$Background = 'Cyan',
+        [string]$Foreground = 'Black',
+        [string]$SubtitleColor = 'Cyan'
+    )
+    if (Test-DotColor) {
+        Write-Host " $Text " -ForegroundColor $Foreground -BackgroundColor $Background -NoNewline:([bool]$Subtitle)
+        if ($Subtitle) { Write-Host "  $Subtitle" -ForegroundColor $SubtitleColor }
+    } elseif ($Subtitle) {
+        Write-Host "== $Text :: $Subtitle =="
+    } else {
+        Write-Host "== $Text =="
+    }
+}
+
+# --- Write-DotRule ------------------------------------------------------------
+# A titled horizontal rule ("-- Summary ─────…"), Unicode by default and ASCII
+# under DOTFILES_ASCII, colour-aware via Write-DotHost. One place for the box-rule
+# glyph so install/uninstall/maint summaries line up.
+function global:Write-DotRule {
+    param([string]$Title, [int]$Width = 56, [string]$Color = 'Cyan')
+    $ch = if (Test-DotUnicode) { '─' } else { '-' }
+    $line = if ($Title) { "-- $Title " + ($ch * $Width) } else { ($ch * $Width) }
+    Write-DotHost $line -Color $Color
+}
+
 # --- Write-DotErr -------------------------------------------------------------
 # One consistent error layout for the interactive helpers: a red "✗ <message>"
 # and, when supplied, a dimmed "→ <hint>" telling the user how to fix it (usually

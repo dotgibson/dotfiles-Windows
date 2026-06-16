@@ -142,12 +142,7 @@ function global:dothelp {
 
     $data = Get-DotfilesHelpData
     Write-Host ''
-    if (Test-DotColor) {
-        Write-Host ' dotfiles-Windows ' -ForegroundColor Black -BackgroundColor Blue -NoNewline
-        Write-Host '  custom commands' -ForegroundColor Cyan
-    } else {
-        Write-Host '== dotfiles-Windows :: custom commands =='
-    }
+    Write-DotBanner 'dotfiles-Windows' -Subtitle 'custom commands' -Background Blue
     if ($Filter) { Write-DotHost "  (filtered by '$Filter')" -Color DarkGray }
     Write-Host ''
 

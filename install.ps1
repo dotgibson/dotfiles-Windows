@@ -390,9 +390,8 @@ if (-not (Test-Path $gcLocal)) {
 # here would rewrite that line in-place with a machine-specific ABSOLUTE path,
 # silently dirtying the tracked repo file (it edits the symlink target).
 
-$rule = if (Test-DotUnicode) { '─' * 56 } else { '-' * 56 }
 Write-Host ''
-Write-DotHost "-- Summary $rule" -Color Cyan
+Write-DotRule -Title 'Summary'
 Get-InstallSummaryLines -Stats $script:LinkStats | ForEach-Object { Write-DotHost "  $_" -Color Gray }
 if (-not $CanSymlink) {
     Write-DotHost '  mode    : COPY (no Dev Mode / not elevated — links would not track the repo)' -Color DarkYellow

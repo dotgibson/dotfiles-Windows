@@ -226,11 +226,7 @@ function global:dotfiles-doctor {
     $results = Get-DoctorResults
     if (-not $Quiet) {
         Write-Host ''
-        if (Test-DotColor) {
-            Write-Host ' dotfiles-doctor ' -ForegroundColor Black -BackgroundColor Cyan
-        } else {
-            Write-Host '== dotfiles-doctor =='
-        }
+        Write-DotBanner 'dotfiles-doctor'
         Write-Host ''
         foreach ($res in $results) { Write-DoctorLine $res }
         Write-Host ''
