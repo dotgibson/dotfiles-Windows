@@ -25,8 +25,12 @@ function script:Show-PkgUpdateNotice {
     if ($count -match '^\d+$' -and [int]$count -gt 0) {
         $c = [int]$count
         $s = if ($c -ne 1) { 's' } else { '' }
-        Write-Host ("`u{f069a} {0} update{1} available" -f $c, $s) -ForegroundColor Blue -NoNewline
-        Write-Host "  - run 'up' to apply" -ForegroundColor DarkGray
+        # Glyph + colour route through the shared helpers so the nudge degrades on
+        # NO_COLOR (no ANSI) and DOTFILES_ASCII / legacy codepages (no tofu) like
+        # the rest of the output, instead of emitting a raw nerd-font codepoint.
+        $g = Get-DotGlyph pkg
+        Write-DotHost ("{0} {1} update{2} available" -f $g, $c, $s) -Color Blue -NoNewline
+        Write-DotHost "  - run 'up' to apply" -Color DarkGray
     }
 }
 

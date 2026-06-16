@@ -121,7 +121,7 @@ function psmux-pill-enable {
         $env:DOTFILES_PSMUX_PILL_ALL = '1'
     }
     Start-PillRefresher -AllNetworks:$AllNetworks
-    Write-Host '✓ psmux pill enabled — in-session refresher (no scheduled task, no elevation)' -ForegroundColor Green
+    Write-DotOk 'psmux pill enabled — in-session refresher (no scheduled task, no elevation)'
     Write-Host '  refreshes every 60s while a psmux pane is open; new panes auto-arm it.' -ForegroundColor DarkGray
     if (-not (Test-InMux)) {
         Write-Host '  (not inside psmux now — it kicks in when you `mux`.)' -ForegroundColor DarkGray
@@ -137,7 +137,7 @@ function psmux-pill-disable {
     Remove-Item Env:DOTFILES_PSMUX_PILL, Env:DOTFILES_PSMUX_PILL_ALL -ErrorAction SilentlyContinue
     Stop-PillRefresher
     Remove-Item $script:PillCache -Force -ErrorAction SilentlyContinue
-    Write-Host '✓ psmux pill disabled (refresher stopped in this session; cache cleared)' -ForegroundColor Green
+    Write-DotOk 'psmux pill disabled (refresher stopped in this session; cache cleared)'
     Write-Host '  other open panes keep their timer until they close — or run this in each.' -ForegroundColor DarkGray
 }
 

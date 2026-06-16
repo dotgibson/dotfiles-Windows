@@ -64,7 +64,7 @@ function maint-install {
             -Action $action -Trigger $trigger -Settings $settings `
             -Description 'dotfiles daily maintenance (scoop, mise, nvim, PS modules)' `
             -Force -ErrorAction Stop | Out-Null
-        Write-Host "✓ scheduled task '$script:MaintTaskName' installed for $When" -ForegroundColor Green
+        Write-DotOk "scheduled task '$script:MaintTaskName' installed for $When"
         Write-Host '  (StartWhenAvailable: catches up if the machine was off at that time)' -ForegroundColor DarkGray
         Write-Host '  winget upgrades are OFF by default — to include them, edit the task to set' -ForegroundColor DarkGray
         Write-Host '  the MAINT_WINGET_UPGRADE=1 environment variable, or run maint manually with it set.' -ForegroundColor DarkGray
@@ -118,7 +118,7 @@ function maint-status {
 function maint-uninstall {
     if (Get-ScheduledTask -TaskName $script:MaintTaskName -ErrorAction SilentlyContinue) {
         Unregister-ScheduledTask -TaskName $script:MaintTaskName -Confirm:$false
-        Write-Host "✓ removed scheduled task '$script:MaintTaskName'" -ForegroundColor Green
+        Write-DotOk "removed scheduled task '$script:MaintTaskName'"
     } else {
         Write-Host "nothing to remove (task '$script:MaintTaskName' not found)" -ForegroundColor DarkYellow
     }

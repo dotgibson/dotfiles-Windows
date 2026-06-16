@@ -68,11 +68,11 @@ function global:Test-DotUnicode {
 # ASCII fallback is in exactly one place.
 function global:Get-DotGlyph {
     param(
-        [Parameter(Mandatory)][ValidateSet('ok', 'warn', 'fail', 'arrow', 'bullet')][string]$Name,
+        [Parameter(Mandatory)][ValidateSet('ok', 'warn', 'fail', 'arrow', 'bullet', 'pkg')][string]$Name,
         [bool]$Unicode = (Test-DotUnicode)
     )
-    $uni = @{ ok = '✓'; warn = '!'; fail = '✗'; arrow = '→'; bullet = '•' }
-    $asc = @{ ok = 'OK'; warn = '!'; fail = 'x'; arrow = '->'; bullet = '-' }
+    $uni = @{ ok = '✓'; warn = '!'; fail = '✗'; arrow = '→'; bullet = '•'; pkg = '⇧' }
+    $asc = @{ ok = 'OK'; warn = '!'; fail = 'x'; arrow = '->'; bullet = '-'; pkg = '^' }
     if ($Unicode) { $uni[$Name] } else { $asc[$Name] }
 }
 
@@ -113,6 +113,33 @@ function global:Write-DotErr {
     }
     if ($PassThru) {
         $out = "$x $Message"
+        if ($Hint) { $out += "`n$arrow $Hint" }
+        return $out
+    }
+}
+
+# --- Write-DotOk --------------------------------------------------------------
+# The success sibling of Write-DotErr/Write-DotWarn: a green "✓ <message>" with an
+# optional dimmed "→ <hint>". Replaces the bare `Write-Host '✓ ...' -Foreground
+# Green` scattered across the helpers, which ignored NO_COLOR and printed a raw
+# glyph under DOTFILES_ASCII. Glyph/colour degrade via the helpers above.
+# -PassThru returns the composed text (for tests).
+function global:Write-DotOk {
+    param(
+        [Parameter(Mandatory)][string]$Message,
+        [string]$Hint,
+        [switch]$PassThru
+    )
+    $ok = Get-DotGlyph ok
+    $arrow = Get-DotGlyph arrow
+    Write-DotHost "  $ok " -Color Green -NoNewline
+    Write-DotHost $Message -Color Green
+    if ($Hint) {
+        Write-DotHost "    $arrow " -Color DarkGray -NoNewline
+        Write-DotHost $Hint -Color DarkGray
+    }
+    if ($PassThru) {
+        $out = "$ok $Message"
         if ($Hint) { $out += "`n$arrow $Hint" }
         return $out
     }

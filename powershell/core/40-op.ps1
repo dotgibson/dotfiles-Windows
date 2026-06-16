@@ -29,7 +29,7 @@ function openv {
 function optoken {
     param([Parameter(Mandatory)][string]$Item)
     (op item get $Item --otp) | Set-Clipboard
-    Write-Host '✓ TOTP copied to clipboard' -ForegroundColor Green
+    Write-DotOk 'TOTP copied to clipboard'
 }
 
 # opssh — list SSH keys stored in 1Password

@@ -49,6 +49,10 @@ Describe 'Get-DotGlyph' {
         Get-DotGlyph arrow -Unicode $true  | Should -Be '→'
         Get-DotGlyph arrow -Unicode $false | Should -Be '->'
     }
+    It 'maps the package glyph both ways' {
+        Get-DotGlyph pkg -Unicode $true  | Should -Be '⇧'
+        Get-DotGlyph pkg -Unicode $false | Should -Be '^'
+    }
     It 'rejects an unknown glyph name' { { Get-DotGlyph -Name nope } | Should -Throw }
 }
 
@@ -78,5 +82,23 @@ Describe 'Write-DotWarn' {
     }
     It 'omits the hint line when none is given' {
         (Write-DotWarn -Message 'bare' -PassThru 6>$null) | Should -Be '! bare'
+    }
+}
+
+Describe 'Write-DotOk' {
+    It 'composes a success line with the ok glyph and hint' {
+        $out = Write-DotOk -Message 'all set' -Hint 'next: reload' -PassThru 6>$null
+        $out | Should -Match '✓ all set'
+        $out | Should -Match '→ next: reload'
+    }
+    It 'omits the hint line when none is given' {
+        (Write-DotOk -Message 'done' -PassThru 6>$null) | Should -Be '✓ done'
+    }
+    It 'uses an ASCII glyph under DOTFILES_ASCII=1' {
+        $prev = $env:DOTFILES_ASCII
+        try {
+            $env:DOTFILES_ASCII = '1'
+            (Write-DotOk -Message 'done' -PassThru 6>$null) | Should -Be 'OK done'
+        } finally { $env:DOTFILES_ASCII = $prev }
     }
 }
