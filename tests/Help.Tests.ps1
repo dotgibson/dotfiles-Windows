@@ -57,6 +57,12 @@ Describe 'Get-DotHelpFilters' {
     }
 }
 
+Describe 'Get-DotHelpPrimaryVerb' {
+    It 'takes the first verb of a multi-verb cell' { Get-DotHelpPrimaryVerb 'g / gs / gl' | Should -Be 'g' }
+    It 'skips a placeholder argument'              { Get-DotHelpPrimaryVerb 'mkbak <f>' | Should -Be 'mkbak' }
+    It 'returns empty for an empty cell'           { Get-DotHelpPrimaryVerb '' | Should -Be '' }
+}
+
 Describe 'Get-DotLevenshtein' {
     It 'is zero for identical strings' { Get-DotLevenshtein 'reload' 'reload' | Should -Be 0 }
     It 'counts a single deletion'      { Get-DotLevenshtein 'reload' 'relod' | Should -Be 1 }

@@ -115,6 +115,20 @@ function global:Get-DotHelpFlatLines {
     return $out
 }
 
+# --- Get-DotHelpPrimaryVerb ---------------------------------------------------
+# The first runnable token of a catalog Command cell ("g / gs / gl" -> "g",
+# "mkbak <f>" -> "mkbak"), skipping placeholders. Pure, so the interactive picker
+# can drop it on the edit line and it's unit-tested.
+function global:Get-DotHelpPrimaryVerb {
+    [OutputType([string])]
+    param([string]$Command)
+    if (-not $Command) { return '' }
+    foreach ($tok in ($Command -split '[\s/]+')) {
+        if ($tok -and $tok -notmatch '^[<\[]') { return $tok }
+    }
+    return ''
+}
+
 # --- "did you mean?" matching (pure) ------------------------------------------
 # Get-DotLevenshtein: classic edit distance, used to rank near-misses. Get-DotDid
 # YouMean ranks the catalog verbs against a mistyped name (exact-prefix and
@@ -182,8 +196,20 @@ function global:dothelp {
                 --prompt 'dothelp > ' --preview-window 'hidden'
         if ($picked) {
             $cmd = ($picked -split "`t")[0]
+            $verb = Get-DotHelpPrimaryVerb $cmd
             Write-DotHost $cmd -Color Green
-            if (Get-Command Set-Clipboard -ErrorAction SilentlyContinue) {
+            # Best: drop the primary verb on the edit line so it's ready to run or
+            # extend (Enter to run) — no paste step. Fall back to the clipboard when
+            # PSReadLine isn't loaded (e.g. a non-interactive host).
+            $inserted = $false
+            if ($verb -and ('Microsoft.PowerShell.PSConsoleReadLine' -as [type])) {
+                try {
+                    [Microsoft.PowerShell.PSConsoleReadLine]::Insert($verb + ' ')
+                    Write-DotHost "  (placed '$verb ' at the prompt — Enter to run)" -Color DarkGray
+                    $inserted = $true
+                } catch { }
+            }
+            if (-not $inserted -and (Get-Command Set-Clipboard -ErrorAction SilentlyContinue)) {
                 $cmd | Set-Clipboard
                 Write-DotHost '  (copied to clipboard)' -Color DarkGray
             }
