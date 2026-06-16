@@ -107,12 +107,22 @@ if ($env:FAST_START -ne '1' -and
         } else { '-1' }
         Set-Content -Path $script:PkgUpCache -Encoding ascii -Value @("$prev", "$now")
 
-        Start-Job -ScriptBlock {
+        # Prefer Start-ThreadJob (ships with pwsh 7): it runs the check on a thread
+        # in THIS process instead of spawning a whole child pwsh, so the shell-start
+        # cost of the once-a-day refresh is far lower. Fall back to Start-Job on any
+        # host without the ThreadJob module.
+        $bg = {
             param($cache, $counter)
             $n = (& ([scriptblock]::Create($counter)))
             Set-Content -Path $cache -Encoding ascii `
                 -Value @("$n", "$([DateTimeOffset]::UtcNow.ToUnixTimeSeconds())")
-        } -ArgumentList $script:PkgUpCache, $script:PkgUpCountSb.ToString() | Out-Null
+        }
+        $bgArgs = @($script:PkgUpCache, $script:PkgUpCountSb.ToString())
+        if (Get-Command Start-ThreadJob -ErrorAction SilentlyContinue) {
+            Start-ThreadJob -ScriptBlock $bg -ArgumentList $bgArgs | Out-Null
+        } else {
+            Start-Job -ScriptBlock $bg -ArgumentList $bgArgs | Out-Null
+        }
     }
 
     Show-PkgUpdateNotice
