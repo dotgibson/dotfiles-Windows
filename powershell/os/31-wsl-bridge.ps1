@@ -26,7 +26,12 @@ function wslip  { wsl -d kali-linux -- hostname -I }   # the distro's IP(s)
 # shell there; a non-drive CWD just opens the distro at its default location.
 function cdwsl {
     param([string]$Distro = 'kali-linux')
-    $wslPath = ConvertTo-WslPath (Get-Location).Path
+    # ConvertTo-WslPath comes from the Dotfiles module. If a degraded load left it
+    # unavailable (module import failed), fall back to opening the distro at its
+    # default location instead of throwing — same path as a non-drive CWD.
+    $wslPath = if (Get-Command ConvertTo-WslPath -ErrorAction SilentlyContinue) {
+        ConvertTo-WslPath (Get-Location).Path
+    }
     if ($wslPath) { wsl -d $Distro --cd $wslPath }
     else          { wsl -d $Distro }
 }
