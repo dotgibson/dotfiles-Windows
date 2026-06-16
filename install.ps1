@@ -318,12 +318,28 @@ if (-not (Test-Path $ppmDir)) {
         Write-DotHost "  would clone psmux-plugins and install ppm -> $ppmDir" -Color Cyan
     } else {
         $tmp = Join-Path $env:TEMP ('psmux-plugins-' + [guid]::NewGuid().ToString('N'))
+        # Supply-chain: the clone tracks the default branch HEAD by default, but set
+        # DOTFILES_PPM_REF to a commit SHA or tag to pin EXACTLY what gets installed
+        # (a moved branch then can't change the code we copy in). We also verify the
+        # expected ppm\ folder actually exists in the clone before copying it.
+        $ppmRef = $env:DOTFILES_PPM_REF
         try {
             git clone --depth 1 https://github.com/psmux/psmux-plugins.git $tmp
             if ($LASTEXITCODE -eq 0) {
-                New-Item -ItemType Directory -Force -Path (Split-Path $ppmDir) | Out-Null
-                Copy-Item (Join-Path $tmp 'ppm') $ppmDir -Recurse -Force
-                Write-DotHost "  installed ppm -> $ppmDir" -Color Green
+                if ($ppmRef) {
+                    git -C $tmp fetch --depth 1 origin $ppmRef 2>$null
+                    git -C $tmp checkout --quiet $ppmRef 2>$null
+                    if ($LASTEXITCODE -ne 0) { Write-DotWarn "could not pin ppm to '$ppmRef' — using default branch." }
+                    else { Write-DotHost "  pinned ppm to $ppmRef" -Color DarkGray }
+                }
+                $ppmSrc = Join-Path $tmp 'ppm'
+                if (Test-Path $ppmSrc) {
+                    New-Item -ItemType Directory -Force -Path (Split-Path $ppmDir) | Out-Null
+                    Copy-Item $ppmSrc $ppmDir -Recurse -Force
+                    Write-DotHost "  installed ppm -> $ppmDir" -Color Green
+                } else {
+                    Write-DotWarn 'ppm folder missing from the clone — skipping.' 'The psmux-plugins layout may have changed; install ppm by hand.'
+                }
             } else {
                 Write-DotWarn 'ppm clone failed.' 'Clone psmux-plugins by hand, copy ppm\ to ~\.psmux\plugins\ppm'
             }

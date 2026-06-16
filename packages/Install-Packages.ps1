@@ -111,9 +111,22 @@ if (-not $SkipScoop) {
         Write-Host 'Installing scoop...' -ForegroundColor Cyan
         try {
             Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
-            Invoke-RestMethod get.scoop.sh | Invoke-Expression
+            # Fetch the installer to a string first so it can be integrity-checked
+            # before it runs, instead of piping the network straight into iex. Set
+            # DOTFILES_SCOOP_SHA256 to the expected hash to gate execution; without
+            # it we proceed (documented), but the seam for verification now exists.
+            $scoopInstaller = Invoke-RestMethod 'https://get.scoop.sh'
+            if ($env:DOTFILES_SCOOP_SHA256) {
+                $actual = Get-DotStringSha256 $scoopInstaller
+                if ($actual -ne ($env:DOTFILES_SCOOP_SHA256.ToLowerInvariant())) {
+                    Write-DotErr 'scoop installer hash mismatch — refusing to run it.' "expected $($env:DOTFILES_SCOOP_SHA256), got $actual"
+                    return
+                }
+                Write-DotOk 'scoop installer hash verified.'
+            }
+            $scoopInstaller | Invoke-Expression
         } catch {
-            Write-Error "scoop bootstrap failed: $_"
+            Write-DotErr "scoop bootstrap failed: $_"
             return
         }
     }

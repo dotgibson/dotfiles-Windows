@@ -73,6 +73,18 @@ function global:Read-DotConfirm {
     return $DefaultYes   # exhausted retries: fall back to the default
 }
 
+# --- Get-DotStringSha256 ------------------------------------------------------
+# Lowercase hex SHA-256 of a string, used to integrity-check a downloaded
+# bootstrap script against a pinned hash before executing it. Pure, unit-tested.
+function global:Get-DotStringSha256 {
+    [OutputType([string])]
+    param([Parameter(Mandatory)][AllowEmptyString()][string]$Text)
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($Text)
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try { (($sha.ComputeHash($bytes) | ForEach-Object { $_.ToString('x2') }) -join '') }
+    finally { $sha.Dispose() }
+}
+
 # --- Get-DotSpinnerFrame / Invoke-DotSpinner ----------------------------------
 # A non-blocking progress indicator for steps that are SILENT and slow (a cold
 # `winget export`, Save-Module downloads) — without it they look frozen between

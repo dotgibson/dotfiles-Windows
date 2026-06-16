@@ -93,6 +93,18 @@ Describe 'Get-DotConfirmAnswer' {
     It 'flags a typo as invalid (not a silent no)'   { Get-DotConfirmAnswer 'yse' | Should -Be 'invalid' }
 }
 
+Describe 'Get-DotStringSha256' {
+    It 'matches the known SHA-256 of "abc"' {
+        Get-DotStringSha256 'abc' | Should -Be 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad'
+    }
+    It 'hashes the empty string to the well-known digest' {
+        Get-DotStringSha256 '' | Should -Be 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
+    }
+    It 'is lowercase hex of length 64' {
+        Get-DotStringSha256 'dotfiles' | Should -Match '^[0-9a-f]{64}$'
+    }
+}
+
 Describe 'Get-DotSpinnerFrame' {
     It 'cycles through the unicode frames' {
         Get-DotSpinnerFrame -Tick 0  -Unicode $true | Should -Be '⠋'

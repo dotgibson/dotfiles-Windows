@@ -87,6 +87,12 @@ Then:
   machines) and you can't override it yourself.
 - **Prefer `git clone` over downloading an archive.** Cloned files don't carry
   the "Mark of the Web," so the unblock step never comes up.
+- **Pinning the bootstrap's third-party fetches (supply chain).** The scoop
+  installer can be integrity-gated: set `DOTFILES_SCOOP_SHA256` to the expected
+  hash and the installer aborts on mismatch. The psmux `ppm` plugin clone can be
+  pinned to an exact commit/tag with `DOTFILES_PPM_REF`; otherwise it tracks the
+  default branch, and the installer verifies the expected `ppm\` folder is present
+  before copying it.
 - **Use PowerShell 7 (`pwsh`), not Windows PowerShell 5.1.** The bootstrap
   tolerates 5.1 and warns you, but the profile targets the pwsh path — do daily
   work in pwsh.
