@@ -145,19 +145,28 @@ function up {
         return
     }
 
-    if (Get-Command scoop -ErrorAction SilentlyContinue) {
-        Write-Host '== scoop ==' -ForegroundColor Cyan
-        scoop update
-        scoop update *
-        scoop cleanup *
+    # Wrap the apply so a Ctrl-C mid-upgrade acknowledges itself and still refreshes
+    # the nudge cache, instead of dropping you at a bare prompt with a half-applied
+    # batch (U12: parity with install.ps1 / Install-Packages.ps1).
+    $done = $false
+    try {
+        if (Get-Command scoop -ErrorAction SilentlyContinue) {
+            Write-Host '== scoop ==' -ForegroundColor Cyan
+            scoop update
+            scoop update *
+            scoop cleanup *
+        }
+        if (Get-Command winget -ErrorAction SilentlyContinue) {
+            Write-Host '== winget ==' -ForegroundColor Cyan
+            $wargs = @('upgrade', '--all', '--include-unknown')
+            if ($y) { $wargs += @('--silent', '--accept-package-agreements', '--accept-source-agreements') }
+            winget @wargs
+        }
+        $done = $true
+    } finally {
+        update-check | Out-Null      # refresh the nudge either way (clears on success)
+        if ($done) { Write-DotOk 'done.' }
+        else { Write-DotWarn 'update interrupted — re-run `up` to finish (already-current packages are skipped).' }
     }
-    if (Get-Command winget -ErrorAction SilentlyContinue) {
-        Write-Host '== winget ==' -ForegroundColor Cyan
-        $wargs = @('upgrade', '--all', '--include-unknown')
-        if ($y) { $wargs += @('--silent', '--accept-package-agreements', '--accept-source-agreements') }
-        winget @wargs
-    }
-    update-check | Out-Null      # clear the nudge
-    Write-Host 'done.' -ForegroundColor Green
 }
 
