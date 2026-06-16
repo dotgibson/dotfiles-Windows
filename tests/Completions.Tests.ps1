@@ -11,10 +11,14 @@ BeforeAll {
     function global:mux       { param([string]$Session = 'main') }
     function global:cdwsl     { param([string]$Distro = 'kali-linux') }
     function global:maint-log { param($Arg = 50) }
+    function global:sci       { param([Parameter(ValueFromRemainingArguments)][string[]]$App) }
+    function global:wgi       { param($id) }
+    # The managed-package completers read the repo manifests via $global:DOTFILES.
+    $global:DOTFILES = $RepoRoot
     . (Join-Path $RepoRoot 'powershell/core/50-completions.ps1')
 }
 AfterAll {
-    Remove-Item Function:\mux, Function:\cdwsl, Function:\maint-log -ErrorAction SilentlyContinue
+    Remove-Item Function:\mux, Function:\cdwsl, Function:\maint-log, Function:\sci, Function:\wgi -ErrorAction SilentlyContinue
 }
 
 Describe 'New-DotCompletions' {
@@ -37,5 +41,15 @@ Describe 'argument completers are registered' {
         $line = 'dothelp g'
         $tab = TabExpansion2 $line $line.Length
         $tab.CompletionMatches.CompletionText | Should -Contain 'git'
+    }
+    It 'completes sci from the managed scoop manifest' {
+        $line = 'sci star'
+        $tab = TabExpansion2 $line $line.Length
+        $tab.CompletionMatches.CompletionText | Should -Contain 'starship'
+    }
+    It 'completes wgi from the managed winget manifest' {
+        $line = 'wgi Microsoft.Win'
+        $tab = TabExpansion2 $line $line.Length
+        $tab.CompletionMatches.CompletionText | Should -Contain 'Microsoft.WindowsTerminal'
     }
 }

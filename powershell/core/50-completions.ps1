@@ -24,6 +24,33 @@ function script:New-DotCompletions {
         }
 }
 
+# --- managed-package sources (read the repo manifests, never shell out) -------
+# Completing `sci`/`wgi` from the apps THIS repo manages is the useful, instant
+# answer: no `scoop search` subprocess, and it nudges you toward the curated set.
+# Guarded + cached-free: returns @() when the manifest isn't resolvable.
+function script:Get-DotManagedScoopApps {
+    $f = if ($global:DOTFILES) { Join-Path $global:DOTFILES 'packages\scoopfile.json' } else { $null }
+    if (-not $f -or -not (Test-Path $f)) { return @() }
+    try { @((Get-Content $f -Raw | ConvertFrom-Json).apps.Name) | Where-Object { $_ } } catch { @() }
+}
+function script:Get-DotManagedWingetIds {
+    $f = if ($global:DOTFILES) { Join-Path $global:DOTFILES 'packages\winget.json' } else { $null }
+    if (-not $f -or -not (Test-Path $f)) { return @() }
+    try { @((Get-Content $f -Raw | ConvertFrom-Json).packages) | Where-Object { $_ } } catch { @() }
+}
+
+# sci <app> : scoop apps this repo manages (packages/scoopfile.json)
+Register-ArgumentCompleter -CommandName sci -ParameterName App -ScriptBlock {
+    param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameters)
+    New-DotCompletions -Values (Get-DotManagedScoopApps) -Word $wordToComplete -Tooltip 'scoop app (managed by this repo)'
+}
+
+# wgi <id> : winget ids this repo manages (packages/winget.json)
+Register-ArgumentCompleter -CommandName wgi -ParameterName id -ScriptBlock {
+    param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameters)
+    New-DotCompletions -Values (Get-DotManagedWingetIds) -Word $wordToComplete -Tooltip 'winget id (managed by this repo)'
+}
+
 # --- mux <session> : existing psmux sessions (attach-or-create) ---------------
 Register-ArgumentCompleter -CommandName mux -ParameterName Session -ScriptBlock {
     param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameters)

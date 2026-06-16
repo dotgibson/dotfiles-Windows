@@ -6,7 +6,9 @@
 if (Test-Cmd scoop) {
     function scu  { scoop update * @args }            # update all apps
     function scs  { scoop search @args }
-    function sci  { scoop install @args }
+    # Named (remaining-args) param so the tab-completer in 50-completions.ps1 can
+    # offer the apps this repo manages; behaviour is identical to `scoop install`.
+    function sci  { param([Parameter(ValueFromRemainingArguments)][string[]]$App) scoop install @App }
     function scl  { scoop list @args }
     function sccl { scoop cleanup * ; scoop cache rm * }
 }
