@@ -48,7 +48,7 @@ function global:Get-DotfilesHelpData {
         @{ Command = 'serve [port]'; Desc = 'HTTP server in CWD, prints LAN URL' }
     )
     $g['Updates & maintenance'] = @(
-        @{ Command = 'up [-y]';      Desc = 'apply scoop + winget updates' }
+        @{ Command = 'up [-y] / up -n'; Desc = 'apply scoop + winget updates (-n/-Preview: list only)' }
         @{ Command = 'update-check'; Desc = 'force the "updates available" check now' }
         @{ Command = 'maint-install [HH:MM]'; Desc = 'register the daily maint task' }
         @{ Command = 'maint-run / maint-log / maint-status'; Desc = 'run / tail / next-run' }

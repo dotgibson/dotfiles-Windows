@@ -126,7 +126,24 @@ if ($env:FAST_START -ne '1' -and
 #    up -y     # auto-confirm winget upgrades
 # ============================================================================
 function up {
-    [CmdletBinding()] param([switch]$y)
+    [CmdletBinding()] param([switch]$y, [Alias('n')][switch]$Preview)
+
+    # Preview (`up -Preview` / `up -n`): list what WOULD upgrade and apply nothing,
+    # so the daily upgrade verb isn't a leap of faith. Mirrors install.ps1 -DryRun.
+    if ($Preview) {
+        Write-DotBanner 'pending updates' -Subtitle 'preview — nothing will be changed'
+        if (Get-Command scoop -ErrorAction SilentlyContinue) {
+            Write-Host ''; Write-Host '== scoop ==' -ForegroundColor Cyan
+            scoop status
+        }
+        if (Get-Command winget -ErrorAction SilentlyContinue) {
+            Write-Host ''; Write-Host '== winget ==' -ForegroundColor Cyan
+            winget upgrade --include-unknown
+        }
+        Write-Host ''
+        Write-DotHost "  run 'up' to apply (winget prompts per package), or 'up -y' to auto-confirm." -Color DarkGray
+        return
+    }
 
     if (Get-Command scoop -ErrorAction SilentlyContinue) {
         Write-Host '== scoop ==' -ForegroundColor Cyan

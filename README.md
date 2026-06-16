@@ -146,7 +146,7 @@ dotfiles-Windows/
 | `tmux` / `psmux` / `pmux`                     | native host multiplexer (psmux; reads `~/.config/psmux/psmux.conf`)           |
 | `mux [session]`                               | attach-or-create a psmux session (defaults to `main`)                         |
 | `psmux-pill-enable` / `psmux-pill-disable`    | enable/disable the file-backed operator/VPN status pill (off the render path) |
-| `up` / `up -y`                                | apply scoop+winget updates (`-y` auto-confirms winget)                        |
+| `up` / `up -y` / `up -n`                      | apply scoop+winget updates (`-y` auto-confirms winget; `-n`/`-Preview` lists only) |
 | `update-check`                                | force the "updates available" check now                                       |
 | `maint-install [HH:MM]`                       | register the daily maintenance task                                           |
 | `maint-run` / `maint-log -f` / `maint-status` | run now / follow log / next-run                                               |
