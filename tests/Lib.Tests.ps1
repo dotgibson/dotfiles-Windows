@@ -111,6 +111,24 @@ Describe 'Get-DotConfirmAnswer' {
     It 'flags a typo as invalid (not a silent no)'   { Get-DotConfirmAnswer 'yse' | Should -Be 'invalid' }
 }
 
+Describe 'Get-DotToolNudge' {
+    It 'is empty when nothing is missing' {
+        Get-DotToolNudge @()        | Should -BeNullOrEmpty
+        Get-DotToolNudge @($null)   | Should -BeNullOrEmpty
+    }
+    It 'uses the singular for one missing tool and names it' {
+        $n = Get-DotToolNudge @('eza')
+        $n | Should -Match '1 core tool missing'
+        $n | Should -Match 'eza'
+        $n | Should -Match 'dotfiles-doctor'
+    }
+    It 'uses the plural and lists all missing tools' {
+        $n = Get-DotToolNudge @('starship', 'zoxide', 'fzf')
+        $n | Should -Match '3 core tools missing'
+        $n | Should -Match 'starship, zoxide, fzf'
+    }
+}
+
 Describe 'Get-DotStringSha256' {
     It 'matches the known SHA-256 of "abc"' {
         Get-DotStringSha256 'abc' | Should -Be 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad'

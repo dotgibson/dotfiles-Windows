@@ -199,6 +199,19 @@ function global:Test-DotEmailish {
     return ($Email -match '^[^@\s]+@[^@\s]+\.[^@\s]+$')
 }
 
+# --- Get-DotToolNudge ---------------------------------------------------------
+# Compose the one-line "core tools missing" startup nudge from a list of missing
+# tool names ('' when nothing is missing). Pure — the Test-Cmd probing lives in
+# the fragment that calls this (core/57-health-nudge.ps1) — so it's unit-tested.
+function global:Get-DotToolNudge {
+    [OutputType([string])]
+    param([string[]]$Missing)
+    $m = @($Missing | Where-Object { $_ })
+    if (-not $m.Count) { return '' }
+    $s = if ($m.Count -ne 1) { 's' } else { '' }
+    return ("{0} core tool{1} missing ({2}) — run dotfiles-doctor" -f $m.Count, $s, ($m -join ', '))
+}
+
 # --- Get-DotfilesLinkPlan -----------------------------------------------------
 # THE single source of truth for every symlink this repo wires: one ordered list
 # that install.ps1 creates, uninstall.ps1 removes, and dotfiles-doctor verifies.
