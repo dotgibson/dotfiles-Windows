@@ -76,6 +76,20 @@ Describe 'Get-DotRepoVersionDetail' {
     }
 }
 
+Describe 'Get-NvimVendorDetail' {
+    It 'formats the short sha + commit date' {
+        $d = Get-NvimVendorDetail -Sha 'abcdef1234567' -When '2026-06-16'
+        $d | Should -Match 'core@abcdef1'
+        $d | Should -Match '2026-06-16'
+    }
+    It 'omits the date when it is unknown' {
+        (Get-NvimVendorDetail -Sha 'abcdef1' -When 'unknown') | Should -Not -Match '\('
+    }
+    It 'reports a missing ref when there is no sha' {
+        (Get-NvimVendorDetail -Sha '' -When '') | Should -Match 'no vendor ref'
+    }
+}
+
 Describe 'Get-DoctorSummary' {
     It 'counts ok/warn/fail correctly' {
         $s = Get-DoctorSummary @(

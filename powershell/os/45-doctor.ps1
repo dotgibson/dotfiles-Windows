@@ -90,6 +90,20 @@ function global:Get-DotRepoVersionDetail {
     return $detail
 }
 
+# --- pure nvim-vendor formatter -----------------------------------------------
+# Render nvim/.core-ref (written by nvim-sync.ps1) into a one-line detail: the
+# short Core commit the vendored nvim/ tree came from, plus the commit date when
+# known. Pure (the file read lives in the probe), so the formatting is unit-tested.
+function global:Get-NvimVendorDetail {
+    [OutputType([string])]
+    param([string]$Sha, [string]$When)
+    if (-not $Sha) { return 'no vendor ref recorded (run nvim-sync.ps1)' }
+    $short = if ($Sha.Length -ge 7) { $Sha.Substring(0, 7) } else { $Sha }
+    $detail = "vendored from core@$short"
+    if ($When -and $When -ne 'unknown') { $detail += "  ($When)" }
+    return $detail
+}
+
 # --- the probes (host-specific; each returns a DoctorResult) ------------------
 function script:Get-DoctorResults {
     $r = [System.Collections.Generic.List[object]]::new()
@@ -138,6 +152,20 @@ function script:Get-DoctorResults {
         $r.Add((New-DoctorResult 'Repo version' 'ok' (Get-DotRepoVersionDetail -Sha "$sha" -IsDirty $dirty -When "$when")))
     } else {
         $r.Add((New-DoctorResult 'Repo version' 'ok' 'not a git checkout (copy install — unversioned)'))
+    }
+
+    # nvim vendor provenance (B1): which Core commit the vendored nvim/ tree came
+    # from. Informational — a host whose nvim/ predates the provenance marker (or
+    # that never ran nvim-sync) simply has no ref yet, which the formatter says.
+    if ($root) {
+        $refFile = Join-Path $root 'nvim\.core-ref'
+        $sha = ''; $when = ''
+        if (Test-Path $refFile) {
+            $ref  = Get-Content $refFile -ErrorAction SilentlyContinue
+            $sha  = (($ref | Where-Object { $_ -match '^commit\s*=' } | Select-Object -First 1) -replace '^commit\s*=\s*', '')
+            $when = (($ref | Where-Object { $_ -match '^date\s*='   } | Select-Object -First 1) -replace '^date\s*=\s*', '')
+        }
+        $r.Add((New-DoctorResult 'nvim vendor' 'ok' (Get-NvimVendorDetail -Sha "$sha" -When "$when")))
     }
 
     # profile symlink
