@@ -40,7 +40,8 @@ Describe 'Dotfiles module exports' {
             'Test-DotUnicode', 'Get-DotConsoleWidth', 'Format-DotWrap',
             'Read-DotConfirm', 'Get-DotConfirmAnswer', 'Test-DotGum', 'Test-DotEmailish',
             'Get-DotSpinnerFrame', 'Invoke-DotSpinner', 'Test-SensitiveHistoryLine',
-            'Get-DotStringSha256', 'Get-DotToolNudge', 'Get-DotfilesLinkPlan'
+            'Get-DotStringSha256', 'Get-DotToolNudge', 'Get-DotfilesLinkPlan',
+            'ConvertTo-WslPath'
         )) {
             $exported | Should -Contain $fn
         }

@@ -35,6 +35,7 @@
         'Get-DotStringSha256'
         'Get-DotToolNudge'
         'Get-DotfilesLinkPlan'
+        'ConvertTo-WslPath'
     )
     CmdletsToExport   = @()
     AliasesToExport   = @()

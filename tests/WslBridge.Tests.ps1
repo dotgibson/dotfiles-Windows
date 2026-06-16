@@ -5,10 +5,11 @@
 
 BeforeAll {
     $RepoRoot = Split-Path -Parent $PSScriptRoot
-    # 00-aliases defines Test-Cmd, which the fragment references at load time.
-    . (Join-Path $RepoRoot 'powershell/core/00-aliases.ps1')
-    . (Join-Path $RepoRoot 'powershell/os/31-wsl-bridge.ps1')
+    # ConvertTo-WslPath now lives in the Dotfiles module (B7); import it rather than
+    # dot-sourcing the wsl-bridge fragment (whose verbs are guarded behind wsl).
+    $script:Module = Import-Module (Join-Path $RepoRoot 'powershell/Dotfiles/Dotfiles.psd1') -Force -DisableNameChecking -PassThru
 }
+AfterAll { if ($script:Module) { Remove-Module $script:Module -Force -ErrorAction SilentlyContinue } }
 
 Describe 'ConvertTo-WslPath' {
     It 'maps a C: path to /mnt/c' {
