@@ -20,3 +20,4 @@
 
 . (Join-Path $PSScriptRoot '../core/05-lib.ps1')
 . (Join-Path $PSScriptRoot 'Wsl.Helpers.ps1')
+. (Join-Path $PSScriptRoot 'Doctor.Helpers.ps1')

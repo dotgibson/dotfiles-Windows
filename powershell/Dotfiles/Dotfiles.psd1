@@ -36,6 +36,14 @@
         'Get-DotToolNudge'
         'Get-DotfilesLinkPlan'
         'ConvertTo-WslPath'
+        # doctor: result model, aggregation + pure logic (host probes stay in the fragment)
+        'New-DoctorResult'
+        'Get-DoctorSummary'
+        'Get-DoctorGroup'
+        'Get-FragmentHealthResult'
+        'Get-DotRepoVersionDetail'
+        'Get-NvimVendorDetail'
+        'Get-DoctorFixPlan'
     )
     CmdletsToExport   = @()
     AliasesToExport   = @()
