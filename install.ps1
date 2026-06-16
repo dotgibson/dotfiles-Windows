@@ -118,10 +118,11 @@ function Get-InstallSummaryLines {
 }
 
 # --- transcript hygiene (pure helpers, unit-tested) ----------------------------
-# Get-DotLogsToPrune: keep the newest $Keep install logs and return the rest
-# (oldest first) for deletion, so install-*.log can't accumulate without bound
-# across re-runs. Pure (the Get-ChildItem / Remove-Item live at the call site), so
-# the retention policy is unit-tested. (B8)
+# Get-DotLogsToPrune: keep the newest $Keep install logs and return the rest (the
+# older ones, newest-of-them first — order is irrelevant since the caller just
+# deletes them) so install-*.log can't accumulate without bound across re-runs.
+# Pure (the Get-ChildItem / Remove-Item live at the call site), so the retention
+# policy is unit-tested. (B8)
 function Get-DotLogsToPrune {
     param([object[]]$Logs, [int]$Keep = 10)
     if (-not $Logs) { return @() }
@@ -135,8 +136,12 @@ function Get-DotLogsToPrune {
 function Get-DotRedactedTranscript {
     param([string[]]$Lines)
     if (-not $Lines) { return @() }
+    # Resolve the filter's presence ONCE, not per line — the answer is constant for
+    # the whole call, and a large transcript would otherwise pay repeated command
+    # discovery on every line.
+    $hasFilter = [bool](Get-Command Test-SensitiveHistoryLine -ErrorAction SilentlyContinue)
     $Lines | ForEach-Object {
-        if ((Get-Command Test-SensitiveHistoryLine -ErrorAction SilentlyContinue) -and (Test-SensitiveHistoryLine $_)) {
+        if ($hasFilter -and (Test-SensitiveHistoryLine $_)) {
             '  <redacted: line matched a secret pattern>'
         } else { $_ }
     }

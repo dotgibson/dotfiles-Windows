@@ -157,7 +157,9 @@ function script:Get-DoctorResults {
     # nvim vendor provenance (B1): which Core commit the vendored nvim/ tree came
     # from. Informational — a host whose nvim/ predates the provenance marker (or
     # that never ran nvim-sync) simply has no ref yet, which the formatter says.
-    if ($root) {
+    # Gated on Test-Path (not just $root non-empty) so a bad DOTFILES_WIN doesn't
+    # add a misleading 'ok' row while 'Repo root' is already failing above.
+    if ($root -and (Test-Path $root)) {
         $refFile = Join-Path $root 'nvim\.core-ref'
         $sha = ''; $when = ''
         if (Test-Path $refFile) {

@@ -78,7 +78,7 @@ function global:Test-DotGum {
         [string]$NoGum       = $env:DOTFILES_NO_GUM,
         [bool]  $HasGum      = [bool](Get-Command gum -ErrorAction SilentlyContinue),
         [bool]  $Color       = (Test-DotColor),
-        [bool]  $Interactive = $(try { -not [Console]::IsInputRedirected } catch { $true })
+        [bool]  $Interactive = $(try { -not [Console]::IsInputRedirected } catch { $false })
     )
     if ($NoGum -eq '1') { return $false }
     if (-not $HasGum)      { return $false }
