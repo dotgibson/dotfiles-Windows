@@ -16,6 +16,10 @@
 #  time, the task runs at the next opportunity.
 # ============================================================================
 
+# --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
+# provides: Get-MaintRunnerPath, Get-PwshPath, maint-install, maint-run, maint-log, maint-status, maint-uninstall
+# requires: Write-DotErr, Write-DotOk
+
 $script:MaintTaskName = 'dotfiles-maint'
 $script:MaintScript   = if ($global:DOTFILES) { Join-Path $global:DOTFILES 'maint\Maintenance.ps1' } else { $null }
 $script:MaintLog      = Join-Path $env:LOCALAPPDATA 'dotfiles\maint\maint.log'

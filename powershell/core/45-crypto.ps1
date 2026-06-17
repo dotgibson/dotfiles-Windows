@@ -13,6 +13,10 @@
 #  Both sections are no-ops if the tool isn't installed.
 # ============================================================================
 
+# --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
+# provides: age-setup, age-pubkey, age-enc, age-dec, age-enc-pw, send, recv
+# requires: Test-Cmd, Write-DotErr
+
 # ============================================================================
 #  age helpers
 # ============================================================================

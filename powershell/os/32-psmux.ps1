@@ -11,6 +11,10 @@
 #  isn't installed yet, same guard style as the other fragments.
 # ============================================================================
 
+# --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
+# provides: mux
+# requires: Test-Cmd
+
 if (-not (Test-Cmd psmux)) { return }
 
 # mux — attach to the running session, or create it if it doesn't exist. One

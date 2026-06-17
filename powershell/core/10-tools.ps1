@@ -3,6 +3,10 @@
 #  Keeps the host's terminal feel identical to the rest of the fleet.
 # ============================================================================
 
+# --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
+# provides: Get-InitCache, Clear-InitCache, shell-bench, prof-trace
+# requires: Get-DotStringSha256, Test-Cmd, Test-SensitiveHistoryLine, Write-DotErr, Write-DotWarn
+
 # --- FAST_START escape hatch --------------------------------------------------
 # Skips ALL the heavy prompt/history/completion init in this fragment. The cheap
 # fragments (aliases, functions, op, psmux defs) still load, so the shell stays

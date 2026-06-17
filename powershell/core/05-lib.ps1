@@ -16,6 +16,10 @@
 #  are unchanged.
 # ============================================================================
 
+# --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
+# provides: Test-SensitiveHistoryLine, Get-DotConfirmAnswer, Test-DotGum, Read-DotConfirm, Get-DotStringSha256, Get-DotSpinnerFrame, Invoke-DotSpinner, Test-DotEmailish, Get-DotToolNudge, Get-DotfilesLinkPlan, Test-DotColor, Test-DotUnicode, Get-DotGlyph, Write-DotHost, Write-DotBanner, Get-DotConsoleWidth, Format-DotWrap, Write-DotRule, Write-DotErr, Write-DotOk, Write-DotWarn
+# requires: (none)
+
 # --- Test-SensitiveHistoryLine ------------------------------------------------
 # Decide whether a command line is sensitive enough to keep OUT of the saved
 # PSReadLine history file (it stays usable in-session; it just isn't persisted).

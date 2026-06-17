@@ -2,6 +2,10 @@
 #  core/20-functions.ps1  -  general helpers (cross-fleet parity)
 # ============================================================================
 
+# --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
+# provides: myip, myip-full, localips, extract, compress, mkbak, sha256, sha1, md5, cheat, pbcopy, pbpaste, serve, fif, fbr
+# requires: Test-Cmd, Write-DotErr
+
 # --- public IP / network quicklook (parity with your `myip` aliases) ----------
 function myip      { (Invoke-RestMethod -Uri 'https://ipinfo.io/ip').Trim() }
 function myip-full { Invoke-RestMethod -Uri 'https://ipinfo.io/json' }

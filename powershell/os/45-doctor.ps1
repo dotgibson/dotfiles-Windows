@@ -15,6 +15,10 @@
 #  and `dotfiles-doctor` verb below call them via that module export.
 # ============================================================================
 
+# --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
+# provides: dotfiles-doctor
+# requires: Format-DotWrap, Get-DoctorFixPlan, Get-DoctorGroup, Get-DoctorSummary, Get-DotConsoleWidth, Get-DotfilesLinkPlan, Get-DotGlyph, Get-DotRepoVersionDetail, Get-FragmentHealthResult, Get-NvimVendorDetail, modules-localize, New-DoctorResult, Test-Cmd, Test-DotUnicode, Write-DotBanner, Write-DotErr, Write-DotHost, Write-DotWarn
+
 # --- render one result line ---------------------------------------------------
 # Glyphs/colour route through the shared helpers (core/05-lib.ps1) so the report
 # degrades cleanly under NO_COLOR / DOTFILES_ASCII like every other renderer.

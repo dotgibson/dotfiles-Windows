@@ -31,6 +31,10 @@
 #  Loads automatically (profile.ps1 globs os/ in name order, after 32-psmux).
 # ============================================================================
 
+# --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
+# provides: psmux-pill-now, psmux-pill-enable, psmux-pill-disable, psmux-pill-status
+# requires: Test-Cmd, Write-DotErr, Write-DotOk
+
 if (-not (Test-Cmd psmux)) { return }
 
 $script:PillCache  = Join-Path $env:LOCALAPPDATA 'dotfiles\psmux-netinfo.pill'
