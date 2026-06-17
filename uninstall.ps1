@@ -25,7 +25,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $RepoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 
-$LibPath = Join-Path $RepoRoot 'powershell\core\05-lib.ps1'
+$LibPath = Join-Path $RepoRoot 'powershell/core/05-lib.ps1'
 if (Test-Path $LibPath) { . $LibPath }
 
 # --- the set of links install.ps1 creates -------------------------------------
