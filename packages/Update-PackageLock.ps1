@@ -124,5 +124,10 @@ if ($DryRun) {
 }
 
 $lockPath = Join-Path $here 'packages.lock.json'
-Set-Content -Path $lockPath -Value $json -Encoding utf8
+# Write LF + UTF-8 (no BOM) + a single trailing newline, REGARDLESS of host OS:
+# Set-Content on Windows emits CRLF, which trips the repo's LF .editorconfig gate
+# (every line reads as trailing whitespace). WriteAllText bypasses PowerShell's
+# platform newline translation so the committed lock is byte-clean everywhere.
+$json = ($json -replace "`r`n", "`n").TrimEnd("`n") + "`n"
+[System.IO.File]::WriteAllText($lockPath, $json, [System.Text.UTF8Encoding]::new($false))
 Write-DotOk "Wrote $lockPath  (scoop: $($scoopLock.Count), winget: $($wingetLock.Count))"
