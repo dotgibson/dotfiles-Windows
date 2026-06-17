@@ -245,13 +245,17 @@ jobs:
           # Anti-deletion gate across ALL suites (not just the covered files): the
           # pure helpers in install/uninstall/packages are tested but not in
           # CoveragePaths, so a removed test there wouldn't drop coverage.
-          # Floors catch a whole test file being dropped, or a chunk of tests going
-          # missing. TotalCount is a floor (two -ForEach blocks expand it at run
-          # time well past this number); bump these when you intentionally add/remove.
-          $minTotal = 160; $minFiles = 13
-          if ($r.Containers.Count -lt $minFiles) {
-            throw "Only $($r.Containers.Count) test file(s) ran (floor $minFiles) — did a *.Tests.ps1 file get removed?"
+          # minFiles is AUTO-DERIVED from the tests/*.Tests.ps1 glob (B5) — Pester
+          # discovers exactly those under Run.Path './tests', so a suite that fails
+          # to load, or gets removed/renamed, is caught EXACTLY with no number to
+          # hand-maintain. TotalCount stays a documented FLOOR (two -ForEach blocks
+          # expand it past this at run time); bump it only when you intentionally
+          # remove tests.
+          $expectedFiles = @(Get-ChildItem ./tests -Recurse -File -Filter *.Tests.ps1).Count
+          if ($r.Containers.Count -ne $expectedFiles) {
+            throw "Pester ran $($r.Containers.Count) test file(s) but tests/ has $expectedFiles *.Tests.ps1 — a suite failed to load or wasn't discovered."
           }
+          $minTotal = 160
           if ($r.TotalCount -lt $minTotal) {
             throw "Only $($r.TotalCount) tests discovered (floor $minTotal) — were tests removed?"
           }
