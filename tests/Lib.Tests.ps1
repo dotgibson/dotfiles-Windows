@@ -277,6 +277,9 @@ Describe 'Get-DotInputResult' {
         Get-DotInputResult -Answer 'a@b.com' -Validate $v | Should -Be 'accept'
         Get-DotInputResult -Answer 'nope'    -Validate $v | Should -Be 'retry'
     }
+    It 'treats a throwing validator as invalid (retry), not a crash' {
+        Get-DotInputResult -Answer 'x' -Validate { throw 'boom' } | Should -Be 'retry'
+    }
 }
 
 Describe 'Read-DotInput' {

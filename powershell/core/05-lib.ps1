@@ -138,7 +138,13 @@ function Get-DotInputResult {
     [OutputType([string])]   # 'accept' | 'default' | 'retry'
     param([AllowEmptyString()][string]$Answer, [scriptblock]$Validate)
     if ([string]::IsNullOrWhiteSpace($Answer)) { return 'default' }   # blank keeps the default
-    if ($Validate -and -not (& $Validate $Answer.Trim())) { return 'retry' }
+    if ($Validate) {
+        # A validator that THROWS is treated as "invalid" (retry), never allowed to
+        # blow up the prompt loop — the caller still gets to re-ask / fall back.
+        $ok = $false
+        try { $ok = [bool](& $Validate $Answer.Trim()) } catch { $ok = $false }
+        if (-not $ok) { return 'retry' }
+    }
     return 'accept'
 }
 
