@@ -31,6 +31,7 @@
         'Test-DotEmailish'
         # progress
         'Get-DotSpinnerFrame'
+        'Format-DotSpinnerLine'
         'Invoke-DotSpinner'
         # pure logic / data
         'Test-SensitiveHistoryLine'

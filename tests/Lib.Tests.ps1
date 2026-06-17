@@ -155,6 +155,20 @@ Describe 'Get-DotSpinnerFrame' {
     }
 }
 
+Describe 'Format-DotSpinnerLine' {
+    It 'shows frame + label with no elapsed suffix under one second' {
+        Format-DotSpinnerLine -Label 'working' -ElapsedSeconds 0.4 -Tick 0 -Unicode $false |
+            Should -Be '  | working'
+    }
+    It 'appends whole elapsed seconds once a step has run for >= 1s' {
+        Format-DotSpinnerLine -Label 'working' -ElapsedSeconds 1.0  -Tick 0 -Unicode $false | Should -Be '  | working (1s)'
+        Format-DotSpinnerLine -Label 'working' -ElapsedSeconds 12.9 -Tick 0 -Unicode $false | Should -Be '  | working (12s)'
+    }
+    It 'reflects the spinner frame for the given tick' {
+        Format-DotSpinnerLine -Label 'x' -ElapsedSeconds 0 -Tick 1 -Unicode $false | Should -Be '  / x'
+    }
+}
+
 Describe 'Invoke-DotSpinner' {
     It 'runs the script inline and returns its output when not animating (NO_COLOR)' {
         $prev = $env:NO_COLOR

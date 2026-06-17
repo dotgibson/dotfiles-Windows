@@ -40,7 +40,7 @@ Describe 'Dotfiles module exports' {
             'Test-DotUnicode', 'Get-DotConsoleWidth', 'Format-DotWrap',
             'Read-DotConfirm', 'Get-DotConfirmAnswer', 'Read-DotInput', 'Get-DotInputResult',
             'Test-DotGum', 'Test-DotEmailish',
-            'Get-DotSpinnerFrame', 'Invoke-DotSpinner', 'Test-SensitiveHistoryLine',
+            'Get-DotSpinnerFrame', 'Format-DotSpinnerLine', 'Invoke-DotSpinner', 'Test-SensitiveHistoryLine',
             'Get-DotStringSha256', 'Get-DotToolNudge', 'Get-DotfilesLinkPlan',
             'ConvertTo-WslPath',
             'New-DoctorResult', 'Get-DoctorSummary', 'Get-DoctorGroup',

@@ -44,7 +44,7 @@ each item has a stable ID, an impact, and a status, and PRs reference the ID.
 | U10 | ✅ | `profile.ps1` / `00-aliases.ps1` | A half-provisioned box silently lost `ls`/`cat`/`z` with no hint. | Throttled once-per-session "N core tools missing — run dotfiles-doctor" (`57-health-nudge.ps1`). _(PR #7)_ | High |
 | U11 | ✅ | `install.ps1` / lib | Only the email loop was validated; other `Read-Host` calls shared no validation/default/masking pattern. | Shared `Read-DotInput` (gum `input` when interactive, else `Read-Host`; optional validator, default, and `--password`/`-MaskInput` secret masking) over a pure, unit-tested `Get-DotInputResult`. install's git name/email prompts now use it; `-Secret` is ready for token prompts. | Medium |
 | U12 | ✅ | `05-lib.ps1` renderers | Hint lines weren't wrapped; long paths overflowed. | Word-wrap hints to width (`Format-DotWrap`). _(PR #8)_ | Medium |
-| U13 | ⬜ | `Install-Packages.ps1` | During the longest silent ops the spinner label is static — stalled vs. slow is indistinguishable. | Tick the spinner title with running elapsed seconds. | Medium |
+| U13 | ✅ | `Install-Packages.ps1` / lib | During the longest silent ops the spinner label was static — stalled vs. slow was indistinguishable. | `Invoke-DotSpinner` now ticks a running `(Ns)` elapsed counter (stopwatch-driven) onto the label, via a pure, unit-tested `Format-DotSpinnerLine` (suffix appears only past 1s, so quick ops don't flash `(0s)`); the line-wipe tracks the widest frame so a grown counter clears cleanly. | Medium |
 
 ## Secondary long-tail (~15–25 items, lower impact)
 
