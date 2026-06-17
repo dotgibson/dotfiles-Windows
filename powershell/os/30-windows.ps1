@@ -116,11 +116,22 @@ function modules-localize {
             Write-Host "prune: managed modules already at a single version — nothing stale." -ForegroundColor DarkGray
             return
         }
+        # Remove each stale dir, then VERIFY it's actually gone — a version that's
+        # loaded in another shell can have a locked DLL, and -ErrorAction
+        # SilentlyContinue would otherwise let us falsely report it pruned.
+        $removed = 0; $stuck = 0
         foreach ($p in $plan) {
             Remove-Item -LiteralPath $p.Path -Recurse -Force -ErrorAction SilentlyContinue
-            Write-Host "  pruned $($p.Name) $($p.Version)" -ForegroundColor DarkGray
+            if (Test-Path -LiteralPath $p.Path) {
+                Write-DotWarn "could not remove $($p.Name) $($p.Version) (in use?)" 'close shells using it (or run from pwsh -NoProfile), then re-run -Prune'
+                $stuck++
+            } else {
+                Write-Host "  pruned $($p.Name) $($p.Version)" -ForegroundColor DarkGray
+                $removed++
+            }
         }
-        Write-Host "prune: removed $($plan.Count) stale version(s) of managed modules." -ForegroundColor Green
+        if ($removed) { Write-Host "prune: removed $removed stale version(s) of managed modules." -ForegroundColor Green }
+        if ($stuck)   { Write-DotWarn "$stuck stale version(s) could not be removed (likely locked by a running shell)." }
     }
 }
 
