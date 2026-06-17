@@ -5,11 +5,11 @@
     "Microsoft.VisualStudioCode",
     "Microsoft.WSL",
     "Git.Git",
-    "Mozilla.Firefox",
+    { "id": "Mozilla.Firefox", "group": "gui" },
     "WiresharkFoundation.Wireshark",
-    "Obsidian.Obsidian",
-    "AgileBits.1Password",
-    "AgileBits.1Password.CLI",
+    { "id": "Obsidian.Obsidian", "group": "gui" },
+    { "id": "AgileBits.1Password", "group": "gui" },
+    { "id": "AgileBits.1Password.CLI", "group": "gui" },
     "GNU.Wget2"
   ]
 }

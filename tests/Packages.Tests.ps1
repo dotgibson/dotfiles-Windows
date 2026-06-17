@@ -35,22 +35,109 @@ Describe 'Get-ScoopInstallToken' {
 }
 
 Describe 'ConvertTo-DotWingetSpec' {
-    It 'treats a bare string as an unpinned id' {
+    It 'treats a bare string as an unpinned, ungrouped id' {
         $s = ConvertTo-DotWingetSpec 'Git.Git'
-        $s.Id | Should -Be 'Git.Git'; $s.Version | Should -BeNullOrEmpty
+        $s.Id | Should -Be 'Git.Git'; $s.Version | Should -BeNullOrEmpty; $s.Group | Should -BeNullOrEmpty
     }
     It 'reads id + version from an object entry' {
         $s = ConvertTo-DotWingetSpec ([pscustomobject]@{ id = 'Git.Git'; version = '2.45.0' })
         $s.Id | Should -Be 'Git.Git'; $s.Version | Should -Be '2.45.0'
+    }
+    It 'reads an optional group tag (U3)' {
+        $s = ConvertTo-DotWingetSpec ([pscustomobject]@{ id = 'Mozilla.Firefox'; group = 'gui' })
+        $s.Id | Should -Be 'Mozilla.Firefox'; $s.Group | Should -Be 'gui'
     }
 }
 
 Describe 'Get-PackagesUsage' {
     It 'documents every public switch' {
         $u = (Get-PackagesUsage) -join "`n"
-        foreach ($flag in '-SkipScoop', '-SkipWinget', '-Frozen', '-Help') {
+        foreach ($flag in '-SkipScoop', '-SkipWinget', '-Frozen', '-NonInteractive', '-Help') {
             $u | Should -Match ([regex]::Escape($flag))
         }
+    }
+}
+
+# --- optional package groups (U3): pure policy helpers ------------------------
+Describe 'Get-DotOptionalGroups' {
+    It 'returns the distinct, sorted group tags present' {
+        $entries = @(
+            [pscustomobject]@{ Id = 'a'; Group = 'gui' }
+            [pscustomobject]@{ Id = 'b'; Group = $null }
+            [pscustomobject]@{ Id = 'c'; Group = 'gui' }
+            [pscustomobject]@{ Id = 'd'; Group = 'sec' }
+        )
+        Get-DotOptionalGroups $entries | Should -Be @('gui', 'sec')
+    }
+    It 'returns empty when nothing is tagged' {
+        Get-DotOptionalGroups @([pscustomobject]@{ Id = 'a'; Group = $null }) | Should -BeNullOrEmpty
+    }
+}
+
+Describe 'ConvertFrom-DotGroupList / ConvertTo-DotGroupList' {
+    It 'parses space- or comma-separated lists (lowercased, de-duped, sorted)' {
+        ConvertFrom-DotGroupList 'GUI sec gui'  | Should -Be @('gui', 'sec')
+        ConvertFrom-DotGroupList 'gui,sec'      | Should -Be @('gui', 'sec')
+    }
+    It 'treats blank and the "none" marker as an empty selection' {
+        ConvertFrom-DotGroupList ''     | Should -BeNullOrEmpty
+        ConvertFrom-DotGroupList 'none' | Should -BeNullOrEmpty
+    }
+    It 'formats a selection, emitting "none" when empty' {
+        ConvertTo-DotGroupList @('sec', 'gui') | Should -Be 'gui sec'
+        ConvertTo-DotGroupList @()             | Should -Be 'none'
+    }
+    It 'round-trips through both helpers' {
+        ConvertFrom-DotGroupList (ConvertTo-DotGroupList @('gui')) | Should -Be @('gui')
+        ConvertTo-DotGroupList (ConvertFrom-DotGroupList 'none')   | Should -Be 'none'
+    }
+}
+
+Describe 'Test-DotGroupSelected' {
+    It 'always installs a core (untagged) entry' {
+        Test-DotGroupSelected -Group ''    -Selected @()      | Should -BeTrue
+        Test-DotGroupSelected -Group $null -Selected @('gui') | Should -BeTrue
+    }
+    It 'installs a tagged entry only when its group is selected' {
+        Test-DotGroupSelected -Group 'gui' -Selected @('gui') | Should -BeTrue
+        Test-DotGroupSelected -Group 'gui' -Selected @('sec') | Should -BeFalse
+        Test-DotGroupSelected -Group 'gui' -Selected @()      | Should -BeFalse
+    }
+}
+
+Describe 'Set-DotGroupLine' {
+    It 'appends a managed line to content that lacks one' {
+        $out = Set-DotGroupLine -Content "# header`n" -Value 'gui'
+        $out | Should -Match "(?m)^\`$env:DOTFILES_PKG_GROUPS = 'gui'"
+        $out | Should -Match '# header'
+    }
+    It 'replaces an existing managed line instead of duplicating it' {
+        $first  = Set-DotGroupLine -Content '' -Value 'gui'
+        $second = Set-DotGroupLine -Content $first -Value 'none'
+        @($second -split "`n" | Where-Object { $_ -match 'DOTFILES_PKG_GROUPS' }).Count | Should -Be 1
+        $second | Should -Match "DOTFILES_PKG_GROUPS = 'none'"
+    }
+}
+
+Describe 'Resolve-DotPackageGroupSelection' {
+    AfterEach { Remove-Item Env:DOTFILES_PKG_GROUPS -ErrorAction SilentlyContinue }
+
+    It 'returns empty when no optional groups exist' {
+        Resolve-DotPackageGroupSelection -Available @() -NonInteractive $true -LocalPs1Path 'x' | Should -BeNullOrEmpty
+    }
+    It 'installs every group non-interactively (opt-out default)' {
+        Resolve-DotPackageGroupSelection -Available @('gui', 'sec') -NonInteractive $true -LocalPs1Path 'x' |
+            Should -Be @('gui', 'sec')
+    }
+    It 'honours a persisted selection, clamped to what exists' {
+        $env:DOTFILES_PKG_GROUPS = 'gui gone'
+        Resolve-DotPackageGroupSelection -Available @('gui', 'sec') -NonInteractive $false -LocalPs1Path 'x' |
+            Should -Be @('gui')
+    }
+    It 'honours a persisted "none" as an empty selection' {
+        $env:DOTFILES_PKG_GROUPS = 'none'
+        Resolve-DotPackageGroupSelection -Available @('gui') -NonInteractive $false -LocalPs1Path 'x' |
+            Should -BeNullOrEmpty
     }
 }
 
