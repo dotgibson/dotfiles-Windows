@@ -51,6 +51,8 @@
         'Get-DotHelpPrimaryVerb'
         'Get-DotLevenshtein'
         'Get-DotDidYouMean'
+        # modules: local module-dir reconcile (the modules-localize verb stays in the fragment)
+        'Get-DotModulePrunePlan'
     )
     CmdletsToExport   = @()
     AliasesToExport   = @()
