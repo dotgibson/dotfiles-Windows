@@ -139,6 +139,21 @@ jobs:
         run: luacheck .
         working-directory: nvim
 
+  # --- nvim <-> Core parity (B1) ----------------------------------------------
+  # nvim/ is vendored from dotfiles-core; this fails if the vendored tree drifts
+  # from the Core commit recorded in nvim/.core-ref (clone Core @ that commit and
+  # diff). Self-skips until a sync stamps the ref. Same nvim-only gate as luacheck.
+  nvim-parity:
+    name: nvim ↔ Core parity
+    runs-on: ubuntu-latest
+    needs: [lint-fast, detect-changes]
+    if: needs.detect-changes.outputs.lua == 'true'
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: Assert nvim/ matches Core at the recorded ref
+        shell: pwsh
+        run: ./tests/Assert-NvimParity.ps1
+
   analyze:
     name: PSScriptAnalyzer
     runs-on: windows-latest
