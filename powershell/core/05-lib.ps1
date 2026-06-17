@@ -447,9 +447,10 @@ function Write-DotBanner {
         [string]$SubtitleColor = 'Cyan'
     )
     if (Test-DotColor) {
-        # Truecolor: paint the chip with the Tokyo Night accent (bg+fg); otherwise
-        # the 16-colour inverse chip as before. Falls back per-colour, so an accent
-        # missing from the palette still renders via ConsoleColor.
+        # The chip is all-or-nothing: truecolor only when BOTH its bg and fg are in
+        # the palette, else the whole chip uses the 16-colour inverse (you can't
+        # cleanly mix a truecolor bg with a ConsoleColor fg — the ANSI reset would
+        # clobber it). The subtitle is independent and falls back on its own.
         $reset = "$([char]27)[0m"
         $bg = Get-DotAnsiSgr -Color $Background -Layer bg
         $fg = Get-DotAnsiSgr -Color $Foreground -Layer fg
@@ -460,7 +461,7 @@ function Write-DotBanner {
         }
         if ($Subtitle) {
             $sfg = Get-DotAnsiSgr -Color $SubtitleColor
-            if ($sfg) { Write-Host ("  " + $sfg + $Subtitle + $reset) }
+            if ($sfg) { Write-Host ($sfg + "  $Subtitle" + $reset) }   # SGR first, so the spacing is coloured like the text
             else { Write-Host "  $Subtitle" -ForegroundColor $SubtitleColor }
         }
     } elseif ($Subtitle) {
