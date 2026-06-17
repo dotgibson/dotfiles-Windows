@@ -61,6 +61,9 @@ Describe 'Get-DotInstallProgress' {
         $p.Percent | Should -Be 20
         $p.EtaSeconds | Should -Be 80
     }
+    It 'never reaches 100% until the last item finishes (floors, e.g. 199/200 -> 99)' {
+        (Get-DotInstallProgress -Completed 199 -Total 200 -ElapsedSeconds 199).Percent | Should -Be 99
+    }
     It 'is 100% with a zero ETA once complete' {
         $p = Get-DotInstallProgress -Completed 20 -Total 20 -ElapsedSeconds 100
         $p.Percent | Should -Be 100
