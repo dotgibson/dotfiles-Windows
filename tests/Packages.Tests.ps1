@@ -48,8 +48,119 @@ Describe 'ConvertTo-DotWingetSpec' {
 Describe 'Get-PackagesUsage' {
     It 'documents every public switch' {
         $u = (Get-PackagesUsage) -join "`n"
-        foreach ($flag in '-SkipScoop', '-SkipWinget', '-Help') {
+        foreach ($flag in '-SkipScoop', '-SkipWinget', '-Frozen', '-Help') {
             $u | Should -Match ([regex]::Escape($flag))
         }
+    }
+}
+
+# --- packages/PackageLock.ps1 (B4): pure lockfile helpers --------------------
+# Dot-sourced transitively by Install-Packages.ps1 above, so the functions are in
+# scope here.
+Describe 'Read-PackageLock' {
+    It 'parses scoop and winget version maps' {
+        # generatedAt is a non-date sentinel on purpose: ConvertFrom-Json coerces an
+        # ISO-8601 string into a [datetime] (which round-trips as 2026-...0000000Z),
+        # and generatedAt is informational only. The version VALUES are explicitly
+        # string-coerced in the helper, so they stay exact.
+        $lock = Read-PackageLock '{ "generatedAt": "lock-stamp", "scoop": { "fzf": "0.54.0" }, "winget": { "Git.Git": "2.47.1" } }'
+        $lock.Scoop['fzf']      | Should -Be '0.54.0'
+        $lock.Winget['Git.Git'] | Should -Be '2.47.1'
+        $lock.GeneratedAt       | Should -Be 'lock-stamp'
+    }
+    It 'is case-insensitive on lookups' {
+        (Read-PackageLock '{ "scoop": { "FZF": "1.0" } }').Scoop['fzf'] | Should -Be '1.0'
+    }
+    It 'returns empty maps for blank or malformed input (no throw)' {
+        (Read-PackageLock '').Scoop          | Should -BeNullOrEmpty
+        { Read-PackageLock 'not json {{' }   | Should -Not -Throw
+        (Read-PackageLock 'not json {{').Winget | Should -BeNullOrEmpty
+    }
+}
+
+Describe 'Get-LockedVersion' {
+    It 'returns the version when present (case-insensitive)' {
+        Get-LockedVersion -Map @{ 'Git.Git' = '2.47.1' } -Name 'git.git' | Should -Be '2.47.1'
+    }
+    It 'returns $null for a miss, a null map, or an empty name' {
+        Get-LockedVersion -Map @{ a = '1' } -Name 'b' | Should -BeNullOrEmpty
+        Get-LockedVersion -Map $null -Name 'a'        | Should -BeNullOrEmpty
+        Get-LockedVersion -Map @{ a = '1' } -Name ''   | Should -BeNullOrEmpty
+    }
+}
+
+Describe 'ConvertFrom-ScoopExport' {
+    It 'reads name/version from the modern { apps: [...] } shape' {
+        $m = ConvertFrom-ScoopExport '{ "apps": [ { "Name": "fzf", "Version": "0.54.0" }, { "Name": "bat", "Version": "0.24.0" } ] }'
+        $m['fzf'] | Should -Be '0.54.0'; $m['bat'] | Should -Be '0.24.0'
+    }
+    It 'reads the legacy bare-array shape' {
+        (ConvertFrom-ScoopExport '[ { "Name": "jq", "Version": "1.7" } ]')['jq'] | Should -Be '1.7'
+    }
+    It 'skips entries without a version, and tolerates junk' {
+        (ConvertFrom-ScoopExport '{ "apps": [ { "Name": "x" } ] }').Count | Should -Be 0
+        { ConvertFrom-ScoopExport 'nope' } | Should -Not -Throw
+    }
+}
+
+Describe 'ConvertFrom-WingetExport' {
+    It 'reads id/version from the Sources/Packages shape' {
+        $json = '{ "Sources": [ { "Packages": [ { "PackageIdentifier": "Git.Git", "Version": "2.47.1" } ] } ] }'
+        (ConvertFrom-WingetExport $json)['Git.Git'] | Should -Be '2.47.1'
+    }
+    It 'skips non-version placeholders and empty versions' {
+        $json = '{ "Sources": [ { "Packages": [ { "PackageIdentifier": "A", "Version": "Unknown" }, { "PackageIdentifier": "B", "Version": "" }, { "PackageIdentifier": "C", "Version": "Latest" } ] } ] }'
+        (ConvertFrom-WingetExport $json).Count | Should -Be 0
+    }
+}
+
+Describe 'Get-PackageLockDrift' {
+    It 'reports nothing when the manifest and lock agree' {
+        $d = Get-PackageLockDrift -DesiredNames @('a', 'b') -LockMap @{ a = '1'; b = '2' }
+        $d.InSync | Should -BeTrue
+    }
+    It 'flags a desired-but-unlocked name as Missing' {
+        $d = Get-PackageLockDrift -DesiredNames @('a', 'b') -LockMap @{ a = '1' }
+        $d.Missing | Should -Contain 'b'; $d.InSync | Should -BeFalse
+    }
+    It 'flags a locked-but-undesired name as Orphan' {
+        $d = Get-PackageLockDrift -DesiredNames @('a') -LockMap @{ a = '1'; old = '9' }
+        $d.Orphan | Should -Contain 'old'; $d.InSync | Should -BeFalse
+    }
+}
+
+Describe 'New-PackageLockObject' {
+    It 'sorts keys and carries the injected timestamp' {
+        $o = New-PackageLockObject -Scoop @{ zoxide = '1'; bat = '2' } -Winget @{} -GeneratedAt 'TS'
+        $o.generatedAt | Should -Be 'TS'
+        @($o.scoop.Keys) | Should -Be @('bat', 'zoxide')   # sorted
+    }
+    It 'treats a $null section as an empty map (no throw)' {
+        { New-PackageLockObject -Scoop $null -Winget $null -GeneratedAt 'TS' } | Should -Not -Throw
+        $o = New-PackageLockObject -Scoop $null -Winget $null -GeneratedAt 'TS'
+        @($o.scoop.Keys).Count | Should -Be 0
+    }
+}
+
+# --- drift gate: enforced once packages.lock.json is committed (B4) -----------
+Describe 'packages.lock.json drift' {
+    It 'covers exactly the managed manifest set (skipped until the lock exists)' {
+        $lockPath = Join-Path $RepoRoot 'packages/packages.lock.json'
+        if (-not (Test-Path $lockPath)) {
+            Set-ItResult -Skipped -Because 'no packages.lock.json yet — run Update-PackageLock.ps1 on Windows and commit it'
+            return
+        }
+        $lock = Read-PackageLock (Get-Content $lockPath -Raw)
+        $scoop  = Get-Content (Join-Path $RepoRoot 'packages/scoopfile.json') -Raw | ConvertFrom-Json
+        $winget = Get-Content (Join-Path $RepoRoot 'packages/winget.json')  -Raw | ConvertFrom-Json
+        $scoopNames = @($scoop.apps | ForEach-Object { $_.Name })
+        $wingetIds  = @($winget.packages | ForEach-Object { if ($_ -is [string]) { $_ } else { $_.id } })
+
+        $sd = Get-PackageLockDrift -DesiredNames $scoopNames -LockMap $lock.Scoop
+        $wd = Get-PackageLockDrift -DesiredNames $wingetIds  -LockMap $lock.Winget
+        $sd.Missing | Should -BeNullOrEmpty -Because "scoop apps added without re-locking: $($sd.Missing -join ', ')"
+        $sd.Orphan  | Should -BeNullOrEmpty -Because "scoop apps removed from the manifest but still locked: $($sd.Orphan -join ', ')"
+        $wd.Missing | Should -BeNullOrEmpty -Because "winget ids added without re-locking: $($wd.Missing -join ', ')"
+        $wd.Orphan  | Should -BeNullOrEmpty -Because "winget ids removed from the manifest but still locked: $($wd.Orphan -join ', ')"
     }
 }
