@@ -58,6 +58,8 @@
         'Get-DotDidYouMean'
         # modules: local module-dir reconcile (the modules-localize verb stays in the fragment)
         'Get-DotModulePrunePlan'
+        # serve: bind/url plan (the serve verb + LAN-IP lookup stay in the fragment)
+        'Get-DotServePlan'
     )
     CmdletsToExport   = @()
     AliasesToExport   = @()
