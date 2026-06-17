@@ -220,6 +220,23 @@ function Get-DotSpinnerFrame {
     return $frames[$i]
 }
 
+# The full in-place spinner line: "  <frame> <label> (<n>s)". The elapsed-seconds
+# suffix appears only once a step has run for a full second, so quick ops don't
+# flash "(0s)" — but a long silent op now visibly counts up, so "slow" reads
+# differently from "stalled" (U13). Pure (frame + label + elapsed -> string), so
+# the formatting and the threshold are unit-tested without animating anything.
+function Format-DotSpinnerLine {
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory)][string]$Label,
+        [double]$ElapsedSeconds = 0,
+        [int]$Tick = 0,
+        [bool]$Unicode = (Test-DotUnicode)
+    )
+    $suffix = if ($ElapsedSeconds -ge 1) { ' ({0:n0}s)' -f [Math]::Floor($ElapsedSeconds) } else { '' }
+    return ('  {0} {1}{2}' -f (Get-DotSpinnerFrame -Tick $Tick -Unicode $Unicode), $Label, $suffix)
+}
+
 function Invoke-DotSpinner {
     param(
         [Parameter(Mandatory)][string]$Label,
@@ -241,10 +258,14 @@ function Invoke-DotSpinner {
     $start = if (Get-Command Start-ThreadJob -ErrorAction SilentlyContinue) { 'Start-ThreadJob' } else { 'Start-Job' }
     $job = & $start -ScriptBlock $Script -ArgumentList $ArgumentList
     $out = $null
+    $maxLen = 0   # widest line printed, so the final wipe clears a grown "(12s)" tail
     try {
         $t = 0
+        $sw = [System.Diagnostics.Stopwatch]::StartNew()
         while ($job.State -eq 'Running') {
-            Write-Host ("`r  {0} {1}" -f (Get-DotSpinnerFrame $t), $Label) -NoNewline -ForegroundColor Cyan
+            $line = Format-DotSpinnerLine -Label $Label -ElapsedSeconds $sw.Elapsed.TotalSeconds -Tick $t
+            if ($line.Length -gt $maxLen) { $maxLen = $line.Length }
+            Write-Host ("`r{0}" -f $line) -NoNewline -ForegroundColor Cyan
             Start-Sleep -Milliseconds 120
             $t++
         }
@@ -257,7 +278,7 @@ function Invoke-DotSpinner {
         # Runs on normal completion AND on Ctrl-C. Wipe the spinner line, then ALWAYS
         # tear the job down — Stop-Job first so an interrupt can't leave a background
         # thread/process running the half-finished work (U7: clean SIGINT teardown).
-        Write-Host ("`r{0}`r" -f (' ' * ($Label.Length + 6))) -NoNewline   # wipe the spinner line
+        Write-Host ("`r{0}`r" -f (' ' * ([Math]::Max($maxLen, $Label.Length + 6)))) -NoNewline   # wipe the spinner line
         if ($job) {
             try { Stop-Job $job -ErrorAction SilentlyContinue } catch { }
             Remove-Job $job -Force -ErrorAction SilentlyContinue
