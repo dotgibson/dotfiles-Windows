@@ -27,6 +27,10 @@ each item has a stable ID, an impact, and a status, and PRs reference the ID.
 | B10 | ✅ | `bootstrap.ps1` | Setup required a manual `git clone` + `.\install.ps1`; no integrity-gated one-liner. | A self-contained `bootstrap.ps1` (`irm … \| iex`) clones-or-updates the repo, optionally checks out a pinned `DOTFILES_REF`, and hands off to `install.ps1` — it never pipes a further network script into `iex`, so scoop stays behind the existing `DOTFILES_SCOOP_SHA256` gate and every `DOTFILES_*` env knob is inherited untouched. README documents a hash-verified one-liner; a drift test pins the README's LF-normalized SHA-256 to the script. Pure resolvers (`Get-Bootstrap{RepoUrl,TargetDir,GitAction,InstallArgs}`) unit-tested. | Medium |
 | B11 | ✅ | `30-windows.ps1` `modules-localize` | `robocopy /E` copied modules off OneDrive but never reaped the stale versions each maintenance roll-forward left behind, so the local dir accumulated. | `modules-localize -Prune` reconciles the local dir against the MANAGED set (`packages/modules.ps1`): keep the highest version of each managed module, remove older ones, never touch a non-managed module. The decision is the pure, coverage-gated `Get-DotModulePrunePlan` (Dotfiles module export, unit-tested); the prune is idempotent and reports each removal. | Medium |
 | B12 | ✅ | `ci.yml` lua-lint | `luacheck` was apt/luarocks-installed **unpinned** every run — slow, non-hermetic, a supply-chain gap vs. the SHA-pinned Actions. | Pin `LUACHECK_VERSION`, cache the compiled rock keyed on runner image + Lua line, and install against Lua 5.1. _(PR #13)_ | Medium |
+| B13 | ⬜ | `20-functions.ps1` `serve` | `serve` runs `python -m http.server`, which binds **`0.0.0.0`** (every interface) with no auth, and the function advertises the LAN IP — so the current working directory is exposed to the whole network the moment it's run, with no way to ask for localhost-only. | Default to `--bind 127.0.0.1` and make LAN exposure an explicit opt-in (e.g. `serve -Lan`), keeping the advertised-IP banner only on the opt-in path. | Medium |
+| B14 | ⬜ | `tests/*`, fixtures | Test-suite refinements: shallow assertions in a few suites, duplicated fixture setup, and brittle hand-tuned expectations. (The CI count/coverage floors that used to live here were resolved by B5.) | Deepen the weakest assertions, hoist shared fixtures, and replace remaining magic expectations with derived values. | Low |
+| B15 | ⬜ | `README.md`, `TOOLS.md`, `PORTING-NOTES.md` | Docs drift: the README fragment-layout box lists stale fragment numbers vs. the actual `NN-` files (`25`/`45`/`50`/`55`), and `TOOLS.md` / `PORTING-NOTES.md` have aged against the current toolchain. | Reconcile the layout box against the live fragments and refresh the tool/porting prose; consider a test that diffs the documented fragment list against disk. | Low |
+| B16 | ⬜ | this doc + `CHANGELOG.md` | Namespace collision: the audit's `B#`/`U#` IDs and `CHANGELOG.md`'s separate `B#`/`U#` headings are different schemes with overlapping numbers, so a reader can't tell which `B5` is meant. | Reconcile the two namespaces (rename or cross-reference) so IDs are unambiguous across both docs. | Low |
 
 ## Terminal UX
 
@@ -45,16 +49,16 @@ each item has a stable ID, an impact, and a status, and PRs reference the ID.
 | U11 | ✅ | `install.ps1` / lib | Only the email loop was validated; other `Read-Host` calls shared no validation/default/masking pattern. | Shared `Read-DotInput` (gum `input` when interactive, else `Read-Host`; optional validator, default, and `--password`/`-MaskInput` secret masking) over a pure, unit-tested `Get-DotInputResult`. install's git name/email prompts now use it; `-Secret` is ready for token prompts. | Medium |
 | U12 | ✅ | `05-lib.ps1` renderers | Hint lines weren't wrapped; long paths overflowed. | Word-wrap hints to width (`Format-DotWrap`). _(PR #8)_ | Medium |
 | U13 | ✅ | `Install-Packages.ps1` / lib | During the longest silent ops the spinner label was static — stalled vs. slow was indistinguishable. | `Invoke-DotSpinner` now ticks a running `(Ns)` elapsed counter (stopwatch-driven) onto the label, via a pure, unit-tested `Format-DotSpinnerLine` (suffix appears only past 1s, so quick ops don't flash `(0s)`); the line-wipe tracks the widest frame so a grown counter clears cleanly. | Medium |
+| U14 | ⬜ | `starship.toml`, `windows-terminal/settings.json`, `psmux/*.conf`, `ssh/config`, `git/.gitconfig` | The shipped config files haven't had a deep review — suspected theme/font/keybind drift, hardcoded values that should be variables or defaults, and comment-hygiene gaps (~5–8 small findings). | Walk each file, reconcile against the current palette/toolchain, lift hardcoded values where it helps, and tidy comments. Likely splits into per-file follow-ups once scoped. | Low |
+| U15 | ⬜ | profile fragments | Renderer/UX consistency: several fragments still call raw `Write-Host` where the themed `Write-DotHost` (NO_COLOR/ASCII/truecolor-aware) is intended, and a few alias/function names don't follow the established parity. | Route user-facing output through `Write-DotHost`/`Write-DotErr` (leaving the renderers' own internals alone) and align the stray names. | Low |
+| U16 | ⬜ | `nvim/` keymaps / `nvim-sync.ps1` | A known `nvim-sync` Windows-keymap wart (a platform-specific binding that doesn't belong in the synced Core parity, or vice versa). | Pin down the exact wart, then either carve it into a Windows-local override or upstream it, keeping the parity gate (B1) clean. | Low |
 
-## Secondary long-tail (~15–25 items, lower impact)
+## Secondary long-tail
 
-Not yet itemized with IDs; recorded here so they aren't lost:
-
-- **Config files not deeply reviewed** — `starship.toml`, `windows-terminal/settings.json`, `psmux/*.conf`, `ssh/config`, `git/.gitconfig` (~5–8 small findings: theme/font/keybind drift, hardcoded values, comment hygiene).
-- **Test-suite refinements** — assertion depth, fixture duplication, the brittle CI floors (overlaps B5) (~4–6).
-- **Docs drift** — README layout box vs. actual fragments (`25`/`45`/`50`/`55`), `TOOLS.md` / `PORTING-NOTES.md` currency (~3–4).
-- **Micro-consistencies** — stray `Write-Host` vs `Write-DotHost`, `nvim-sync` Windows-keymap wart, `serve` binding all interfaces, alias/function naming parity (~3–5).
-- **Namespace reconciliation** — unify the audit `B#`/`U#` IDs with `CHANGELOG.md`'s separate `B#`/`U#` headings so a reader isn't tracking two collide-numbered schemes.
+These were promoted to tracked IDs above (`B13`–`B16`, `U14`–`U16`) so they're cited like
+everything else; each is still ⬜ and lower-impact. The earlier free-text bucket
+of `~15–25 items` collapses into those seven coherent work items — when one is
+picked up, scope its sub-findings in that PR and split the row if it grows.
 
 ---
 
