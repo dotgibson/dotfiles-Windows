@@ -32,7 +32,7 @@ each item has a stable ID, an impact, and a status, and PRs reference the ID.
 
 | ID | Status | Component | Problem | Direction | Impact |
 | -- | ------ | --------- | ------- | --------- | ------ |
-| U1 | 🟡 | `05-lib.ps1` renderers | `gum` is installed but only the **confirm** path uses it ✅; spinner/banner/rule/error are still hand-rolled. | Route `Invoke-DotSpinner`→`gum spin`, banners/rules→`gum style`/`gum format`, keeping pure fallbacks when gum/NO_COLOR absent. | High |
+| U1 | 🟡 | `05-lib.ps1` renderers | `gum` was installed but only the **confirm** path used it. | gum now covers the interactive prompts — `confirm` ✅ and `input` ✅ (U11). The remaining renderers are deliberately NOT routed through gum: `gum spin` wraps an external command and can't run our object-returning scriptblock without re-introducing the process spawn B3 removed; there's no clean gum primitive for the titled `Write-DotRule`; and a `gum style` banner is a marginal change for a subprocess-per-banner cost. So spinner/rule/banner stay hand-rolled (with their pure NO_COLOR/ASCII fallbacks). | High |
 | U2 | ⬜ | `Install-Packages.ps1` | Progress is indeterminate (`[n/total]` + final seconds); no overall bar/ETA over a multi-minute install. | Determinate overall bar (gum or one `Write-Progress`) with `n/total` + ETA. | Medium |
 | U3 | ⬜ | install / packages | No interactive selection; optional groups are undiscoverable env-flag opt-ins. | First run uses `gum choose --no-limit` to pick optional groups; persist to `local.ps1`. | Medium |
 | U4 | ✅ | `45-doctor.ps1` | Flat result list, no machine-readable mode. | Grouped sections (pure `Get-DoctorGroup`) + `-Json`. _(PR #8)_ | Medium |
@@ -42,7 +42,7 @@ each item has a stable ID, an impact, and a status, and PRs reference the ID.
 | U8 | ✅ | `profile.ps1` degraded-load nudge | Only the count + first failure printed inline. | Name all failing fragments + the one-command fix inline. _(PR #7)_ | Medium |
 | U9 | ⬜ | `55-help.ps1` `dothelp -i` | The fzf picker hides the preview, so description/group columns are unused while choosing. | Show description+group in an `fzf --preview` (or `gum filter`). | Medium |
 | U10 | ✅ | `profile.ps1` / `00-aliases.ps1` | A half-provisioned box silently lost `ls`/`cat`/`z` with no hint. | Throttled once-per-session "N core tools missing — run dotfiles-doctor" (`57-health-nudge.ps1`). _(PR #7)_ | High |
-| U11 | ⬜ | `install.ps1` / lib | Only the email loop is validated; other `Read-Host` calls share no validation/default/masking pattern. | Shared `Read-DotInput` with validation + default + `gum input --password` for secrets. | Medium |
+| U11 | ✅ | `install.ps1` / lib | Only the email loop was validated; other `Read-Host` calls shared no validation/default/masking pattern. | Shared `Read-DotInput` (gum `input` when interactive, else `Read-Host`; optional validator, default, and `--password`/`-MaskInput` secret masking) over a pure, unit-tested `Get-DotInputResult`. install's git name/email prompts now use it; `-Secret` is ready for token prompts. | Medium |
 | U12 | ✅ | `05-lib.ps1` renderers | Hint lines weren't wrapped; long paths overflowed. | Word-wrap hints to width (`Format-DotWrap`). _(PR #8)_ | Medium |
 | U13 | ⬜ | `Install-Packages.ps1` | During the longest silent ops the spinner label is static — stalled vs. slow is indistinguishable. | Tick the spinner title with running elapsed seconds. | Medium |
 

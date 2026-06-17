@@ -127,6 +127,71 @@ function Read-DotConfirm {
     return $DefaultYes   # exhausted retries: fall back to the default
 }
 
+# --- Get-DotInputResult / Read-DotInput ---------------------------------------
+# The text-prompt sibling of Read-DotConfirm: ONE validated free-text prompt with
+# a default, optional validator, and secret masking — so every Read-Host in the
+# tree shares the same gum/validation/default behaviour instead of each rolling
+# its own loop (only the git-email prompt was ever validated). Get-DotInputResult
+# is the pure decision (blank => take default; non-blank => validate), unit-tested;
+# Read-DotInput does the I/O (gum input when Test-DotGum, else Read-Host).
+function Get-DotInputResult {
+    [OutputType([string])]   # 'accept' | 'default' | 'retry'
+    param([AllowEmptyString()][string]$Answer, [scriptblock]$Validate)
+    if ([string]::IsNullOrWhiteSpace($Answer)) { return 'default' }   # blank keeps the default
+    if ($Validate) {
+        # A validator that THROWS is treated as "invalid" (retry), never allowed to
+        # blow up the prompt loop — the caller still gets to re-ask / fall back.
+        $ok = $false
+        try { $ok = [bool](& $Validate $Answer.Trim()) } catch { $ok = $false }
+        if (-not $ok) { return 'retry' }
+    }
+    return 'accept'
+}
+
+function Read-DotInput {
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory)][string]$Prompt,
+        [AllowEmptyString()][string]$Default = '',
+        # Shown to the user as the default hint; defaults to $Default. Lets a caller
+        # display 'blank to fill in later' while still returning a real fallback.
+        [string]$DefaultHint,
+        # Optional validator: receives the trimmed answer, returns $true if OK.
+        [scriptblock]$Validate,
+        [string]$ValidationMessage = '  invalid — please try again.',
+        # Mask the typed value (gum input --password / Read-Host -MaskInput) for
+        # secrets (tokens/passwords); the answer is returned untrimmed.
+        [switch]$Secret,
+        [int]$MaxTries = 3
+    )
+    $hint = if ($PSBoundParameters.ContainsKey('DefaultHint')) { $DefaultHint } else { $Default }
+
+    for ($i = 0; $i -lt $MaxTries; $i++) {
+        # Read one raw answer. gum input on a real interactive console (Test-DotGum),
+        # otherwise Read-Host — same gate as Read-DotConfirm, so scripted/CI/NO_COLOR
+        # runs and the mocked-Read-Host tests stay on the plain path.
+        if (Test-DotGum) {
+            $gumArgs = @('input', '--prompt', "$Prompt ")
+            if ($Secret) { $gumArgs += '--password' }
+            if ($hint)   { $gumArgs += @('--placeholder', $hint) }
+            $ans = (& gum @gumArgs 2>$null)
+            if ($LASTEXITCODE -ne 0) { return $Default }   # ESC / Ctrl-C => default
+        } else {
+            $suffix = if ($hint) { " [$hint]" } else { '' }
+            try {
+                $ans = if ($Secret) { Read-Host "$Prompt$suffix" -MaskInput } else { Read-Host "$Prompt$suffix" }
+            } catch { return $Default }   # no interactive host: take the default
+        }
+
+        switch (Get-DotInputResult -Answer $ans -Validate $Validate) {
+            'accept'  { return $(if ($Secret) { $ans } else { $ans.Trim() }) }
+            'default' { return $Default }
+            'retry'   { Write-DotHost $ValidationMessage -Color DarkYellow }
+        }
+    }
+    return $Default   # exhausted retries: fall back to the default
+}
+
 # --- Get-DotStringSha256 ------------------------------------------------------
 # Lowercase hex SHA-256 of a string, used to integrity-check a downloaded
 # bootstrap script against a pinned hash before executing it. Pure, unit-tested.

@@ -25,6 +25,8 @@
         # prompts / input
         'Read-DotConfirm'
         'Get-DotConfirmAnswer'
+        'Read-DotInput'
+        'Get-DotInputResult'
         'Test-DotGum'
         'Test-DotEmailish'
         # progress
