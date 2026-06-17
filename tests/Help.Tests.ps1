@@ -53,12 +53,19 @@ Describe 'Get-DotHelpFlatLines' {
         $disp | Should -Match 'lazygit'    # description
         $disp | Should -Match '\[Git\]'    # group tag
     }
-    It 'renders cmd.exe metacharacters (& < >) literally, never shell-parsed' {
-        # The reason the picker doesn't use an fzf --preview shell: these would be
-        # a command separator / redirection under cmd.exe.
-        $lines = Get-DotHelpFlatLines
-        ($lines | Where-Object { $_ -match '\[Listing & files\]' }) | Should -Not -BeNullOrEmpty
-        ($lines | Where-Object { ($_ -split "`t")[-1] -eq 'mkbak <f>' }) | Should -Not -BeNullOrEmpty
+    It 'keeps cmd.exe metacharacters in a row verbatim (never shell-parsed)' {
+        # Why the picker renders in PowerShell instead of an fzf --preview shell:
+        # the catalog row for mkbak is "mkbak <f>" in group "Listing & files", and
+        # < > & are cmd.exe redirection/separator chars. Build the needles from char
+        # codes so this test's own source carries no metacharacter, and assert on a
+        # single resolved line (same shape as the test above).
+        $amp = [char]38; $lt = [char]60; $gt = [char]62
+        $mkbakCmd = "mkbak ${lt}f${gt}"
+        $line = Get-DotHelpFlatLines | Where-Object { ($_ -split "`t")[-1] -eq $mkbakCmd } | Select-Object -First 1
+        $line | Should -Not -BeNullOrEmpty
+        $disp = ($line -split "`t")[0]
+        $disp.Contains($mkbakCmd)            | Should -BeTrue   # command kept verbatim
+        $disp.Contains("Listing $amp files") | Should -BeTrue   # group kept verbatim
     }
 }
 
