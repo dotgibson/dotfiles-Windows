@@ -36,21 +36,23 @@ function global:dothelp {
 
     # Interactive picker: fuzzy-filter every command, and copy the pick to the
     # clipboard so it's ready to paste. Falls back with a hint if fzf is absent.
-    # The list stays a clean column of command names (--with-nth 1); the third
-    # column (group) and second (description) were otherwise wasted while choosing
-    # (U9), so they now fill an fzf preview — "[group] description" for the
-    # highlighted row. Search still spans the description (--nth 1,2) even though
-    # it isn't in the list, so you can find a command by what it does.
+    # Each row is "<display>`t<command>": the list shows the display column
+    # (command + description + [group], aligned) so all three are usable while
+    # choosing (U9), and the bare command rides along in a hidden trailing field.
+    # The columns are rendered in PowerShell (Get-DotHelpFlatLines) and shown
+    # verbatim — NOT via an fzf shell --preview — because the catalog contains
+    # cmd.exe metacharacters (`mkbak <f>`, `Listing & files`) a preview shell
+    # would mis-parse. --with-nth 1 shows only the display; --nth 1 searches it.
     if ($Interactive) {
         if (-not (Get-Command fzf -ErrorAction SilentlyContinue)) {
             Write-DotErr 'interactive dothelp needs fzf' 'scoop install fzf'
             return
         }
         $picked = Get-DotHelpFlatLines |
-            fzf --delimiter "`t" --with-nth 1 --nth '1,2' --height '60%' --layout=reverse --border `
-                --prompt 'dothelp > ' --preview 'echo [{3}] {2}' --preview-window 'down,3,wrap'
+            fzf --delimiter "`t" --with-nth 1 --nth 1 --height '60%' --layout=reverse --border `
+                --prompt 'dothelp > '
         if ($picked) {
-            $cmd = ($picked -split "`t")[0]
+            $cmd = ($picked -split "`t")[-1]   # bare command is the hidden last field
             $verb = Get-DotHelpPrimaryVerb $cmd
             Write-DotHost $cmd -Color Green
             # Best: drop the primary verb on the edit line so it's ready to run or

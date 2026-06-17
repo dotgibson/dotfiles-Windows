@@ -35,22 +35,30 @@ Describe 'Get-DotfilesHelpData' {
 }
 
 Describe 'Get-DotHelpFlatLines' {
-    It 'emits one tab-delimited command/desc/group line per entry' {
+    It 'emits one "<display>`t<command>" line per entry' {
         $lines = Get-DotHelpFlatLines
         $lines.Count | Should -BeGreaterThan 10
-        foreach ($l in $lines) { ($l -split "`t").Count | Should -Be 3 }
+        foreach ($l in $lines) { ($l -split "`t").Count | Should -Be 2 }
     }
-    It 'includes a known command in the first field' {
-        $cmds = Get-DotHelpFlatLines | ForEach-Object { ($_ -split "`t")[0] }
+    It 'puts the bare command in the last field for clean extraction on pick' {
+        # The picker takes ($picked -split "`t")[-1], so padding/columns in the
+        # display never leak onto the prompt.
+        $cmds = Get-DotHelpFlatLines | ForEach-Object { ($_ -split "`t")[-1] }
         $cmds | Should -Contain 'lg'
     }
-    It 'puts the description in field 2 and a real group in field 3 (picker preview contract)' {
-        # The fzf picker (U9) shows command in the list and "[{3}] {2}" — group +
-        # description — in the preview, so field order is a contract worth locking.
-        $groups = @((Get-DotfilesHelpData).Keys)
-        $parts = (Get-DotHelpFlatLines | Where-Object { ($_ -split "`t")[0] -eq 'lg' } | Select-Object -First 1) -split "`t"
-        $parts[1] | Should -Not -BeNullOrEmpty   # description
-        $groups   | Should -Contain $parts[2]    # group is a real catalog group
+    It 'shows command, description and [group] together in the display column' {
+        $line = Get-DotHelpFlatLines | Where-Object { ($_ -split "`t")[-1] -eq 'lg' } | Select-Object -First 1
+        $disp = ($line -split "`t")[0]
+        $disp | Should -Match 'lg'
+        $disp | Should -Match 'lazygit'    # description
+        $disp | Should -Match '\[Git\]'    # group tag
+    }
+    It 'renders cmd.exe metacharacters (& < >) literally, never shell-parsed' {
+        # The reason the picker doesn't use an fzf --preview shell: these would be
+        # a command separator / redirection under cmd.exe.
+        $lines = Get-DotHelpFlatLines
+        ($lines | Where-Object { $_ -match '\[Listing & files\]' }) | Should -Not -BeNullOrEmpty
+        ($lines | Where-Object { ($_ -split "`t")[-1] -eq 'mkbak <f>' }) | Should -Not -BeNullOrEmpty
     }
 }
 
