@@ -72,6 +72,13 @@ if ($PSVersionTable.PSVersion.Major -lt 7) {
     Write-Warning 'bootstrap targets PowerShell 7+. Install it (winget install Microsoft.PowerShell), reopen pwsh, and re-run.'
     return
 }
+# Windows-only: install.ps1 wires Windows paths (symlinks, %LOCALAPPDATA%, winget).
+# $IsWindows is an automatic in pwsh 6+; abort cleanly elsewhere instead of cloning
+# and failing deep inside the installer.
+if (-not $IsWindows) {
+    Write-Warning 'bootstrap (and install.ps1) target Windows; nothing to do on this OS.'
+    return
+}
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
     Write-Warning 'git is required to bootstrap. Install Git (winget install Git.Git) and re-run.'
     return
@@ -81,6 +88,9 @@ $repo   = Get-BootstrapRepoUrl
 $dir    = Get-BootstrapTargetDir
 $ref    = $env:DOTFILES_REF
 $action = Get-BootstrapGitAction -Dir $dir
+# Git refnames can't legitimately begin with '-'; reject one outright so a crafted
+# DOTFILES_REF can't smuggle a git option into the checkout below.
+if ($ref -and $ref.StartsWith('-')) { Write-Error "invalid DOTFILES_REF '$ref' (cannot start with '-')."; return }
 
 Write-Host 'dotfiles-Windows bootstrap' -ForegroundColor Cyan
 Write-Host "  repo: $repo"
@@ -89,19 +99,34 @@ if ($ref) { Write-Host "  ref:  $ref" }
 
 # --- clone or update ----------------------------------------------------------
 if ($action -eq 'clone') {
-    git clone $repo $dir
+    # `--` separates options from the repo/dir positionals, so neither (both from
+    # env) can be mis-parsed as a git flag.
+    git clone -- $repo $dir
     if ($LASTEXITCODE -ne 0) { Write-Error "git clone failed (exit $LASTEXITCODE)."; return }
 } else {
+    # An existing checkout at $dir is only trustworthy if it's actually THIS repo —
+    # otherwise we'd run whatever install.ps1 happens to live there. Skip the check
+    # only when the user explicitly pointed us at a repo via DOTFILES_REPO.
+    if (-not $env:DOTFILES_REPO) {
+        $origin = (git -C $dir remote get-url origin 2>$null)
+        if ($LASTEXITCODE -ne 0 -or $origin -notmatch 'dotfiles-Windows(\.git)?/?$') {
+            Write-Error "$dir is a git checkout of '$origin', not dotfiles-Windows. Set DOTFILES_DIR to an empty path, or DOTFILES_REPO to confirm."; return
+        }
+    }
     Write-Host '  (existing checkout — fetching latest)' -ForegroundColor DarkGray
     git -C $dir fetch --all --tags
     if ($LASTEXITCODE -ne 0) { Write-Error "git fetch failed (exit $LASTEXITCODE)."; return }
-    if (-not $ref) { git -C $dir pull --ff-only }
+    if (-not $ref) {
+        git -C $dir pull --ff-only
+        if ($LASTEXITCODE -ne 0) { Write-Error "git pull failed (exit $LASTEXITCODE) — resolve it, then re-run."; return }
+    }
 }
 
 # A pinned ref (commit/tag/branch) makes the setup reproducible; git's own content
-# addressing is the integrity check here.
+# addressing is the integrity check here. Trailing `--` terminates the pathspec
+# list so the ref is never confused with a file of the same name.
 if ($ref) {
-    git -C $dir checkout $ref
+    git -C $dir checkout $ref --
     if ($LASTEXITCODE -ne 0) { Write-Error "git checkout '$ref' failed (exit $LASTEXITCODE)."; return }
 }
 
@@ -109,6 +134,10 @@ $installer = Join-Path $dir 'install.ps1'
 if (-not (Test-Path $installer)) { Write-Error "install.ps1 not found in $dir - the clone looks incomplete."; return }
 
 # --- hand off to the real installer ------------------------------------------
+# Bootstrap itself ran via `iex`, but install.ps1 is a script FILE: under a strict
+# AllSigned/RemoteSigned policy that local script could be blocked. Relax it for
+# THIS process only (best-effort — never persisted), so the one-liner just works.
+try { Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force -ErrorAction Stop } catch { }
 $installArgs = Get-BootstrapInstallArgs
 Write-Host ("Running install.ps1 {0}" -f ($installArgs -join ' ')).TrimEnd() -ForegroundColor Cyan
 Push-Location $dir
