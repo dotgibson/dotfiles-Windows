@@ -29,9 +29,20 @@ function script:Write-DoctorLine {
         'warn' { (Get-DotGlyph warn), 'Yellow' }
         'fail' { (Get-DotGlyph fail), 'Red' }
     }
+    # Wrap the detail to the console width too (U5), aligned under the detail
+    # column. The continuation indent is the ACTUAL lead width ("  <glyph> " +
+    # the 26-col name + " "), so it lines up in both Unicode and ASCII glyph modes.
+    $lead   = ("  {0} " -f $glyph) + ("{0,-26}" -f $Result.Name) + ' '
+    $indent = ' ' * $lead.Length
+    $detail = @(Format-DotWrap -Text "$($Result.Detail)" -Width (Get-DotConsoleWidth) -Indent $indent)
     Write-DotHost "  $glyph " -Color $color -NoNewline
     Write-Host ("{0,-26}" -f $Result.Name) -NoNewline
-    Write-DotHost " $($Result.Detail)" -Color Gray
+    if ($detail.Count) {
+        Write-DotHost (' ' + $detail[0].TrimStart()) -Color Gray
+        for ($i = 1; $i -lt $detail.Count; $i++) { Write-DotHost $detail[$i] -Color Gray }
+    } else {
+        Write-Host ''
+    }
     if ($Result.Status -ne 'ok' -and $Result.Hint) {
         # Word-wrap the hint to the console so a long fix instruction (or path)
         # doesn't run off a narrow terminal (U12). Derive the continuation indent
