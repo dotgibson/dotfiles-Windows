@@ -81,8 +81,13 @@ BeforeDiscovery {
             ComputedReq     = $computedReq
             ProvidersBefore = @($providersBefore.ToArray())
         }
+        # Only PUBLIC functions become available to later fragments. `function
+        # script:` helpers are author-marked private to their defining fragment, so
+        # they are deliberately NOT counted as "provided" — a later fragment that
+        # referenced one would (correctly) fail the invariant below rather than get a
+        # false pass on a helper it can't rely on. (A fragment's own internals are
+        # still excluded from its requires via $self above.)
         $providersBefore.AddRange([string[]]@($defined[$f.Name].Public))
-        $providersBefore.AddRange([string[]]@($defined[$f.Name].Internal))
         $case
     }
 }
