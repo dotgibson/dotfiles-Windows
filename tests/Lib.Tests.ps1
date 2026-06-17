@@ -264,6 +264,56 @@ Describe 'Read-DotConfirm' {
     }
 }
 
+Describe 'Get-DotInputResult' {
+    It 'takes the default on a blank or whitespace answer' {
+        Get-DotInputResult -Answer ''    | Should -Be 'default'
+        Get-DotInputResult -Answer '   ' | Should -Be 'default'
+    }
+    It 'accepts a non-blank answer when there is no validator' {
+        Get-DotInputResult -Answer 'Alice' | Should -Be 'accept'
+    }
+    It 'accepts when the validator passes and retries when it fails' {
+        $v = { param($x) $x -like '*@*' }
+        Get-DotInputResult -Answer 'a@b.com' -Validate $v | Should -Be 'accept'
+        Get-DotInputResult -Answer 'nope'    -Validate $v | Should -Be 'retry'
+    }
+}
+
+Describe 'Read-DotInput' {
+    # Force the plain Read-Host path (same reason as Read-DotConfirm above).
+    BeforeAll { $script:prevNoGum = $env:DOTFILES_NO_GUM; $env:DOTFILES_NO_GUM = '1' }
+    AfterAll  { $env:DOTFILES_NO_GUM = $script:prevNoGum }
+
+    It 'returns the entered value, trimmed' {
+        Mock Read-Host { '  Alice  ' }
+        Read-DotInput -Prompt 'name' | Should -Be 'Alice'
+    }
+    It 'returns the default on a blank answer' {
+        Mock Read-Host { '' }
+        Read-DotInput -Prompt 'name' -Default 'YOUR NAME' | Should -Be 'YOUR NAME'
+    }
+    It 're-asks on an invalid answer, then honours the next valid one' {
+        $script:c = 0
+        Mock Read-Host { $script:c++; if ($script:c -eq 1) { 'bad' } else { 'a@b.com' } }
+        Read-DotInput -Prompt 'email' -Validate { param($v) Test-DotEmailish $v } | Should -Be 'a@b.com'
+        Should -Invoke Read-Host -Times 2
+    }
+    It 'falls back to the default after exhausting retries on invalid input' {
+        Mock Read-Host { 'still-bad' }
+        Read-DotInput -Prompt 'email' -Default 'you@example.com' -Validate { param($v) Test-DotEmailish $v } |
+            Should -Be 'you@example.com'
+        Should -Invoke Read-Host -Times 3
+    }
+    It 'takes the default when there is no interactive host (Read-Host throws)' {
+        Mock Read-Host { throw 'no host' }
+        Read-DotInput -Prompt 'name' -Default 'D' | Should -Be 'D'
+    }
+    It 'returns a secret value untrimmed' {
+        Mock Read-Host { 'tok en ' }
+        Read-DotInput -Prompt 'token' -Secret | Should -Be 'tok en '
+    }
+}
+
 Describe 'Get-DotfilesLinkPlan' {
     It 'derives every link from the injected roots' {
         $plan = Get-DotfilesLinkPlan -RepoRoot 'R:\repo' -HomeDir 'H:\me' -LocalAppData 'L:\app' -Documents 'D:\docs'

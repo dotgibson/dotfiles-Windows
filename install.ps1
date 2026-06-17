@@ -422,20 +422,15 @@ if (-not (Test-Path $gcLocal)) {
     if ($priorName)  { $gitName  = "$priorName".Trim() }
     if ($priorEmail) { $gitEmail = "$priorEmail".Trim() }
     if (-not $NonInteractive -and -not $script:DryRun) {
-        try {
-            $nameDefault  = if ($gitName  -ne 'YOUR NAME')      { $gitName }  else { 'blank to fill in later' }
-            $emailDefault = if ($gitEmail -ne 'you@example.com'){ $gitEmail } else { 'blank to fill in later' }
-            $n = Read-Host "  git author name  [$nameDefault]"
-            if ($n.Trim()) { $gitName = $n.Trim() }
-            # Re-prompt a couple of times on an obviously-wrong email instead of
-            # silently writing garbage; accept blank (keep default) at any point.
-            for ($try = 0; $try -lt 3; $try++) {
-                $e = Read-Host "  git author email [$emailDefault]"
-                if (-not $e.Trim()) { break }                       # keep default
-                if (Test-DotEmailish $e.Trim()) { $gitEmail = $e.Trim(); break }
-                Write-DotWarn "that doesn't look like an email address." 'expected something like you@example.com — or leave blank to set it later'
-            }
-        } catch { }   # no interactive host: keep the defaults
+        # One shared, gum-aware prompt (Read-DotInput): blank keeps the default, the
+        # email is validated (re-asking on garbage), and no interactive host falls
+        # back to the defaults — the same behaviour as before, now reused everywhere.
+        $nameDefault  = if ($gitName  -ne 'YOUR NAME')      { $gitName }  else { 'blank to fill in later' }
+        $emailDefault = if ($gitEmail -ne 'you@example.com'){ $gitEmail } else { 'blank to fill in later' }
+        $gitName  = Read-DotInput -Prompt '  git author name ' -Default $gitName -DefaultHint $nameDefault
+        $gitEmail = Read-DotInput -Prompt '  git author email' -Default $gitEmail -DefaultHint $emailDefault `
+            -Validate { param($v) Test-DotEmailish $v } `
+            -ValidationMessage "  that doesn't look like an email — expected you@example.com, or blank to set it later."
     }
     if ($script:DryRun) {
         Write-DotHost "  would seed $gcLocal (git identity)" -Color Cyan
