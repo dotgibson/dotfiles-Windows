@@ -44,6 +44,14 @@ Describe 'Get-DotHelpFlatLines' {
         $cmds = Get-DotHelpFlatLines | ForEach-Object { ($_ -split "`t")[0] }
         $cmds | Should -Contain 'lg'
     }
+    It 'puts the description in field 2 and a real group in field 3 (picker preview contract)' {
+        # The fzf picker (U9) shows command in the list and "[{3}] {2}" — group +
+        # description — in the preview, so field order is a contract worth locking.
+        $groups = @((Get-DotfilesHelpData).Keys)
+        $parts = (Get-DotHelpFlatLines | Where-Object { ($_ -split "`t")[0] -eq 'lg' } | Select-Object -First 1) -split "`t"
+        $parts[1] | Should -Not -BeNullOrEmpty   # description
+        $groups   | Should -Contain $parts[2]    # group is a real catalog group
+    }
 }
 
 Describe 'Get-DotHelpFilters' {

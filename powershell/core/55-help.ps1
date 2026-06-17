@@ -36,14 +36,19 @@ function global:dothelp {
 
     # Interactive picker: fuzzy-filter every command, and copy the pick to the
     # clipboard so it's ready to paste. Falls back with a hint if fzf is absent.
+    # The list stays a clean column of command names (--with-nth 1); the third
+    # column (group) and second (description) were otherwise wasted while choosing
+    # (U9), so they now fill an fzf preview — "[group] description" for the
+    # highlighted row. Search still spans the description (--nth 1,2) even though
+    # it isn't in the list, so you can find a command by what it does.
     if ($Interactive) {
         if (-not (Get-Command fzf -ErrorAction SilentlyContinue)) {
             Write-DotErr 'interactive dothelp needs fzf' 'scoop install fzf'
             return
         }
         $picked = Get-DotHelpFlatLines |
-            fzf --delimiter "`t" --with-nth '1,2' --height '60%' --layout=reverse --border `
-                --prompt 'dothelp > ' --preview-window 'hidden'
+            fzf --delimiter "`t" --with-nth 1 --nth '1,2' --height '60%' --layout=reverse --border `
+                --prompt 'dothelp > ' --preview 'echo [{3}] {2}' --preview-window 'down,3,wrap'
         if ($picked) {
             $cmd = ($picked -split "`t")[0]
             $verb = Get-DotHelpPrimaryVerb $cmd
