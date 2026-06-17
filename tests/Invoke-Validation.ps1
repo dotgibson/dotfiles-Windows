@@ -140,8 +140,12 @@ $nameOk  = '.editorconfig', '.gitignore', '.gitignore_global', '.gitconfig', 'co
 # worktrees (e.g. .claude/worktrees/*) — separate checkouts whose line endings
 # aren't ours to police, and which a plain filesystem walk would wrongly flag.
 # Fall back to a filesystem walk (still excluding .git/.claude) if git is absent.
-$tracked = & git -C $RepoRoot ls-files 2>$null
-if ($LASTEXITCODE -eq 0 -and $tracked) {
+# try/catch because $ErrorActionPreference='Stop' turns a missing git into a
+# terminating CommandNotFoundException — without it the fallback would never run
+# and the validator would stop being dependency-free off a git PATH.
+$tracked = $null
+try { $tracked = & git -C $RepoRoot ls-files 2>$null } catch { $tracked = $null }
+if ($tracked) {
     $ecFiles = $tracked |
         ForEach-Object { Get-Item -LiteralPath (Join-Path $RepoRoot $_) -ErrorAction SilentlyContinue } |
         Where-Object { $_ -and ($_.Extension -in $textExt -or $_.Name -in $nameOk) }
