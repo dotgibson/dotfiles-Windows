@@ -1,0 +1,23 @@
+# Line-ending policy — keep the working tree LF on EVERY OS.
+#
+# The repo stores text as LF and the .editorconfig + CI gate enforce LF. Without
+# this file, Git for Windows (core.autocrlf=true by default) rewrites the tree to
+# CRLF on checkout, so the LF validator fails on ~every file when run from a
+# Windows terminal. `eol=lf` pins the working-tree ending regardless of the user's
+# autocrlf setting, so the gate holds identically on Windows, Linux and macOS.
+* text=auto eol=lf
+
+# The one carve-out the .editorconfig also makes: Windows batch files, which the
+# Windows shell expects as CRLF.
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Binary assets git must never line-ending-convert (auto usually detects these,
+# but be explicit so a stray rule can't corrupt them).
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.gz   binary
+*.zip  binary
