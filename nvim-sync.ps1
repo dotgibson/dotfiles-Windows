@@ -11,6 +11,7 @@
 #    .\nvim-sync.ps1                                  # shallow-clone the remote, copy nvim/
 #    .\nvim-sync.ps1 -CoreLocal C:\src\dotfiles-core  # copy from an existing clone instead
 #    .\nvim-sync.ps1 -Branch dev                      # sync from a different Core branch
+#    .\nvim-sync.ps1 -Ref v1.4.0                       # pin an exact Core commit/tag (reproducible)
 #
 #  After it runs: review `git diff nvim/`, then commit. lazy-lock.json is left
 #  untouched (it's environment-specific and gitignored here).
@@ -19,12 +20,38 @@
 param(
     [string]$CoreRemote = 'https://github.com/Gerrrt/dotfiles-core.git',
     [string]$Branch     = 'main',
-    [string]$CoreLocal
+    [string]$CoreLocal,
+    # Pin an EXACT Core commit/tag for a reproducible re-vendor (B1). Takes
+    # precedence over -Branch; can't be combined with -CoreLocal (which copies a
+    # local working tree as-is). Validated/resolved by Get-NvimSyncRefPlan.
+    [string]$Ref
 )
+
+# --- Get-NvimSyncRefPlan ------------------------------------------------------
+# Pure: decide what to fetch from the remote — a pinned -Ref (commit/tag, the
+# reproducible case) or the -Branch tip — and reject the illegal combinations up
+# front. Returns { Mode = 'ref'|'branch'; Target; Label }. Unit-tested via the
+# DOTFILES_NVIMSYNC_LIBONLY hook below.
+function Get-NvimSyncRefPlan {
+    [OutputType([pscustomobject])]
+    param([string]$Ref, [string]$Branch = 'main', [string]$CoreLocal)
+    if ($Ref -and $Ref.StartsWith('-')) {
+        throw "invalid -Ref '$Ref': a git ref cannot start with '-'."
+    }
+    if ($Ref -and $CoreLocal) {
+        throw '-Ref re-vendors from the remote and cannot be combined with -CoreLocal. Check out the ref in your local clone and pass -CoreLocal alone, or drop -CoreLocal to fetch the pinned ref.'
+    }
+    if ($Ref) { return [pscustomobject]@{ Mode = 'ref'; Target = $Ref; Label = "pinned ref $Ref" } }
+    return [pscustomobject]@{ Mode = 'branch'; Target = $Branch; Label = "branch $Branch" }
+}
+
+# Library-only hook for the test suite: expose the resolver without syncing.
+if ($env:DOTFILES_NVIMSYNC_LIBONLY -eq '1') { return }
 
 $ErrorActionPreference = 'Stop'
 $RepoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Target   = Join-Path $RepoRoot 'nvim'
+$plan     = Get-NvimSyncRefPlan -Ref $Ref -Branch $Branch -CoreLocal $CoreLocal
 
 $tempClone = $null
 try {
@@ -35,9 +62,23 @@ try {
         Write-Host "Using local Core clone: $srcNvim" -ForegroundColor Cyan
     } else {
         $tempClone = Join-Path ([IO.Path]::GetTempPath()) ("dotfiles-core-" + [guid]::NewGuid().ToString('N'))
-        Write-Host "Shallow-cloning $CoreRemote ($Branch)..." -ForegroundColor Cyan
-        git clone --depth 1 --branch $Branch $CoreRemote $tempClone
-        if ($LASTEXITCODE -ne 0) { throw "git clone failed (exit $LASTEXITCODE)" }
+        if ($plan.Mode -eq 'ref') {
+            # Fetch an EXACT commit/tag shallowly: a --branch clone can't name an
+            # arbitrary commit, so init + fetch the ref + detach onto it. GitHub
+            # allows fetching a reachable SHA directly.
+            Write-Host "Fetching $CoreRemote @ $($plan.Target) (pinned)..." -ForegroundColor Cyan
+            git init -q $tempClone
+            if ($LASTEXITCODE -ne 0) { throw "git init failed (exit $LASTEXITCODE)" }
+            git -C $tempClone remote add origin $CoreRemote
+            git -C $tempClone fetch --depth 1 origin $plan.Target
+            if ($LASTEXITCODE -ne 0) { throw "git fetch '$($plan.Target)' failed (exit $LASTEXITCODE) - is that ref pushed to the remote?" }
+            git -C $tempClone checkout -q --detach FETCH_HEAD
+            if ($LASTEXITCODE -ne 0) { throw "git checkout FETCH_HEAD failed (exit $LASTEXITCODE)" }
+        } else {
+            Write-Host "Shallow-cloning $CoreRemote ($($plan.Target))..." -ForegroundColor Cyan
+            git clone --depth 1 --branch $plan.Target $CoreRemote $tempClone
+            if ($LASTEXITCODE -ne 0) { throw "git clone failed (exit $LASTEXITCODE)" }
+        }
         $srcNvim = Join-Path $tempClone 'nvim'
         if (-not (Test-Path $srcNvim)) { throw "cloned Core has no nvim/ tree" }
     }
@@ -69,6 +110,7 @@ try {
         '# The Core commit this nvim/ tree was vendored from. dotfiles-doctor reads it.'
         "source = $srcLabel"
         "branch = $Branch"
+        "pinned = $(if ($Ref) { $Ref } else { '(branch tip)' })"
         "commit = $(if ($sha)  { $sha }  else { 'unknown' })"
         "date   = $(if ($when) { $when } else { 'unknown' })"
         "synced = $now"
