@@ -1,0 +1,108 @@
+# ============================================================================
+#  tests/Update-CoverageBaseline.ps1  -  regenerate coverage-baseline.json (B5).
+#  Run on a box where Pester (the pinned version) is installed:
+#      .\tests\Update-CoverageBaseline.ps1
+#      .\tests\Update-CoverageBaseline.ps1 -DryRun            # print, write nothing
+#      .\tests\Update-CoverageBaseline.ps1 -CoveragePercentTarget 90
+#
+#  Runs the SAME Pester configuration ci.yml gates on, captures the resulting
+#  test-file count and test-case count as the anti-deletion FLOORS, and records
+#  the coverage target. Commit the resulting coverage-baseline.json — it is the
+#  versioned source of truth for the gate (replacing the literals that used to
+#  live in ci.yml). Re-run it whenever you intentionally add or remove tests.
+#
+#  The coverage % target is a deliberate quality BAR, not an auto-ratcheted
+#  floor: it is preserved across runs (or overridden with -CoveragePercentTarget)
+#  so a one-line refactor that nudges coverage can't silently raise the bar and
+#  break the next build. Only the file/test FLOORS track the real suite.
+# ============================================================================
+[CmdletBinding()]
+param(
+    [switch]$DryRun,
+    [double]$CoveragePercentTarget,
+    [switch]$Help
+)
+
+$ErrorActionPreference = 'Stop'
+$here = Split-Path -Parent $MyInvocation.MyCommand.Path
+. (Join-Path $here 'CoverageGate.ps1')
+
+if ($Help) {
+    @(
+        'Update-CoverageBaseline.ps1 - regenerate coverage-baseline.json (B5)'
+        ''
+        'USAGE'
+        '  .\tests\Update-CoverageBaseline.ps1 [-DryRun] [-CoveragePercentTarget <n>] [-Help]'
+        ''
+        'OPTIONS'
+        '  -DryRun                  Print the resolved baseline and write nothing.'
+        '  -CoveragePercentTarget   Override the coverage bar (default: keep the'
+        '                           current baseline value, or 85 if none exists).'
+        '  -Help                    Show this help and exit.'
+        ''
+        'NOTES'
+        '  Run on a box with the pinned Pester installed. Commit the result.'
+    ) | ForEach-Object { Write-Host $_ }
+    return
+}
+
+$baselinePath = Join-Path $here 'coverage-baseline.json'
+
+# Default the target to the existing baseline's value (preserve the bar) unless
+# the caller overrode it — so a routine "I added tests" refresh never moves it.
+if (-not $PSBoundParameters.ContainsKey('CoveragePercentTarget')) {
+    $CoveragePercentTarget = 85
+    if (Test-Path $baselinePath) {
+        try { $CoveragePercentTarget = (Read-CoverageBaseline (Get-Content $baselinePath -Raw)).CoveragePercentTarget }
+        catch { Write-Warning "existing baseline unreadable, defaulting target to 85: $($_.Exception.Message)" }
+    }
+}
+
+# Run the SAME configuration ci.yml uses, so the captured floors match what the
+# gate will see. (Coverage paths are duplicated from ci.yml intentionally; the
+# Repo.Tests "ci.yml and baseline agree" check guards against the two drifting.)
+# Pin to the CI Pester version when the env var is set (CI always sets it); fall
+# back to whatever Pester is installed for an ad-hoc local refresh.
+if ($env:PESTER_VERSION) {
+    Import-Module Pester -RequiredVersion $env:PESTER_VERSION -ErrorAction Stop
+} else {
+    Import-Module Pester -ErrorAction Stop
+}
+$repoRoot = Split-Path -Parent $here
+$cfg = New-PesterConfiguration
+$cfg.Run.Path = (Join-Path $repoRoot 'tests')
+$cfg.Run.PassThru = $true
+$cfg.Output.Verbosity = 'None'
+$cfg.CodeCoverage.Enabled = $true
+$cfg.CodeCoverage.Path = @(
+    (Join-Path $repoRoot 'powershell/core/05-lib.ps1')
+    (Join-Path $repoRoot 'powershell/Dotfiles/Wsl.Helpers.ps1')
+    (Join-Path $repoRoot 'powershell/Dotfiles/Doctor.Helpers.ps1')
+    (Join-Path $repoRoot 'powershell/Dotfiles/Help.Helpers.ps1')
+    (Join-Path $repoRoot 'powershell/Dotfiles/Modules.Helpers.ps1')
+)
+$r = Invoke-Pester -Configuration $cfg
+
+if ($r.FailedCount -gt 0) {
+    throw "$($r.FailedCount) test(s) failed — fix the suite before refreshing the baseline."
+}
+
+$pct = [math]::Round($r.CodeCoverage.CoveragePercent, 1)
+$json = ConvertTo-CoverageBaselineJson `
+    -CoveragePercentTarget $CoveragePercentTarget `
+    -MinTestFiles $r.Containers.Count `
+    -MinTotalTests $r.TotalCount
+
+if ($DryRun) {
+    Write-Host '--- coverage-baseline.json (dry run) ---'
+    Write-Host $json
+    Write-Host "(observed: $($r.TotalCount) tests across $($r.Containers.Count) files, coverage $pct%)"
+    return
+}
+
+# Write LF + UTF-8 (no BOM) + a single trailing newline regardless of host OS —
+# same byte-clean discipline as packages.lock.json (B4), so the committed
+# baseline passes the repo's LF .editorconfig gate on every platform.
+$json = ($json -replace "`r`n", "`n").TrimEnd("`n") + "`n"
+[System.IO.File]::WriteAllText($baselinePath, $json, [System.Text.UTF8Encoding]::new($false))
+Write-Host "Wrote $baselinePath  (floors: $($r.Containers.Count) files / $($r.TotalCount) tests, target $CoveragePercentTarget%; observed coverage $pct%)"

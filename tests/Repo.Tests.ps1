@@ -148,3 +148,30 @@ Describe 'dev-dependency pins match CI' {
         $script:Ci | Should -Match ([regex]::Escape("PSSA_VERSION: `"$v`""))
     }
 }
+
+Describe 'coverage gate is baseline-driven (B5)' {
+    BeforeAll {
+        $RepoRoot = Split-Path -Parent $PSScriptRoot
+        . (Join-Path $RepoRoot 'tests/CoverageGate.ps1')
+        $script:Ci = Get-Content (Join-Path $RepoRoot '.github/workflows/ci.yml') -Raw
+        $script:Baseline = Read-CoverageBaseline (Get-Content (Join-Path $RepoRoot 'tests/coverage-baseline.json') -Raw)
+    }
+    It 'ships a parseable, checked-in baseline' {
+        $script:Baseline.MinTestFiles  | Should -BeGreaterThan 0
+        $script:Baseline.MinTotalTests | Should -BeGreaterThan 0
+    }
+    It 'CI reads the baseline through the pure gate (not hand-edited literals)' {
+        $script:Ci | Should -Match 'Read-CoverageBaseline'
+        $script:Ci | Should -Match 'Get-CoverageGateResult'
+        # The old magic-number floors must not creep back in.
+        $script:Ci | Should -Not -Match '\$minTotal\s*='
+        $script:Ci | Should -Not -Match '\$minFiles\s*='
+    }
+    It 'the live suite clears its own baseline floors' {
+        # The floors must be satisfiable: the actual file count discovered here is
+        # at or above the committed minTestFiles (a fast sanity check that the seed
+        # floor was not set above reality).
+        $files = (Get-ChildItem -Path (Split-Path -Parent $PSScriptRoot) -Filter '*.Tests.ps1' -File).Count
+        $files | Should -BeGreaterOrEqual $script:Baseline.MinTestFiles
+    }
+}
