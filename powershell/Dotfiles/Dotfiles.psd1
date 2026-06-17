@@ -19,6 +19,8 @@
         'Write-DotWarn'
         'Get-DotGlyph'
         'Test-DotColor'
+        'Test-DotTrueColor'
+        'Get-DotAnsiSgr'
         'Test-DotUnicode'
         'Get-DotConsoleWidth'
         'Format-DotWrap'

@@ -356,6 +356,46 @@ function Test-DotUnicode {
     return ($Ascii -ne '1')
 }
 
+# --- Test-DotTrueColor / Get-DotAnsiSgr (U6) ----------------------------------
+# 16-colour ConsoleColor can't hit the Tokyo Night accents the rest of the setup
+# uses. When the terminal advertises 24-bit colour (COLORTERM=truecolor|24bit) AND
+# stdout is a live console (not redirected), the renderers emit raw 24-bit ANSI for
+# accents; everywhere else they fall back to ConsoleColor. The redirection guard
+# (same one Invoke-DotSpinner uses) keeps ANSI escapes out of captured/transcript/CI
+# streams. Test-DotTrueColor is pure given its params, so it's unit-tested.
+function Test-DotTrueColor {
+    [OutputType([bool])]
+    param([string]$ColorTerm = $env:COLORTERM, [Nullable[bool]]$Redirected = $null)
+    if ($ColorTerm -notin @('truecolor', '24bit')) { return $false }
+    if ($null -eq $Redirected) { try { $Redirected = [Console]::IsOutputRedirected } catch { $Redirected = $false } }
+    return (-not $Redirected)
+}
+
+# The 24-bit SGR escape for a Tokyo Night accent, keyed by the SAME ConsoleColor
+# names the renderers already pass — so a truecolor terminal gets the exact palette
+# and every other surface falls back. Returns '' when truecolor is off or the name
+# isn't in the palette, which is the caller's signal to use ConsoleColor instead.
+# Pure given -TrueColor, so it's unit-tested.
+function Get-DotAnsiSgr {
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory)][string]$Color,
+        [ValidateSet('fg', 'bg')][string]$Layer = 'fg',
+        [bool]$TrueColor = (Test-DotTrueColor)
+    )
+    if (-not $TrueColor) { return '' }
+    $palette = @{
+        Red  = '247;118;142'; Green   = '158;206;106'; Yellow     = '224;175;104'
+        Blue = '122;162;247'; Magenta = '187;154;247'; Cyan       = '125;207;255'
+        Gray = '169;177;214'; White   = '192;202;245'; Black      = '26;27;38'
+        DarkGray = '86;95;137'; DarkYellow = '255;158;100'
+    }
+    $rgb = $palette[$Color]
+    if (-not $rgb) { return '' }
+    $code = if ($Layer -eq 'bg') { '48' } else { '38' }
+    return ("$([char]27)[$code;2;${rgb}m")
+}
+
 # Status/decoration glyphs, resolved once here so every renderer agrees and the
 # ASCII fallback is in exactly one place.
 function Get-DotGlyph {
@@ -376,10 +416,19 @@ function Write-DotHost {
         [string]$Color,
         [switch]$NoNewline
     )
-    if ($Color -and (Test-DotColor)) {
-        Write-Host $Text -ForegroundColor $Color -NoNewline:$NoNewline
-    } else {
+    if (-not $Color -or -not (Test-DotColor)) {
         Write-Host $Text -NoNewline:$NoNewline
+        return
+    }
+    # Truecolor terminals get the exact Tokyo Night accent via raw 24-bit ANSI;
+    # everyone else (and any redirected/CI stream) falls back to the 16-colour
+    # console. Get-DotAnsiSgr returns '' unless truecolor is live, so this is a
+    # transparent upgrade — no call site changes.
+    $sgr = Get-DotAnsiSgr -Color $Color
+    if ($sgr) {
+        Write-Host ($sgr + $Text + "$([char]27)[0m") -NoNewline:$NoNewline
+    } else {
+        Write-Host $Text -ForegroundColor $Color -NoNewline:$NoNewline
     }
 }
 
@@ -398,8 +447,23 @@ function Write-DotBanner {
         [string]$SubtitleColor = 'Cyan'
     )
     if (Test-DotColor) {
-        Write-Host " $Text " -ForegroundColor $Foreground -BackgroundColor $Background -NoNewline:([bool]$Subtitle)
-        if ($Subtitle) { Write-Host "  $Subtitle" -ForegroundColor $SubtitleColor }
+        # The chip is all-or-nothing: truecolor only when BOTH its bg and fg are in
+        # the palette, else the whole chip uses the 16-colour inverse (you can't
+        # cleanly mix a truecolor bg with a ConsoleColor fg — the ANSI reset would
+        # clobber it). The subtitle is independent and falls back on its own.
+        $reset = "$([char]27)[0m"
+        $bg = Get-DotAnsiSgr -Color $Background -Layer bg
+        $fg = Get-DotAnsiSgr -Color $Foreground -Layer fg
+        if ($bg -and $fg) {
+            Write-Host ($bg + $fg + " $Text " + $reset) -NoNewline:([bool]$Subtitle)
+        } else {
+            Write-Host " $Text " -ForegroundColor $Foreground -BackgroundColor $Background -NoNewline:([bool]$Subtitle)
+        }
+        if ($Subtitle) {
+            $sfg = Get-DotAnsiSgr -Color $SubtitleColor
+            if ($sfg) { Write-Host ($sfg + "  $Subtitle" + $reset) }   # SGR first, so the spacing is coloured like the text
+            else { Write-Host "  $Subtitle" -ForegroundColor $SubtitleColor }
+        }
     } elseif ($Subtitle) {
         Write-Host "== $Text :: $Subtitle =="
     } else {

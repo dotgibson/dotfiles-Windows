@@ -37,6 +37,7 @@ Describe 'Dotfiles module exports' {
         foreach ($fn in @(
             'Write-DotHost', 'Write-DotErr', 'Write-DotOk', 'Write-DotWarn',
             'Write-DotBanner', 'Write-DotRule', 'Get-DotGlyph', 'Test-DotColor',
+            'Test-DotTrueColor', 'Get-DotAnsiSgr',
             'Test-DotUnicode', 'Get-DotConsoleWidth', 'Format-DotWrap',
             'Read-DotConfirm', 'Get-DotConfirmAnswer', 'Read-DotInput', 'Get-DotInputResult',
             'Test-DotGum', 'Test-DotEmailish',
