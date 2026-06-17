@@ -45,6 +45,37 @@ takes (no `install.ps1` change needed).
 Requires **PowerShell 7** (`pwsh`) and **Developer Mode** enabled (or run
 elevated) so symlinks work.
 
+### One-liner (bootstrap)
+
+From a fresh box, `bootstrap.ps1` clones the repo and runs the installer for you
+(it needs `git` and `pwsh` 7+):
+
+```powershell
+irm https://raw.githubusercontent.com/Gerrrt/dotfiles-Windows/main/bootstrap.ps1 | iex
+```
+
+Knobs (all optional env vars): `DOTFILES_DIR` (clone location), `DOTFILES_REF`
+(pin a commit/tag for a reproducible setup), `DOTFILES_REPO` (your fork's URL),
+`DOTFILES_BOOTSTRAP_ARGS` (extra `install.ps1` args, e.g. `'-SkipPackages'`).
+
+**Integrity-gated** — verify the script against the pinned hash before running it
+(piping straight to `iex` trusts whatever the URL serves):
+
+```powershell
+$b = irm https://raw.githubusercontent.com/Gerrrt/dotfiles-Windows/main/bootstrap.ps1
+$h = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData(
+        [Text.Encoding]::UTF8.GetBytes(($b -replace "`r`n","`n")))).ToLower()
+if ($h -eq '7082698b8cf7d7d6b4203d5bacc6335ce26c5b21a4949af01d95c52de4bdd772') { $b | iex }
+else { Write-Error "bootstrap.ps1 hash mismatch: $h" }
+```
+
+bootstrap.ps1 never pipes a further network script into `iex` itself: it clones
+over git (pin `DOTFILES_REF` for an exact, content-addressed checkout) and hands
+off to `install.ps1`, where scoop's installer stays behind the existing
+`DOTFILES_SCOOP_SHA256` gate. <!-- bootstrap.ps1 SHA-256 (LF-normalized): 7082698b8cf7d7d6b4203d5bacc6335ce26c5b21a4949af01d95c52de4bdd772 -->
+
+### Manual
+
 ```powershell
 git clone <your-remote>/dotfiles-Windows.git
 cd dotfiles-Windows
