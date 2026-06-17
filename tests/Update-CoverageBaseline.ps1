@@ -72,8 +72,9 @@ if ($env:PESTER_VERSION) {
     Import-Module Pester -ErrorAction Stop
 }
 $repoRoot = Split-Path -Parent $here
+$testPath = Join-Path $repoRoot 'tests'
 $cfg = New-PesterConfiguration
-$cfg.Run.Path = (Join-Path $repoRoot 'tests')
+$cfg.Run.Path = $testPath
 $cfg.Run.PassThru = $true
 $cfg.Output.Verbosity = 'None'
 $cfg.CodeCoverage.Enabled = $true
@@ -86,11 +87,26 @@ $cfg.CodeCoverage.Path = @(
 )
 $r = Invoke-Pester -Configuration $cfg
 
+# Refuse to write a baseline CI would reject — a generator that ratchets the
+# floor down from a PARTIAL discovery (a test file that failed to load shows up
+# as fewer containers) or writes a target the suite doesn't actually meet is
+# worse than no refresh. Validate the same things ci.yml gates on, first:
 if ($r.FailedCount -gt 0) {
     throw "$($r.FailedCount) test(s) failed — fix the suite before refreshing the baseline."
 }
-
+# (1) Pester discovered EXACTLY the on-disk *.Tests.ps1 set (mirrors the CI
+#     auto-derive). A mismatch means a suite didn't load — its tests would be
+#     missing from the captured floor.
+$expectedFiles = @(Get-ChildItem $testPath -Recurse -File -Filter *.Tests.ps1 -ErrorAction Stop).Count
+if ($r.Containers.Count -ne $expectedFiles) {
+    throw "Pester discovered $($r.Containers.Count) test file(s) but tests/ has $expectedFiles *.Tests.ps1 — a suite failed to load; refusing to capture a partial baseline."
+}
+# (2) Observed coverage actually clears the target we're about to record, so the
+#     freshly written baseline can't immediately fail CI.
 $pct = [math]::Round($r.CodeCoverage.CoveragePercent, 1)
+if ($pct -lt $CoveragePercentTarget) {
+    throw "Observed coverage $pct% is below the target $CoveragePercentTarget% — refusing to write a baseline that would immediately fail CI. Raise coverage or pass a lower -CoveragePercentTarget."
+}
 $json = ConvertTo-CoverageBaselineJson `
     -CoveragePercentTarget $CoveragePercentTarget `
     -MinTotalTests $r.TotalCount

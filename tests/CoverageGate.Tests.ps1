@@ -57,6 +57,15 @@ Describe 'Get-CoverageGateResult' {
         $r.Passed | Should -BeFalse
         ($r.Failures -join "`n") | Should -BeLike '*80.4% is below the 85*'
     }
+    It 'compares the DISPLAYED (rounded) coverage, so message and decision agree' {
+        # 84.96 rounds to 85.0 — it must PASS an 85 target, never print the
+        # self-contradictory "85.0% is below 85%".
+        (Get-CoverageGateResult -CoveragePercent 84.96 -TotalCount 200 -FileCount 18 -ExpectedFileCount 18 -Baseline $script:BL).Passed | Should -BeTrue
+        # 84.94 rounds to 84.9 — fails, and the message shows that same value.
+        $r = Get-CoverageGateResult -CoveragePercent 84.94 -TotalCount 200 -FileCount 18 -ExpectedFileCount 18 -Baseline $script:BL
+        $r.Passed | Should -BeFalse
+        ($r.Failures -join "`n") | Should -BeLike '*84.9% is below the 85*'
+    }
     It 'fails when Pester ran FEWER files than the glob (a suite failed to load)' {
         $r = Get-CoverageGateResult -CoveragePercent 92 -TotalCount 200 -FileCount 17 -ExpectedFileCount 18 -Baseline $script:BL
         $r.Passed | Should -BeFalse

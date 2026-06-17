@@ -76,12 +76,16 @@ function Get-CoverageGateResult {
         [int]$FailedCount = 0
     )
     $failures = [System.Collections.Generic.List[string]]::new()
+    # Compare the SAME rounded value we display, so the decision and the message
+    # can never contradict (an unrounded 84.96 vs an 85 target would otherwise
+    # print "85.0% is below 85%"). The sub-0.1% slack this grants is immaterial
+    # for a coverage bar and buys an honest message.
     $pct = [math]::Round($CoveragePercent, 1)
 
     if ($FailedCount -gt 0) {
         $failures.Add("$FailedCount test(s) failed.")
     }
-    if ($CoveragePercent -lt $Baseline.CoveragePercentTarget) {
+    if ($pct -lt $Baseline.CoveragePercentTarget) {
         $failures.Add("Coverage $pct% is below the $($Baseline.CoveragePercentTarget)% target for the pure-helper surface.")
     }
     if ($FileCount -ne $ExpectedFileCount) {
