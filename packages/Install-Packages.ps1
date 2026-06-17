@@ -15,6 +15,11 @@
 param(
     [switch]$SkipWinget,
     [switch]$SkipScoop,
+    # Reproducible install: pin every app to the exact version in packages.lock.json
+    # instead of letting scoop/winget float to latest. Requires the lockfile (run
+    # Update-PackageLock.ps1 on a working box to produce it). A managed app with no
+    # lock entry is skipped, not floated — frozen means frozen. (B4)
+    [switch]$Frozen,
     [switch]$Help
 )
 
@@ -25,17 +30,19 @@ function Get-PackagesUsage {
         'Install-Packages.ps1 - install the host toolchain from the manifests'
         ''
         'USAGE'
-        '  .\packages\Install-Packages.ps1 [-SkipScoop] [-SkipWinget] [-Help]'
+        '  .\packages\Install-Packages.ps1 [-SkipScoop] [-SkipWinget] [-Frozen] [-Help]'
         ''
         'OPTIONS'
         '  -SkipScoop    Skip the scoop bucket/app install pass.'
         '  -SkipWinget   Skip the winget package install pass.'
+        '  -Frozen       Install exact versions from packages.lock.json (reproducible).'
         '  -Help         Show this help and exit.'
         ''
         'NOTES'
         '  Resilient: a package that fails is logged and skipped, never halting the'
         '  batch. Re-run to retry — already-installed items are detected and skipped.'
         '  PowerShell modules always install to a local (off-OneDrive) modules dir.'
+        '  -Frozen needs packages.lock.json (generate it with Update-PackageLock.ps1).'
     )
 }
 
@@ -45,6 +52,8 @@ $ErrorActionPreference = 'Continue'
 $here   = Split-Path -Parent $MyInvocation.MyCommand.Path
 $failed = [System.Collections.Generic.List[string]]::new()
 . (Join-Path $here 'modules.ps1')
+# Pure lockfile helpers (Read-PackageLock / Get-LockedVersion) for -Frozen. (B4)
+. (Join-Path $here 'PackageLock.ps1')
 
 # Shared rendering helpers (Write-DotWarn / Write-DotHost / glyphs). Dot-sourced
 # so a standalone run gets the same NO_COLOR-aware layout as install.ps1.
@@ -57,6 +66,8 @@ if (Test-Path $lib) { . $lib }
 if (-not (Get-Command Write-DotHost -ErrorAction SilentlyContinue)) {
     function Write-DotHost { param([Parameter(Position = 0)][string]$Text = '', [string]$Color, [switch]$NoNewline) Write-Host $Text -NoNewline:$NoNewline }
     function Write-DotWarn { param([Parameter(Mandatory)][string]$Message, [string]$Hint) Write-Warning $Message; if ($Hint) { Write-Warning "  $Hint" } }
+    function Write-DotErr  { param([Parameter(Mandatory)][string]$Message, [string]$Hint) Write-Error $Message; if ($Hint) { Write-Warning "  $Hint" } }
+    function Write-DotOk   { param([Parameter(Mandatory)][string]$Message) Write-Host $Message }
 }
 
 # Tiny progress line: "  [n/total] -> name" so a long, silent install doesn't look
@@ -99,6 +110,24 @@ function ConvertTo-DotWingetSpec {
 
 # Library-only hook for the test suite: expose the helpers without installing.
 if ($env:DOTFILES_PKG_LIBONLY -eq '1') { return }
+
+# --- resolve the lockfile (B4) ------------------------------------------------
+# Always loaded (empty maps when absent) so the loops can branch on -Frozen
+# uniformly. -Frozen without a lock is a hard stop: floating "latest" would defeat
+# the whole point, so we refuse rather than silently un-freeze.
+$script:PkgLockPath = Join-Path $here 'packages.lock.json'
+$script:PkgLock = if (Test-Path $script:PkgLockPath) {
+    Read-PackageLock (Get-Content $script:PkgLockPath -Raw)
+} else {
+    Read-PackageLock ''
+}
+if ($Frozen) {
+    if (-not (Test-Path $script:PkgLockPath)) {
+        Write-DotErr '-Frozen needs packages.lock.json, which is missing.' 'generate it on a working box: .\packages\Update-PackageLock.ps1'
+        return
+    }
+    Write-DotHost 'Frozen install: pinning every app to packages.lock.json.' -Color Cyan
+}
 
 # Wrap the whole batch so a Ctrl-C mid-install still prints the skipped/failed
 # summary (U2) instead of vanishing — you can see exactly how far it got.
@@ -153,7 +182,18 @@ if (-not $SkipScoop) {
             Write-Host "  [$i/$($apps.Count)] = $name (already installed)" -ForegroundColor DarkGray
             continue
         }
-        $token = Get-ScoopInstallToken $app   # Name, or Name@Version when pinned
+        if ($Frozen) {
+            # Frozen: the lock is authoritative. A managed app with no lock entry is
+            # skipped (not floated) so the run stays reproducible end to end.
+            $lockVer = Get-LockedVersion -Map $script:PkgLock.Scoop -Name $name
+            if (-not $lockVer) {
+                Write-DotWarn "scoop:$name has no lock entry — skipping under -Frozen" 'install it, then re-run Update-PackageLock.ps1'
+                $failed.Add("scoop-unlocked:$name"); continue
+            }
+            $token = "$name@$lockVer"
+        } else {
+            $token = Get-ScoopInstallToken $app   # Name, or Name@Version when pinned
+        }
         $sw = Write-PkgStep -N $i -Total $apps.Count -Name $token
         scoop install $token
         $sw.Stop()
@@ -201,6 +241,16 @@ if (-not $SkipWinget) {
             $j++
             $spec = ConvertTo-DotWingetSpec $entry   # { Id; Version (optional) }
             $id = $spec.Id
+            if ($Frozen) {
+                # Frozen: override any floating/inline spec with the locked version;
+                # skip (don't float) when this id isn't locked.
+                $lockVer = Get-LockedVersion -Map $script:PkgLock.Winget -Name $id
+                if (-not $lockVer) {
+                    Write-DotWarn "winget:$id has no lock entry — skipping under -Frozen" 'install it, then re-run Update-PackageLock.ps1'
+                    $failed.Add("winget-unlocked:$id"); continue
+                }
+                $spec = [pscustomobject]@{ Id = $id; Version = $lockVer }
+            }
             $label = if ($spec.Version) { "$id @$($spec.Version)" } else { $id }
             # Already installed? Prefer the exported set (-contains is
             # case-insensitive); fall back to a per-id query when export failed.
