@@ -148,3 +148,27 @@ Describe 'dev-dependency pins match CI' {
         $script:Ci | Should -Match ([regex]::Escape("PSSA_VERSION: `"$v`""))
     }
 }
+
+Describe 'coverage gate is baseline-driven (B5)' {
+    BeforeAll {
+        $RepoRoot = Split-Path -Parent $PSScriptRoot
+        . (Join-Path $RepoRoot 'tests/CoverageGate.ps1')
+        $script:Ci = Get-Content (Join-Path $RepoRoot '.github/workflows/ci.yml') -Raw
+        $script:Baseline = Read-CoverageBaseline (Get-Content (Join-Path $RepoRoot 'tests/coverage-baseline.json') -Raw)
+    }
+    It 'ships a parseable, checked-in baseline (coverage bar + test-case floor)' {
+        $script:Baseline.MinTotalTests | Should -BeGreaterThan 0
+        $script:Baseline.CoveragePercentTarget | Should -BeGreaterThan 0
+    }
+    It 'CI reads the baseline through the pure gate (not hand-edited literals)' {
+        $script:Ci | Should -Match 'Read-CoverageBaseline'
+        $script:Ci | Should -Match 'Get-CoverageGateResult'
+        # The old magic-number floors must not creep back in.
+        $script:Ci | Should -Not -Match '\$minTotal\s*='
+        $script:Ci | Should -Not -Match '\$minFiles\s*='
+    }
+    It 'CI auto-derives the test-file count from the glob (not a stored number)' {
+        $script:Ci | Should -Match 'ExpectedFileCount'
+        $script:Ci | Should -Match '-Recurse -File -Filter \*\.Tests\.ps1'
+    }
+}
