@@ -49,6 +49,44 @@ Describe 'ConvertTo-DotWingetSpec' {
     }
 }
 
+Describe 'Get-DotInstallProgress' {
+    It 'reports 0% and an unknown ETA before anything finishes' {
+        $p = Get-DotInstallProgress -Completed 0 -Total 10 -ElapsedSeconds 0
+        $p.Percent | Should -Be 0
+        $p.EtaSeconds | Should -Be -1
+    }
+    It 'extrapolates the ETA from the average pace so far' {
+        # 4 of 20 done in 20s -> 5s/item, 16 left -> 80s.
+        $p = Get-DotInstallProgress -Completed 4 -Total 20 -ElapsedSeconds 20
+        $p.Percent | Should -Be 20
+        $p.EtaSeconds | Should -Be 80
+    }
+    It 'is 100% with a zero ETA once complete' {
+        $p = Get-DotInstallProgress -Completed 20 -Total 20 -ElapsedSeconds 100
+        $p.Percent | Should -Be 100
+        $p.EtaSeconds | Should -Be 0
+    }
+    It 'is inert for a zero/empty total (no divide-by-zero)' {
+        $p = Get-DotInstallProgress -Completed 0 -Total 0 -ElapsedSeconds 5
+        $p.Percent | Should -Be 0
+        $p.EtaSeconds | Should -Be -1
+    }
+}
+
+Describe 'Format-DotDuration' {
+    It 'renders sub-minute durations as seconds' {
+        Format-DotDuration 0  | Should -Be '0s'
+        Format-DotDuration 45 | Should -Be '45s'
+    }
+    It 'renders minute+ durations as MmSSs with zero-padded seconds' {
+        Format-DotDuration 65  | Should -Be '1m05s'
+        Format-DotDuration 600 | Should -Be '10m00s'
+    }
+    It 'renders an unknown (negative) duration as ?' {
+        Format-DotDuration -1 | Should -Be '?'
+    }
+}
+
 Describe 'Get-PackagesUsage' {
     It 'documents every public switch' {
         $u = (Get-PackagesUsage) -join "`n"

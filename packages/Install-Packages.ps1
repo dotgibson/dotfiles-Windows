@@ -235,6 +235,48 @@ function Resolve-DotPackageGroupSelection {
     return $picked
 }
 
+# --- overall install progress + ETA (U2) --------------------------------------
+# The per-item "[n/total]" lines are per-phase; over a multi-minute install
+# there's no single sense of "how far along, how much longer". Get-DotInstallProgress
+# is the pure model — percent complete and an ETA extrapolated from the average
+# pace so far (-1 until at least one item finishes, 0 once done). Format-DotDuration
+# renders seconds as "45s" / "1m05s". Both pure, so they're unit-tested; the
+# Write-Progress bar (below) is the only non-testable I/O.
+function Get-DotInstallProgress {
+    [OutputType([pscustomobject])]
+    param([int]$Completed, [int]$Total, [double]$ElapsedSeconds)
+    if ($Total -le 0) { return [pscustomobject]@{ Percent = 0; EtaSeconds = -1 } }
+    $c = [Math]::Max(0, [Math]::Min($Completed, $Total))
+    $percent = [int][Math]::Round(100.0 * $c / $Total)
+    $eta = -1
+    if ($c -ge $Total) { $eta = 0 }
+    elseif ($c -gt 0 -and $ElapsedSeconds -gt 0) { $eta = [int][Math]::Round(($ElapsedSeconds / $c) * ($Total - $c)) }
+    return [pscustomobject]@{ Percent = $percent; EtaSeconds = $eta }
+}
+
+function Format-DotDuration {
+    [OutputType([string])]
+    param([int]$Seconds)
+    if ($Seconds -lt 0) { return '?' }
+    if ($Seconds -lt 60) { return "${Seconds}s" }
+    return ('{0}m{1:d2}s' -f [Math]::Floor($Seconds / 60), ($Seconds % 60))
+}
+
+# Render the overall determinate bar via Write-Progress. Only a live, colour-capable
+# console gets it — under NO_COLOR/redirected/CI it's skipped and the per-item log
+# lines carry the detail (so transcripts/logs stay clean). Non-testable I/O.
+function Write-DotInstallProgress {
+    param([int]$Completed, [int]$Total, [System.Diagnostics.Stopwatch]$Stopwatch, [switch]$Done)
+    try { if ([Console]::IsOutputRedirected) { return } } catch { }
+    if (-not (Test-DotColor)) { return }
+    if ($Done) { Write-Progress -Activity 'Installing packages' -Completed; return }
+    if ($Total -le 0) { return }
+    $p = Get-DotInstallProgress -Completed $Completed -Total $Total -ElapsedSeconds $Stopwatch.Elapsed.TotalSeconds
+    $status = "$Completed/$Total"
+    if ($p.EtaSeconds -ge 0 -and $Completed -lt $Total) { $status += "  -  ETA $(Format-DotDuration $p.EtaSeconds)" }
+    Write-Progress -Activity 'Installing packages' -Status $status -PercentComplete $p.Percent
+}
+
 # Library-only hook for the test suite: expose the helpers without installing.
 if ($env:DOTFILES_PKG_LIBONLY -eq '1') { return }
 
@@ -263,11 +305,18 @@ if ($Frozen) {
 # $null = "selection unknown" -> Test-DotGroupSelected installs everything (the
 # opt-out default), so any read/parse failure errs toward installing, not skipping.
 $script:DotSelectedGroups = $null
+$script:PkgTotal = 0   # overall item count for the progress bar (U2)
 try {
     $wgSpecs   = @((Get-Content (Join-Path $here 'winget.json')  -Raw | ConvertFrom-Json).packages | ForEach-Object { ConvertTo-DotWingetSpec $_ })
     $scApps    = @((Get-Content (Join-Path $here 'scoopfile.json') -Raw | ConvertFrom-Json).apps)
     $available = Get-DotOptionalGroups (@($wgSpecs) + @($scApps))
     $script:DotSelectedGroups = Resolve-DotPackageGroupSelection -Available $available -NonInteractive ([bool]$NonInteractive) -LocalPs1Path (Join-Path $here '../powershell/local.ps1')
+    # Grand total across the phases that will actually run (every item is counted
+    # once, including ones that turn out already-installed or group-skipped — the
+    # ETA self-corrects as the fast ones fly by).
+    $script:PkgTotal = @($script:MaintModuleNames).Count
+    if (-not $SkipScoop)  { $script:PkgTotal += @($scApps).Count }
+    if (-not $SkipWinget) { $script:PkgTotal += @($wgSpecs).Count }
 } catch {
     Write-DotWarn "couldn't read optional package groups: $_" 'installing every group.'
     $script:DotSelectedGroups = $null   # unknown -> opt-out default (install all)
@@ -276,6 +325,8 @@ try {
 # Wrap the whole batch so a Ctrl-C mid-install still prints the skipped/failed
 # summary (U2) instead of vanishing — you can see exactly how far it got.
 $script:PkgCompleted = $false
+$script:PkgDone = 0                                          # items finished so far (U2)
+$script:PkgSw = [System.Diagnostics.Stopwatch]::StartNew()   # drives the ETA
 try {
 
 # --- scoop --------------------------------------------------------------------
@@ -321,6 +372,7 @@ if (-not $SkipScoop) {
     $i = 0
     foreach ($app in $apps) {
         $i++
+        $script:PkgDone++; Write-DotInstallProgress -Completed $script:PkgDone -Total $script:PkgTotal -Stopwatch $script:PkgSw
         $name = $app.Name
         if (-not (Test-DotGroupSelected -Group "$($app.group)" -Selected $script:DotSelectedGroups)) {
             Write-DotHost "  [$i/$($apps.Count)] - $name (optional group '$($app.group)' — not selected)" -Color DarkGray
@@ -387,6 +439,7 @@ if (-not $SkipWinget) {
         $j = 0
         foreach ($entry in $pkgs) {
             $j++
+            $script:PkgDone++; Write-DotInstallProgress -Completed $script:PkgDone -Total $script:PkgTotal -Stopwatch $script:PkgSw
             $spec = ConvertTo-DotWingetSpec $entry   # { Id; Version; Group (all optional) }
             $id = $spec.Id
             if (-not (Test-DotGroupSelected -Group $spec.Group -Selected $script:DotSelectedGroups)) {
@@ -446,6 +499,7 @@ $mods = @($script:MaintModuleNames)
 $k = 0
 foreach ($m in $mods) {
     $k++
+    $script:PkgDone++; Write-DotInstallProgress -Completed $script:PkgDone -Total $script:PkgTotal -Stopwatch $script:PkgSw
     if (Test-Path (Join-Path $localModules $m)) {
         Write-Host "  [$k/$($mods.Count)] = $m (already local)" -ForegroundColor DarkGray
         continue
@@ -474,6 +528,7 @@ $script:PkgCompleted = $true
 
 } finally {
     # --- summary (prints on completion AND on Ctrl-C) -------------------------
+    Write-DotInstallProgress -Done   # clear the progress bar (runs on completion AND Ctrl-C)
     Write-Host ''
     if (-not $script:PkgCompleted) {
         Write-DotWarn 'Package install interrupted — partial state below.' 'Re-run to resume (already-installed items are skipped).'
