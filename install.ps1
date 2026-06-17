@@ -33,7 +33,7 @@ $RepoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 # Reuse the fleet's shared rendering helpers (Write-DotErr / Write-DotWarn /
 # Get-DotGlyph / NO_COLOR-aware Write-DotHost). 05-lib is pure and side-effect-free
 # on load, so the bootstrap and the daily profile share ONE error/colour layout.
-$LibPath = Join-Path $RepoRoot 'powershell\core\05-lib.ps1'
+$LibPath = Join-Path $RepoRoot 'powershell/core/05-lib.ps1'
 if (Test-Path $LibPath) { . $LibPath }
 
 # --- usage banner (pure: returns the lines, so -Help and the test agree) -------
@@ -232,7 +232,7 @@ if ($script:DryRun) {
 $script:Transcribing = $false
 if (-not $script:DryRun -and $env:LOCALAPPDATA) {
     try {
-        $logDir = Join-Path $env:LOCALAPPDATA 'dotfiles\logs'
+        $logDir = Join-Path $env:LOCALAPPDATA 'dotfiles/logs'
         New-Item -ItemType Directory -Force -Path $logDir | Out-Null
         # Retention: prune all but the newest 10 install logs so they don't pile up
         # unbounded across re-runs (B8).
@@ -314,7 +314,7 @@ if (-not $SkipPackages) {
     if ($script:DryRun) {
         Write-DotHost '  would install scoop + winget + PowerShell-module packages' -Color Cyan
     } else {
-        & (Join-Path $RepoRoot 'packages\Install-Packages.ps1')
+        & (Join-Path $RepoRoot 'packages/Install-Packages.ps1')
     }
 }
 
@@ -346,7 +346,7 @@ foreach ($row in (Get-DotfilesLinkPlan -RepoRoot $RepoRoot)) {
 # (session port/key files, warm session) and where resurrect/continuum write their
 # saves, so everything plugin-related lives under one root. The other @plugins
 # declared in psmux.conf are fetched later by `prefix + I` inside psmux.
-$ppmDir = Join-Path $HOME '.psmux\plugins\ppm'
+$ppmDir = Join-Path $HOME '.psmux/plugins/ppm'
 if (-not (Test-Path $ppmDir)) {
     if ($script:DryRun) {
         Write-DotHost "  would clone psmux-plugins and install ppm -> $ppmDir" -Color Cyan
@@ -394,16 +394,16 @@ if (Test-Path $wslCfg) {
 } elseif ($script:DryRun) {
     Write-DotHost "  would seed $wslCfg from wsl\windows.wslconfig.example" -Color Cyan
 } else {
-    Copy-Item (Join-Path $RepoRoot 'wsl\windows.wslconfig.example') $wslCfg
+    Copy-Item (Join-Path $RepoRoot 'wsl/windows.wslconfig.example') $wslCfg
     Write-DotHost "  seeded  $wslCfg  (review it, then run: wsl --shutdown)" -Color Green
 }
 
 # --- 5. seed local override + gitconfig.local ---------------------------------
 Write-Step 'Seeding local overrides'
-$localPs = Join-Path $RepoRoot 'powershell\local.ps1'
+$localPs = Join-Path $RepoRoot 'powershell/local.ps1'
 if (-not (Test-Path $localPs)) {
     if ($script:DryRun) { Write-DotHost "  would seed $localPs from local.ps1.example" -Color Cyan }
-    else { Copy-Item (Join-Path $RepoRoot 'powershell\local.ps1.example') $localPs }
+    else { Copy-Item (Join-Path $RepoRoot 'powershell/local.ps1.example') $localPs }
 }
 
 # Zero-config onboarding (U9): instead of seeding a placeholder the user must
