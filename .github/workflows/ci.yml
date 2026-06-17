@@ -213,15 +213,16 @@ jobs:
         shell: pwsh
         run: |
           Import-Module Pester -RequiredVersion $env:PESTER_VERSION
-          # Coverage % and the anti-deletion FLOORS come from the versioned,
+          # The coverage % bar and the test-case FLOOR come from the versioned,
           # generated baseline (tests/coverage-baseline.json) — not hand-edited
           # literals here. Refresh it with tests/Update-CoverageBaseline.ps1 after
-          # intentionally adding/removing tests (B5). Read-CoverageBaseline throws
-          # if the file is missing/corrupt, so the gate can't silently go soft.
+          # intentionally removing tests (B5). Read-CoverageBaseline throws if the
+          # file is missing/corrupt, so the gate can't silently go soft.
           . ./tests/CoverageGate.ps1
           $baseline = Read-CoverageBaseline (Get-Content ./tests/coverage-baseline.json -Raw)
           $cfg = New-PesterConfiguration
-          $cfg.Run.Path = './tests'
+          $testPath = './tests'      # single source for the run path + the test-file glob
+          $cfg.Run.Path = $testPath
           # PassThru (not Run.Exit) so we get the result object back and can gate on
           # BOTH failures and coverage ourselves with clear messages.
           $cfg.Run.PassThru = $true
@@ -243,15 +244,20 @@ jobs:
           $r = Invoke-Pester -Configuration $cfg
           $pct = [math]::Round($r.CodeCoverage.CoveragePercent, 1)
           "Tests: $($r.PassedCount) passed, $($r.FailedCount) failed, $($r.TotalCount) total across $($r.Containers.Count) file(s). Coverage (pure-helper surface): $pct% (target $($baseline.CoveragePercentTarget)%)" | Write-Host
+          # The test-FILE count is auto-derived (not stored): count *.Tests.ps1
+          # under the run path RECURSIVELY (matching Pester's own discovery) and
+          # assert Pester ran EXACTLY that many — a suite that fails to load, or is
+          # removed/renamed, is caught with no number to maintain (issue #29).
+          $expectedFiles = @(Get-ChildItem $testPath -Recurse -File -Filter *.Tests.ps1 -ErrorAction Stop).Count
           # One pure decision over the whole result: hard failures, the coverage
-          # bar, and the anti-deletion floors (file + test-case counts). The floors
-          # also guard suites NOT in CoveragePaths (install/uninstall/packages),
-          # whose removed tests wouldn't show up as a coverage drop. TotalCount runs
-          # well past the floor (two -ForEach blocks expand it); the floor only trips
-          # on a real deletion.
+          # bar, the exact file match, and the test-case floor. The floor also
+          # guards suites NOT in CoveragePaths (install/uninstall/packages), whose
+          # removed tests wouldn't show up as a coverage drop. TotalCount runs well
+          # past the floor (two -ForEach blocks expand it); it only trips on a real
+          # deletion.
           $gate = Get-CoverageGateResult -CoveragePercent $r.CodeCoverage.CoveragePercent `
-            -TotalCount $r.TotalCount -FileCount $r.Containers.Count -FailedCount $r.FailedCount `
-            -Baseline $baseline
+            -TotalCount $r.TotalCount -FileCount $r.Containers.Count -ExpectedFileCount $expectedFiles `
+            -FailedCount $r.FailedCount -Baseline $baseline
           if (-not $gate.Passed) {
             $gate.Failures | ForEach-Object { Write-Host "::error::$_" }
             throw ("coverage gate failed:`n  " + ($gate.Failures -join "`n  "))

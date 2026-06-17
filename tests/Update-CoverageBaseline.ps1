@@ -6,15 +6,18 @@
 #      .\tests\Update-CoverageBaseline.ps1 -CoveragePercentTarget 90
 #
 #  Runs the SAME Pester configuration ci.yml gates on, captures the resulting
-#  test-file count and test-case count as the anti-deletion FLOORS, and records
-#  the coverage target. Commit the resulting coverage-baseline.json — it is the
-#  versioned source of truth for the gate (replacing the literals that used to
-#  live in ci.yml). Re-run it whenever you intentionally add or remove tests.
+#  test-case count as the anti-deletion FLOOR, and records the coverage target.
+#  Commit the resulting coverage-baseline.json — it is the versioned source of
+#  truth for those two numbers (replacing the literals that used to live in
+#  ci.yml). Re-run it whenever you intentionally remove tests.
 #
-#  The coverage % target is a deliberate quality BAR, not an auto-ratcheted
-#  floor: it is preserved across runs (or overridden with -CoveragePercentTarget)
-#  so a one-line refactor that nudges coverage can't silently raise the bar and
-#  break the next build. Only the file/test FLOORS track the real suite.
+#  The test-FILE count is NOT recorded here: CI auto-derives it from the
+#  tests/**/*.Tests.ps1 glob and asserts an exact match (issue #29), so there is
+#  no file number to maintain. The coverage % target is a deliberate quality BAR,
+#  not an auto-ratcheted floor: it is preserved across runs (or overridden with
+#  -CoveragePercentTarget) so a one-line refactor that nudges coverage can't
+#  silently raise the bar and break the next build. Only the test-case FLOOR
+#  tracks the real suite.
 # ============================================================================
 [CmdletBinding()]
 param(
@@ -90,7 +93,6 @@ if ($r.FailedCount -gt 0) {
 $pct = [math]::Round($r.CodeCoverage.CoveragePercent, 1)
 $json = ConvertTo-CoverageBaselineJson `
     -CoveragePercentTarget $CoveragePercentTarget `
-    -MinTestFiles $r.Containers.Count `
     -MinTotalTests $r.TotalCount
 
 if ($DryRun) {
@@ -105,4 +107,4 @@ if ($DryRun) {
 # baseline passes the repo's LF .editorconfig gate on every platform.
 $json = ($json -replace "`r`n", "`n").TrimEnd("`n") + "`n"
 [System.IO.File]::WriteAllText($baselinePath, $json, [System.Text.UTF8Encoding]::new($false))
-Write-Host "Wrote $baselinePath  (floors: $($r.Containers.Count) files / $($r.TotalCount) tests, target $CoveragePercentTarget%; observed coverage $pct%)"
+Write-Host "Wrote $baselinePath  (test-case floor: $($r.TotalCount), target $CoveragePercentTarget%; observed coverage $pct% across $($r.Containers.Count) files — file count is auto-derived in CI)"

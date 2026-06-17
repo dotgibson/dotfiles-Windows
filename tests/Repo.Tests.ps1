@@ -156,9 +156,9 @@ Describe 'coverage gate is baseline-driven (B5)' {
         $script:Ci = Get-Content (Join-Path $RepoRoot '.github/workflows/ci.yml') -Raw
         $script:Baseline = Read-CoverageBaseline (Get-Content (Join-Path $RepoRoot 'tests/coverage-baseline.json') -Raw)
     }
-    It 'ships a parseable, checked-in baseline' {
-        $script:Baseline.MinTestFiles  | Should -BeGreaterThan 0
+    It 'ships a parseable, checked-in baseline (coverage bar + test-case floor)' {
         $script:Baseline.MinTotalTests | Should -BeGreaterThan 0
+        $script:Baseline.CoveragePercentTarget | Should -BeGreaterThan 0
     }
     It 'CI reads the baseline through the pure gate (not hand-edited literals)' {
         $script:Ci | Should -Match 'Read-CoverageBaseline'
@@ -167,11 +167,8 @@ Describe 'coverage gate is baseline-driven (B5)' {
         $script:Ci | Should -Not -Match '\$minTotal\s*='
         $script:Ci | Should -Not -Match '\$minFiles\s*='
     }
-    It 'the live suite clears its own baseline floors' {
-        # The floors must be satisfiable: the actual file count discovered here is
-        # at or above the committed minTestFiles (a fast sanity check that the seed
-        # floor was not set above reality).
-        $files = (Get-ChildItem -Path (Split-Path -Parent $PSScriptRoot) -Filter '*.Tests.ps1' -File).Count
-        $files | Should -BeGreaterOrEqual $script:Baseline.MinTestFiles
+    It 'CI auto-derives the test-file count from the glob (not a stored number)' {
+        $script:Ci | Should -Match 'ExpectedFileCount'
+        $script:Ci | Should -Match '-Recurse -File -Filter \*\.Tests\.ps1'
     }
 }
