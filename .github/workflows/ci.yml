@@ -214,7 +214,8 @@ jobs:
         run: |
           Import-Module Pester -RequiredVersion $env:PESTER_VERSION
           $cfg = New-PesterConfiguration
-          $cfg.Run.Path = './tests'
+          $testPath = './tests'                # single source for the run path + the minFiles glob (B5)
+          $cfg.Run.Path = $testPath
           # PassThru (not Run.Exit) so we get the result object back and can gate on
           # BOTH failures and coverage ourselves with clear messages.
           $cfg.Run.PassThru = $true
@@ -245,13 +246,13 @@ jobs:
           # Anti-deletion gate across ALL suites (not just the covered files): the
           # pure helpers in install/uninstall/packages are tested but not in
           # CoveragePaths, so a removed test there wouldn't drop coverage.
-          # minFiles is AUTO-DERIVED from the tests/*.Tests.ps1 glob (B5) — Pester
-          # discovers exactly those under Run.Path './tests', so a suite that fails
-          # to load, or gets removed/renamed, is caught EXACTLY with no number to
+          # minFiles is AUTO-DERIVED (B5): count the *.Tests.ps1 files under the run
+          # path RECURSIVELY (matching Pester's own discovery — i.e. tests/**/*.Tests.ps1)
+          # and assert it equals the discovered container count, so a suite that fails
+          # to load — or gets removed/renamed — is caught EXACTLY with no number to
           # hand-maintain. TotalCount stays a documented FLOOR (two -ForEach blocks
-          # expand it past this at run time); bump it only when you intentionally
-          # remove tests.
-          $expectedFiles = @(Get-ChildItem ./tests -Recurse -File -Filter *.Tests.ps1).Count
+          # expand it past this at run time); bump it only when you intentionally remove tests.
+          $expectedFiles = @(Get-ChildItem $testPath -Recurse -File -Filter *.Tests.ps1 -ErrorAction Stop).Count
           if ($r.Containers.Count -ne $expectedFiles) {
             throw "Pester ran $($r.Containers.Count) test file(s) but tests/ has $expectedFiles *.Tests.ps1 — a suite failed to load or wasn't discovered."
           }
