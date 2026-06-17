@@ -7,8 +7,8 @@ each item has a stable ID, an impact, and a status, and PRs reference the ID.
 **Status legend:** ✅ shipped · 🟡 partial · ⬜ open
 
 > Namespace note: these `B#`/`U#` IDs are the **single** ID registry for the
-> repo. `CHANGELOG.md` used to carry its own collide-numbered `B#`/`U#` headings
-> (a separate, earlier pass); those tags were retired (B16) so a reader is never
+> repo. `CHANGELOG.md` used to carry its own `B#`/`U#` headings with colliding
+> numbers (a separate, earlier pass); those tags were retired (B16) so a reader is never
 > tracking two schemes — the changelog is now thematic prose that points here.
 
 ## Backend / boundary architecture
