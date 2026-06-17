@@ -18,7 +18,7 @@
 
 # --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
 # provides: dothelp
-# requires: Get-DotDidYouMean, Get-DotfilesHelpData, Get-DotHelpFilters, Get-DotHelpFlatLines, Get-DotHelpPrimaryVerb, Write-DotBanner, Write-DotErr, Write-DotHost
+# requires: Format-DotWrap, Get-DotConsoleWidth, Get-DotDidYouMean, Get-DotfilesHelpData, Get-DotHelpFilters, Get-DotHelpFlatLines, Get-DotHelpPrimaryVerb, Write-DotBanner, Write-DotErr, Write-DotHost
 
 function global:dothelp {
     [CmdletBinding()]
@@ -88,11 +88,22 @@ function global:dothelp {
         }
         if (-not $rows) { continue }
         Write-DotHost "  $group" -Color Yellow
-        $width = ($rows.Command | Measure-Object -Maximum -Property Length).Maximum
+        $width  = ($rows.Command | Measure-Object -Maximum -Property Length).Maximum
+        # Wrap the description to the console width (U5) so a long entry doesn't run
+        # off a narrow terminal; continuation lines align under the description
+        # column (4-space indent + command column + 3-space gap).
+        $indent = ' ' * (4 + $width + 3)
+        $avail  = Get-DotConsoleWidth
         foreach ($r in $rows) {
             $shown++
-            Write-DotHost ("    {0,-$width}" -f $r.Command) -Color Green -NoNewline
-            Write-DotHost "   $($r.Desc)" -Color Gray
+            Write-DotHost ("    {0,-$width}   " -f $r.Command) -Color Green -NoNewline
+            $desc = @(Format-DotWrap -Text "$($r.Desc)" -Width $avail -Indent $indent)
+            if ($desc.Count) {
+                Write-DotHost ($desc[0].TrimStart()) -Color Gray
+                for ($i = 1; $i -lt $desc.Count; $i++) { Write-DotHost $desc[$i] -Color Gray }
+            } else {
+                Write-Host ''
+            }
         }
         Write-Host ''
     }
