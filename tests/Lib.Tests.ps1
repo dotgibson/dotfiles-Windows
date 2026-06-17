@@ -42,6 +42,35 @@ Describe 'Test-DotUnicode' {
     It 'falls back to ASCII when forced'   { Test-DotUnicode -Ascii '1' | Should -BeFalse }
 }
 
+Describe 'Test-DotTrueColor' {
+    It 'is true for COLORTERM=truecolor / 24bit on a live (non-redirected) console' {
+        Test-DotTrueColor -ColorTerm 'truecolor' -Redirected $false | Should -BeTrue
+        Test-DotTrueColor -ColorTerm '24bit'     -Redirected $false | Should -BeTrue
+    }
+    It 'is false when COLORTERM is unset or not a truecolor value' {
+        Test-DotTrueColor -ColorTerm ''               -Redirected $false | Should -BeFalse
+        Test-DotTrueColor -ColorTerm 'xterm-256color' -Redirected $false | Should -BeFalse
+    }
+    It 'is false when output is redirected (ANSI must not pollute a captured stream)' {
+        Test-DotTrueColor -ColorTerm 'truecolor' -Redirected $true | Should -BeFalse
+    }
+}
+
+Describe 'Get-DotAnsiSgr' {
+    It 'emits a 24-bit foreground SGR for a known accent when truecolor is on' {
+        Get-DotAnsiSgr -Color Cyan -TrueColor $true | Should -Be "$([char]27)[38;2;125;207;255m"
+    }
+    It 'emits a background SGR with -Layer bg' {
+        Get-DotAnsiSgr -Color Cyan -Layer bg -TrueColor $true | Should -Be "$([char]27)[48;2;125;207;255m"
+    }
+    It 'returns empty when truecolor is off (caller falls back to ConsoleColor)' {
+        Get-DotAnsiSgr -Color Cyan -TrueColor $false | Should -Be ''
+    }
+    It 'returns empty for a colour outside the palette' {
+        Get-DotAnsiSgr -Color 'Chartreuse' -TrueColor $true | Should -Be ''
+    }
+}
+
 Describe 'Test-DotGum' {
     It 'is true when gum is present, colour on, interactive, and not opted out' {
         Test-DotGum -NoGum '' -HasGum $true -Color $true -Interactive $true | Should -BeTrue
