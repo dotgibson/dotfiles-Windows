@@ -35,14 +35,37 @@ Describe 'Get-DotfilesHelpData' {
 }
 
 Describe 'Get-DotHelpFlatLines' {
-    It 'emits one tab-delimited command/desc/group line per entry' {
+    It 'emits one "<display>`t<command>" line per entry' {
         $lines = Get-DotHelpFlatLines
         $lines.Count | Should -BeGreaterThan 10
-        foreach ($l in $lines) { ($l -split "`t").Count | Should -Be 3 }
+        foreach ($l in $lines) { ($l -split "`t").Count | Should -Be 2 }
     }
-    It 'includes a known command in the first field' {
-        $cmds = Get-DotHelpFlatLines | ForEach-Object { ($_ -split "`t")[0] }
+    It 'puts the bare command in the last field for clean extraction on pick' {
+        # The picker takes ($picked -split "`t")[-1], so padding/columns in the
+        # display never leak onto the prompt.
+        $cmds = Get-DotHelpFlatLines | ForEach-Object { ($_ -split "`t")[-1] }
         $cmds | Should -Contain 'lg'
+    }
+    It 'shows command, description and [group] together in the display column' {
+        $line = Get-DotHelpFlatLines | Where-Object { ($_ -split "`t")[-1] -eq 'lg' } | Select-Object -First 1
+        $disp = ($line -split "`t")[0]
+        $disp | Should -Match 'lg'
+        $disp | Should -Match 'lazygit'    # description
+        $disp | Should -Match '\[Git\]'    # group tag
+    }
+    It 'keeps cmd.exe metacharacters in a row verbatim (never shell-parsed)' {
+        # Why the picker renders in PowerShell instead of an fzf --preview shell:
+        # the catalog row for mkbak is "mkbak <f>" in group "Listing & files", and
+        # < > & are cmd.exe redirection/separator chars. Build the needles from char
+        # codes so this test's own source carries no metacharacter, and assert on a
+        # single resolved line (same shape as the test above).
+        $amp = [char]38; $lt = [char]60; $gt = [char]62
+        $mkbakCmd = "mkbak ${lt}f${gt}"
+        $line = Get-DotHelpFlatLines | Where-Object { ($_ -split "`t")[-1] -eq $mkbakCmd } | Select-Object -First 1
+        $line | Should -Not -BeNullOrEmpty
+        $disp = ($line -split "`t")[0]
+        $disp.Contains($mkbakCmd)            | Should -BeTrue   # command kept verbatim
+        $disp.Contains("Listing $amp files") | Should -BeTrue   # group kept verbatim
     }
 }
 

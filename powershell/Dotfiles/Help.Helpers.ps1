@@ -103,15 +103,29 @@ function Get-DotHelpFilters {
 }
 
 # --- Get-DotHelpFlatLines -----------------------------------------------------
-# One tab-delimited "command<TAB>description<TAB>group" line per entry, for the
-# interactive (fzf) picker. Pure, so it's unit-tested.
+# One picker-ready line per command for the interactive (fzf) picker, tab-delimited
+# as "<display>`t<command>":
+#   <display> — the human column fzf shows: "command   description   [group]",
+#               the command padded to a common width so the columns line up.
+#   <command> — the bare token the caller extracts on pick (split on TAB, take the
+#               LAST field), so display padding never leaks onto the prompt.
+# The whole row is rendered HERE, in PowerShell, and shown verbatim by fzf — it is
+# never handed to a preview SHELL. That's deliberate: command cells like `mkbak <f>`
+# and group names like `Listing & files` contain cmd.exe metacharacters (`< > &`)
+# that a `--preview 'echo {..}'` would mis-parse (U9). Pure, so it's unit-tested.
 function Get-DotHelpFlatLines {
     $data = Get-DotfilesHelpData
-    $out = [System.Collections.Generic.List[string]]::new()
+    $rows = [System.Collections.Generic.List[object]]::new()
     foreach ($group in $data.Keys) {
         foreach ($row in $data[$group]) {
-            $out.Add(("{0}`t{1}`t{2}" -f $row.Command, $row.Desc, $group))
+            $rows.Add([pscustomobject]@{ Command = $row.Command; Desc = $row.Desc; Group = $group })
         }
+    }
+    $width = ($rows.Command | Measure-Object -Maximum -Property Length).Maximum
+    $out = [System.Collections.Generic.List[string]]::new()
+    foreach ($r in $rows) {
+        $display = '{0}   {1}   [{2}]' -f $r.Command.PadRight($width), $r.Desc, $r.Group
+        $out.Add(("{0}`t{1}" -f $display, $r.Command))
     }
     return $out
 }
