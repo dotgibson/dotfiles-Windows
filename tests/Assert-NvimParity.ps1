@@ -67,6 +67,24 @@ function Get-NvimParityDiff {
     }
 }
 
+# --- Test-DotGitSha -----------------------------------------------------------
+# True only for a hex git SHA (7-40 chars). Gates the UNTRUSTED .core-ref commit
+# before it reaches git, so a malformed/option-like value can't be misread.
+function Test-DotGitSha {
+    param([string]$Value)
+    [bool]($Value -match '^[0-9a-fA-F]{7,40}$')
+}
+
+# --- Resolve-CoreRemote -------------------------------------------------------
+# Pick the clone remote: the .core-ref source ONLY when it's an allowlisted Core
+# remote, else the canonical fallback. Keeps CI's outbound target out of
+# PR-editable content's control.
+function Resolve-CoreRemote {
+    param([string]$Source, [string[]]$Allowed, [string]$Fallback)
+    if ($Source -and ($Allowed -contains $Source)) { return $Source }
+    $Fallback
+}
+
 # Library-only hook: let the test suite import the pure helpers without cloning.
 if ($env:DOTFILES_NVIMPARITY_LIBONLY -eq '1') { return }
 
@@ -86,8 +104,26 @@ if (-not $commit -or $commit -eq 'unknown') {
     Write-Host 'nvim parity: .core-ref has no resolved commit — skipped.'
     exit 0
 }
-# A local-path source can't be re-cloned in CI; fall back to the canonical remote.
-$remote = if ($source -and ($source -match '^(https?://|git@).+')) { $source } else { $CoreRemoteFallback }
+# .core-ref is tracked and PR-editable, so treat its fields as UNTRUSTED input to
+# git/network:
+#   • the commit must look like a real SHA — otherwise a malformed value (or one
+#     starting with '-') could be taken by git as an option/refspec. This is a HARD
+#     fail (exit 2), distinct from the intentional "unknown => skip" above.
+#   • the clone target is restricted to an allowlist of known Core remotes; anything
+#     else falls back to the canonical remote, so a hostile PR can't point CI's
+#     outbound clone at an attacker-controlled URL.
+if (-not (Test-DotGitSha $commit)) {
+    Write-Error "nvim parity: .core-ref commit '$commit' is not a valid git SHA — refusing to use it."
+    exit 2
+}
+$AllowedRemotes = @(
+    'https://github.com/Gerrrt/dotfiles-core.git'
+    'git@github.com:Gerrrt/dotfiles-core.git'
+)
+$remote = Resolve-CoreRemote -Source $source -Allowed $AllowedRemotes -Fallback $CoreRemoteFallback
+if ($source -and ($AllowedRemotes -notcontains $source)) {
+    Write-Host "  note: .core-ref source '$source' is not an allowlisted Core remote — using $CoreRemoteFallback."
+}
 Write-Host "nvim parity: checking nvim/ against $remote @ $commit"
 
 $tmp = Join-Path ([IO.Path]::GetTempPath()) ('core-parity-' + [guid]::NewGuid().ToString('N'))

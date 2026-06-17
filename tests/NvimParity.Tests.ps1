@@ -33,6 +33,36 @@ Describe 'Get-CoreRefField' {
     }
 }
 
+Describe 'Test-DotGitSha' {
+    It 'accepts a short or full hex SHA' {
+        Test-DotGitSha 'abc1234'                                  | Should -BeTrue
+        Test-DotGitSha 'aabbccddeeff00112233445566778899aabbccdd' | Should -BeTrue
+    }
+    It 'rejects non-SHA, option-like, or empty values' {
+        Test-DotGitSha '--upload-pack=evil' | Should -BeFalse
+        Test-DotGitSha 'main'               | Should -BeFalse
+        Test-DotGitSha 'zzzzzzz'            | Should -BeFalse
+        Test-DotGitSha ''                   | Should -BeFalse
+    }
+}
+
+Describe 'Resolve-CoreRemote' {
+    BeforeAll {
+        $script:Allow = @('https://github.com/Gerrrt/dotfiles-core.git')
+        $script:Fallback = 'https://github.com/Gerrrt/dotfiles-core.git'
+    }
+    It 'uses the source when it is allowlisted' {
+        Resolve-CoreRemote -Source 'https://github.com/Gerrrt/dotfiles-core.git' -Allowed $script:Allow -Fallback 'FB' |
+            Should -Be 'https://github.com/Gerrrt/dotfiles-core.git'
+    }
+    It 'falls back for a non-allowlisted (content-controlled) source' {
+        Resolve-CoreRemote -Source 'https://evil.example/x.git' -Allowed $script:Allow -Fallback 'FB' | Should -Be 'FB'
+    }
+    It 'falls back for an empty/local source' {
+        Resolve-CoreRemote -Source '' -Allowed $script:Allow -Fallback 'FB' | Should -Be 'FB'
+    }
+}
+
 Describe 'Get-NvimParityDiff' {
     It 'is in sync for identical maps' {
         $d = Get-NvimParityDiff -Local @{ 'a.lua' = 'H1' } -Core @{ 'a.lua' = 'H1' }
