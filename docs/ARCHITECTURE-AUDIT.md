@@ -6,10 +6,10 @@ each item has a stable ID, an impact, and a status, and PRs reference the ID.
 
 **Status legend:** ✅ shipped · 🟡 partial · ⬜ open
 
-> Namespace note: these `B#`/`U#` IDs are the **audit** namespace. They are
-> distinct from the `B1–B14` / `U1–U11` headings in `CHANGELOG.md`, which track
-> the earlier structural pass. Reconciling the two namespaces is itself a
-> long-tail item (see below).
+> Namespace note: these `B#`/`U#` IDs are the **single** ID registry for the
+> repo. `CHANGELOG.md` used to carry its own collide-numbered `B#`/`U#` headings
+> (a separate, earlier pass); those tags were retired (B16) so a reader is never
+> tracking two schemes — the changelog is now thematic prose that points here.
 
 ## Backend / boundary architecture
 
@@ -30,7 +30,7 @@ each item has a stable ID, an impact, and a status, and PRs reference the ID.
 | B13 | ✅ | `20-functions.ps1` `serve` | `serve` binds **`0.0.0.0`** (every interface) with no auth — **on purpose** per its in-code note (ad-hoc file transfer, in parity with Core's `serve`), advertising the host LAN IP. The concern was only that there's no *localhost-only* escape hatch, so the cwd was always LAN-exposed. | Kept the LAN bind as the default (the feature, and Core parity, are preserved; exposure is already announced by the printed LAN URL) and added an opt-in **`serve -Local`** that binds `127.0.0.1` only and advertises the loopback URL. The bind/URL decision is the pure, unit-tested `Get-DotServePlan` (Dotfiles module export); the fragment keeps the LAN-IP probe + python spawn. | Medium |
 | B14 | ⬜ | `tests/*`, fixtures | Test-suite refinements: shallow assertions in a few suites, duplicated fixture setup, and brittle hand-tuned expectations. (The CI count/coverage floors that used to live here were resolved by B5.) | Deepen the weakest assertions, hoist shared fixtures, and replace remaining magic expectations with derived values. | Low |
 | B15 | ⬜ | `README.md`, `TOOLS.md`, `PORTING-NOTES.md` | Docs drift: the README fragment-layout box lists stale fragment numbers vs. the actual `NN-` files (`25`/`45`/`50`/`55`), and `TOOLS.md` / `PORTING-NOTES.md` have aged against the current toolchain. | Reconcile the layout box against the live fragments and refresh the tool/porting prose; consider a test that diffs the documented fragment list against disk. | Low |
-| B16 | ⬜ | this doc + `CHANGELOG.md` | Namespace collision: the audit's `B#`/`U#` IDs and `CHANGELOG.md`'s separate `B#`/`U#` headings are different schemes with overlapping numbers, so a reader can't tell which `B5` is meant. | Reconcile the two namespaces (rename or cross-reference) so IDs are unambiguous across both docs. | Low |
+| B16 | ✅ | this doc + `CHANGELOG.md` | Namespace collision: the audit's `B#`/`U#` IDs and `CHANGELOG.md`'s separate `B#`/`U#` headings were different schemes with overlapping numbers (CHANGELOG `B5` = `uninstall.ps1`, audit `B5` = the coverage gate), so a reader couldn't tell which `B5` was meant. | Made this doc the single ID registry: retired the `_(B#)_`/`_(U#)_` tags from `CHANGELOG.md` (they were referenced nowhere) and reframed it as thematic prose that points here for IDs/status. The deferred B13 (`serve -Local`) changelog bullet was folded in at the same time. | Low |
 
 ## Terminal UX
 
