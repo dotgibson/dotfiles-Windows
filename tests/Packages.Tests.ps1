@@ -79,9 +79,11 @@ Describe 'ConvertFrom-DotGroupList / ConvertTo-DotGroupList' {
         ConvertFrom-DotGroupList 'GUI sec gui'  | Should -Be @('gui', 'sec')
         ConvertFrom-DotGroupList 'gui,sec'      | Should -Be @('gui', 'sec')
     }
-    It 'treats blank and the "none" marker as an empty selection' {
+    It 'treats blank and the "none" marker (any case) as an empty selection' {
         ConvertFrom-DotGroupList ''     | Should -BeNullOrEmpty
         ConvertFrom-DotGroupList 'none' | Should -BeNullOrEmpty
+        ConvertFrom-DotGroupList 'NONE' | Should -BeNullOrEmpty
+        ConvertFrom-DotGroupList 'None' | Should -BeNullOrEmpty
     }
     It 'formats a selection, emitting "none" when empty' {
         ConvertTo-DotGroupList @('sec', 'gui') | Should -Be 'gui sec'
@@ -102,6 +104,9 @@ Describe 'Test-DotGroupSelected' {
         Test-DotGroupSelected -Group 'gui' -Selected @('gui') | Should -BeTrue
         Test-DotGroupSelected -Group 'gui' -Selected @('sec') | Should -BeFalse
         Test-DotGroupSelected -Group 'gui' -Selected @()      | Should -BeFalse
+    }
+    It 'installs a tagged entry when the selection is unknown ($null = opt-out default)' {
+        Test-DotGroupSelected -Group 'gui' -Selected $null | Should -BeTrue
     }
 }
 

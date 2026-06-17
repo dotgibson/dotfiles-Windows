@@ -48,11 +48,15 @@ Describe 'Package manifests' {
     It 'winget.json is valid JSON with no duplicate ids' {
         $w = (Get-Content (Join-Path $RepoRoot 'packages/winget.json') -Raw | ConvertFrom-Json).packages
         $w | Should -Not -BeNullOrEmpty
-        ($w | Group-Object | Where-Object Count -gt 1) | Should -BeNullOrEmpty
+        # Entries may be a bare id string OR an object { id, version, group } (U3) —
+        # normalize to ids before the duplicate check.
+        $ids = foreach ($e in $w) { if ($e -is [string]) { $e } else { $e.id } }
+        ($ids | Group-Object | Where-Object Count -gt 1) | Should -BeNullOrEmpty
     }
     It 'every winget id is a Publisher.Package form (provenance)' {
         $w = (Get-Content (Join-Path $RepoRoot 'packages/winget.json') -Raw | ConvertFrom-Json).packages
-        foreach ($id in $w) { $id | Should -Match '^[^\s.]+(\.[^\s.]+)+$' }
+        $ids = foreach ($e in $w) { if ($e -is [string]) { $e } else { $e.id } }
+        foreach ($id in $ids) { $id | Should -Match '^[^\s.]+(\.[^\s.]+)+$' }
     }
     It 'every scoop app has a plausible id (provenance)' {
         $m = Get-Content (Join-Path $RepoRoot 'packages/scoopfile.json') -Raw | ConvertFrom-Json

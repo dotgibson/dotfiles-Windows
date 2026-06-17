@@ -143,8 +143,9 @@ function ConvertFrom-DotGroupList {
     [OutputType([string[]])]
     param([AllowEmptyString()][string]$Value)
     if ([string]::IsNullOrWhiteSpace($Value)) { return @() }
-    $parts = $Value -split '[,\s]+' | Where-Object { $_ -and $_ -ne 'none' }
-    return @($parts | ForEach-Object { $_.ToLowerInvariant() } | Sort-Object -Unique)
+    # Lowercase FIRST so 'NONE'/'None' are recognised as the empty marker too.
+    $parts = $Value -split '[,\s]+' | ForEach-Object { $_.ToLowerInvariant() } | Where-Object { $_ -and $_ -ne 'none' }
+    return @($parts | Sort-Object -Unique)
 }
 
 # Format a selection back to the persisted token ('none' when empty).
@@ -157,30 +158,35 @@ function ConvertTo-DotGroupList {
 }
 
 # Should an entry install, given the selected optional groups? Core (no group)
-# always installs; a tagged entry installs only when its group was selected.
+# always installs. For a tagged entry, $null $Selected means "selection unknown"
+# (e.g. discovery failed) and falls back to the opt-out default — install it;
+# only an explicit (possibly empty) list gates a tagged entry by membership.
 function Test-DotGroupSelected {
     [OutputType([bool])]
     param([string]$Group, [string[]]$Selected)
     if ([string]::IsNullOrWhiteSpace($Group)) { return $true }
+    if ($null -eq $Selected) { return $true }   # unknown selection -> opt-out default (install all)
     return ($Selected -contains $Group)
 }
 
 # Pure: return $Content with the managed DOTFILES_PKG_GROUPS line upserted to
-# $Value. Any prior managed line is dropped and the fresh one appended, so the
-# write is idempotent and never duplicates. Used to persist the picker's result.
+# $Value. ANY prior $env:DOTFILES_PKG_GROUPS assignment (whether written by us or
+# by hand) is dropped, then our managed line is appended — so the result has
+# exactly one assignment and the write is idempotent. A List avoids PowerShell's
+# single-element-array unwrap (which would turn the append into string concat).
 function Set-DotGroupLine {
     [OutputType([string])]
     param([AllowEmptyString()][string]$Content, [string]$Value)
     $line = "`$env:DOTFILES_PKG_GROUPS = '$Value'   # U3: optional package groups (managed by Install-Packages.ps1)"
-    $lines = @()
+    $kept = [System.Collections.Generic.List[string]]::new()
     if (-not [string]::IsNullOrEmpty($Content)) {
-        $lines = @($Content -split "`r?`n" | Where-Object { $_ -notmatch '^\s*\$env:DOTFILES_PKG_GROUPS\s*=' })
-        $end = $lines.Count
-        while ($end -gt 0 -and [string]::IsNullOrEmpty($lines[$end - 1])) { $end-- }   # trim trailing blanks
-        $lines = if ($end -gt 0) { @($lines[0..($end - 1)]) } else { @() }
+        foreach ($l in ($Content -split "`r?`n")) {
+            if ($l -notmatch '^\s*\$env:DOTFILES_PKG_GROUPS\s*=') { $kept.Add($l) }
+        }
+        while ($kept.Count -gt 0 -and [string]::IsNullOrEmpty($kept[$kept.Count - 1])) { $kept.RemoveAt($kept.Count - 1) }
     }
-    $lines += $line
-    return (($lines -join "`n") + "`n")
+    $kept.Add($line)
+    return (($kept -join "`n") + "`n")
 }
 
 # Persist the selection to powershell/local.ps1 (gitignored) so future runs — and
@@ -254,7 +260,9 @@ if ($Frozen) {
 # Discover the optional groups from BOTH manifests (a side-effect-free read), then
 # resolve the selection ONCE so the picker shows up at most once per run. The
 # scoop/winget loops below filter each entry through Test-DotGroupSelected.
-$script:DotSelectedGroups = @()
+# $null = "selection unknown" -> Test-DotGroupSelected installs everything (the
+# opt-out default), so any read/parse failure errs toward installing, not skipping.
+$script:DotSelectedGroups = $null
 try {
     $wgSpecs   = @((Get-Content (Join-Path $here 'winget.json')  -Raw | ConvertFrom-Json).packages | ForEach-Object { ConvertTo-DotWingetSpec $_ })
     $scApps    = @((Get-Content (Join-Path $here 'scoopfile.json') -Raw | ConvertFrom-Json).apps)
@@ -262,7 +270,7 @@ try {
     $script:DotSelectedGroups = Resolve-DotPackageGroupSelection -Available $available -NonInteractive ([bool]$NonInteractive) -LocalPs1Path (Join-Path $here '../powershell/local.ps1')
 } catch {
     Write-DotWarn "couldn't read optional package groups: $_" 'installing every group.'
-    $script:DotSelectedGroups = $available   # opt-out default on any read failure
+    $script:DotSelectedGroups = $null   # unknown -> opt-out default (install all)
 }
 
 # Wrap the whole batch so a Ctrl-C mid-install still prints the skipped/failed
