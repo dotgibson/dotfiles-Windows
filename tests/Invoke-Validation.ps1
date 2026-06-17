@@ -134,11 +134,25 @@ Write-Host 'editorconfig (final newline / trailing WS / LF):' -ForegroundColor C
 $preEc = $script:fail
 $textExt = '.ps1', '.psm1', '.psd1', '.lua', '.json', '.yml', '.yaml', '.toml', '.md'
 $crlfOk  = '.cmd', '.bat'
-$ecFiles = Get-ChildItem -Path $RepoRoot -Recurse -File |
-    Where-Object {
-        $_.FullName -notmatch '[\\/]\.git[\\/]' -and
-        ($_.Extension -in $textExt -or $_.Name -in '.editorconfig', '.gitignore', '.gitignore_global', '.gitconfig', 'config')
-    }
+$nameOk  = '.editorconfig', '.gitignore', '.gitignore_global', '.gitconfig', 'config'
+# Enumerate via `git ls-files` so we check EXACTLY the repo's own tracked text.
+# This skips .git, gitignored paths, untracked build output AND nested git
+# worktrees (e.g. .claude/worktrees/*) — separate checkouts whose line endings
+# aren't ours to police, and which a plain filesystem walk would wrongly flag.
+# Fall back to a filesystem walk (still excluding .git/.claude) if git is absent.
+$tracked = & git -C $RepoRoot ls-files 2>$null
+if ($LASTEXITCODE -eq 0 -and $tracked) {
+    $ecFiles = $tracked |
+        ForEach-Object { Get-Item -LiteralPath (Join-Path $RepoRoot $_) -ErrorAction SilentlyContinue } |
+        Where-Object { $_ -and ($_.Extension -in $textExt -or $_.Name -in $nameOk) }
+} else {
+    $ecFiles = Get-ChildItem -Path $RepoRoot -Recurse -File |
+        Where-Object {
+            $_.FullName -notmatch '[\\/]\.git[\\/]' -and
+            $_.FullName -notmatch '[\\/]\.claude[\\/]' -and
+            ($_.Extension -in $textExt -or $_.Name -in $nameOk)
+        }
+}
 foreach ($f in $ecFiles) {
     $bytes = [System.IO.File]::ReadAllBytes($f.FullName)
     if ($bytes.Length -eq 0) { continue }                       # empty file: nothing to check
