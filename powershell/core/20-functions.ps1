@@ -70,23 +70,32 @@ function pbpaste { Get-Clipboard }
 
 # --- serve: quick HTTP server in the CWD, printing the host LAN URL -----------
 # Parity with Core's `serve`. Binds all interfaces on purpose (ad-hoc file
-# transfer). The host's LAN IP is what other machines (and, under mirrored
-# networking, WSL) use to reach it.  serve  /  serve 8080
+# transfer): the host's LAN IP is what other machines (and, under mirrored
+# networking, WSL) use to reach it. That LAN exposure is the point, so it stays
+# the default; `serve -Local` binds 127.0.0.1 only when you don't want anyone
+# else on the network to reach the CWD (B13).  serve  /  serve 8080  /  serve -Local
 function serve {
-    param([int]$Port = 8000)
-    $ip = (Get-NetIPAddress -AddressFamily IPv4 |
-        Where-Object { $_.PrefixOrigin -in 'Dhcp','Manual' -and $_.IPAddress -notlike '169.254.*' } |
-        Sort-Object SkipAsSource | Select-Object -First 1 -ExpandProperty IPAddress)
+    param([int]$Port = 8000, [switch]$Local)
+    # LAN-IP lookup only matters for the advertised URL on the default path.
+    $ip = if ($Local) { $null } else {
+        Get-NetIPAddress -AddressFamily IPv4 |
+            Where-Object { $_.PrefixOrigin -in 'Dhcp','Manual' -and $_.IPAddress -notlike '169.254.*' } |
+            Sort-Object SkipAsSource | Select-Object -First 1 -ExpandProperty IPAddress
+    }
+    $plan = Get-DotServePlan -Port $Port -Local:$Local -LanIp $ip
     Write-Host "serving $((Get-Location).Path) on port $Port  (Ctrl-C to stop)" -ForegroundColor Cyan
-    if ($ip) { Write-Host "  -> http://${ip}:$Port/   (lan)" -ForegroundColor Green }
+    if ($plan.Url) {
+        $tag = if ($plan.Scope -eq 'local') { 'local only' } else { 'lan' }
+        Write-Host "  -> $($plan.Url)   ($tag)" -ForegroundColor Green
+    }
     if (-not ((Test-Cmd python) -or (Test-Cmd python3))) {
         Write-DotErr 'python not found' 'scoop install python'; return
     }
     # finally: print a clean line on Ctrl-C (or normal exit) instead of dumping
     # the user back at a bare prompt with no acknowledgement the server stopped.
     try {
-        if (Test-Cmd python) { python -m http.server $Port }
-        else { python3 -m http.server $Port }
+        if (Test-Cmd python) { python -m http.server $Port $plan.BindArgs }
+        else { python3 -m http.server $Port $plan.BindArgs }
     } finally {
         Write-Host "`nserver stopped." -ForegroundColor DarkGray
     }
