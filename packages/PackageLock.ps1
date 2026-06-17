@@ -121,7 +121,8 @@ function New-PackageLockObject {
     $sorted = {
         param($Map)
         $o = [ordered]@{}
-        foreach ($k in @($Map.Keys | Sort-Object)) { $o[$k] = "$($Map[$k])" }
+        # Tolerate a $null map (empty section) like the rest of the lock API.
+        foreach ($k in @(if ($Map) { $Map.Keys | Sort-Object })) { $o[$k] = "$($Map[$k])" }
         $o
     }
     [ordered]@{

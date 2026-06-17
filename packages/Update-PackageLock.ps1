@@ -60,7 +60,15 @@ $wingetIds = @($wingetManifest.packages | ForEach-Object { if ($_ -is [string]) 
 $scoopResolved = @{}
 if (Get-Command scoop -ErrorAction SilentlyContinue) {
     Write-DotHost 'Querying installed scoop versions...' -Color Cyan
-    $scoopResolved = ConvertFrom-ScoopExport ((scoop export 6>$null) | Out-String)
+    # Capture + gate on the exit code: a non-zero `scoop export` (or non-JSON output)
+    # must NOT pass for "nothing installed" — that would misreport every app as
+    # missing and silently write an empty lock.
+    $scoopRaw = (scoop export 6>$null) | Out-String
+    if ($LASTEXITCODE -eq 0) {
+        $scoopResolved = ConvertFrom-ScoopExport $scoopRaw
+    } else {
+        Write-DotWarn "scoop export failed (exit $LASTEXITCODE) - scoop apps left unlocked." 're-run once scoop is healthy.'
+    }
 } else {
     Write-DotWarn 'scoop not found - scoop apps will be left unlocked.'
 }
@@ -72,7 +80,13 @@ if (Get-Command winget -ErrorAction SilentlyContinue) {
     $tmp = Join-Path $env:TEMP ("winget-lock-" + [guid]::NewGuid().ToString('N') + '.json')
     try {
         winget export -o $tmp --include-versions --accept-source-agreements *> $null
-        if (Test-Path $tmp) { $wingetResolved = ConvertFrom-WingetExport (Get-Content $tmp -Raw) }
+        # Only trust the temp file when winget actually succeeded — a non-zero exit
+        # can still leave a stale/partial file from a previous run on disk.
+        if ($LASTEXITCODE -eq 0 -and (Test-Path $tmp)) {
+            $wingetResolved = ConvertFrom-WingetExport (Get-Content $tmp -Raw)
+        } else {
+            Write-DotWarn "winget export failed (exit $LASTEXITCODE) - winget packages left unlocked." 're-run once winget is healthy.'
+        }
     } catch {
         Write-DotWarn "winget export failed: $_" 'winget packages will be left unlocked.'
     } finally {

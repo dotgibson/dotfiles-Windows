@@ -59,10 +59,14 @@ Describe 'Get-PackagesUsage' {
 # scope here.
 Describe 'Read-PackageLock' {
     It 'parses scoop and winget version maps' {
-        $lock = Read-PackageLock '{ "generatedAt": "2026-01-01T00:00:00Z", "scoop": { "fzf": "0.54.0" }, "winget": { "Git.Git": "2.47.1" } }'
+        # generatedAt is a non-date sentinel on purpose: ConvertFrom-Json coerces an
+        # ISO-8601 string into a [datetime] (which round-trips as 2026-...0000000Z),
+        # and generatedAt is informational only. The version VALUES are explicitly
+        # string-coerced in the helper, so they stay exact.
+        $lock = Read-PackageLock '{ "generatedAt": "lock-stamp", "scoop": { "fzf": "0.54.0" }, "winget": { "Git.Git": "2.47.1" } }'
         $lock.Scoop['fzf']      | Should -Be '0.54.0'
         $lock.Winget['Git.Git'] | Should -Be '2.47.1'
-        $lock.GeneratedAt       | Should -Be '2026-01-01T00:00:00Z'
+        $lock.GeneratedAt       | Should -Be 'lock-stamp'
     }
     It 'is case-insensitive on lookups' {
         (Read-PackageLock '{ "scoop": { "FZF": "1.0" } }').Scoop['fzf'] | Should -Be '1.0'
@@ -128,9 +132,13 @@ Describe 'Get-PackageLockDrift' {
 Describe 'New-PackageLockObject' {
     It 'sorts keys and carries the injected timestamp' {
         $o = New-PackageLockObject -Scoop @{ zoxide = '1'; bat = '2' } -Winget @{} -GeneratedAt 'TS'
-        $o.generatedAt = $o.generatedAt   # ordered dict access
         $o.generatedAt | Should -Be 'TS'
         @($o.scoop.Keys) | Should -Be @('bat', 'zoxide')   # sorted
+    }
+    It 'treats a $null section as an empty map (no throw)' {
+        { New-PackageLockObject -Scoop $null -Winget $null -GeneratedAt 'TS' } | Should -Not -Throw
+        $o = New-PackageLockObject -Scoop $null -Winget $null -GeneratedAt 'TS'
+        @($o.scoop.Keys).Count | Should -Be 0
     }
 }
 
