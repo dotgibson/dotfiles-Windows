@@ -4,7 +4,7 @@
 
 # --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
 # provides: scu, scs, sci, scl, sccl, wgu, wgs, wgi, update-host, path, open, admin, setenv, getenv, modules-localize
-# requires: Test-Cmd, up, Write-DotErr
+# requires: Get-DotModulePrunePlan, Test-Cmd, up, Write-DotErr, Write-DotWarn
 
 # --- scoop (your primary CLI package manager on the host) ---------------------
 if (Test-Cmd scoop) {
@@ -63,24 +63,76 @@ function getenv  { param($Name) [Environment]::GetEnvironmentVariable($Name,'Use
 # dir to $env:PSModulePath; this copies your existing CurrentUser modules there so
 # imports resolve from local disk. Run it ONCE, ideally from `pwsh -NoProfile` so
 # no module DLLs are locked. Idempotent — safe to re-run.
+#
+# -Prune (B11): after copying, reconcile the local dir against the MANAGED module
+# set (packages/modules.ps1) — every maint roll-forward leaves the old version
+# beside the new one, so the dir accumulates. Prune keeps the highest version of
+# each managed module and removes the stale ones. Conservative: it never touches a
+# module you aren't managing. Safe to run on its own (copy is skipped if there's
+# no OneDrive source to pull from).
 function modules-localize {
+    param([switch]$Prune)
     $src = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'PowerShell\Modules'
     $dst = Join-Path $env:LOCALAPPDATA 'PowerShell\Modules'
-    if (-not (Test-Path $src)) { Write-Host "no user modules at $src (nothing to move)"; return }
-    if ($src -notlike '*OneDrive*') {
-        Write-Host "your modules path isn't under OneDrive ($src) — no move needed." -ForegroundColor DarkYellow
-    }
     New-Item -ItemType Directory -Force -Path $dst | Out-Null
-    Write-Host "copying modules to local disk" -ForegroundColor Cyan
-    Write-Host "  from $src" -ForegroundColor DarkGray
-    Write-Host "  to   $dst" -ForegroundColor DarkGray
-    # /E copy (not /MOVE): leaves the OneDrive copies in place so a module loaded
-    # in THIS session can't block the operation. The prepend makes the local copy
-    # win regardless; delete the OneDrive Modules folder by hand later if you like.
-    robocopy $src $dst /E /NFL /NDL /NJH /NJS /NP | Out-Null
-    if ($LASTEXITCODE -ge 8) { Write-DotErr "robocopy failed (exit $LASTEXITCODE)" 'check that the source/destination paths are writable, then retry'; return }
-    Write-Host "done — open a NEW shell. Modules now load from $dst (off OneDrive)." -ForegroundColor Green
-    Write-Host "verify with: (Get-Module -ListAvailable PSReadLine).Path" -ForegroundColor DarkGray
+
+    # --- copy pass (only when there's an OneDrive source to pull from) ---------
+    if (Test-Path $src) {
+        if ($src -notlike '*OneDrive*') {
+            Write-Host "your modules path isn't under OneDrive ($src) — no move needed." -ForegroundColor DarkYellow
+        }
+        Write-Host "copying modules to local disk" -ForegroundColor Cyan
+        Write-Host "  from $src" -ForegroundColor DarkGray
+        Write-Host "  to   $dst" -ForegroundColor DarkGray
+        # /E copy (not /MOVE): leaves the OneDrive copies in place so a module loaded
+        # in THIS session can't block the operation. The prepend makes the local copy
+        # win regardless; delete the OneDrive Modules folder by hand later if you like.
+        robocopy $src $dst /E /NFL /NDL /NJH /NJS /NP | Out-Null
+        if ($LASTEXITCODE -ge 8) { Write-DotErr "robocopy failed (exit $LASTEXITCODE)" 'check that the source/destination paths are writable, then retry'; return }
+        Write-Host "done — open a NEW shell. Modules now load from $dst (off OneDrive)." -ForegroundColor Green
+        Write-Host "verify with: (Get-Module -ListAvailable PSReadLine).Path" -ForegroundColor DarkGray
+    } elseif (-not $Prune) {
+        Write-Host "no user modules at $src (nothing to move)"; return
+    }
+
+    # --- prune pass (opt-in): drop stale versions of MANAGED modules -----------
+    if ($Prune) {
+        $managed = @()
+        $pins = if ($global:DOTFILES) { Join-Path $global:DOTFILES 'packages\modules.ps1' } else { $null }
+        if ($pins -and (Test-Path $pins)) { . $pins; $managed = @($script:MaintModuleNames) }
+        if (-not $managed) { $managed = @($MaintModuleNames) }   # scope fallback
+        if (-not $managed) {
+            Write-DotWarn 'no managed module list — skipping prune.' 'ensure $DOTFILES/packages/modules.ps1 is present'
+            return
+        }
+        # Discover the Name/Version dirs under the local store (Modules/<Name>/<Version>).
+        $installed = foreach ($md in Get-ChildItem $dst -Directory -ErrorAction SilentlyContinue) {
+            foreach ($vd in Get-ChildItem $md.FullName -Directory -ErrorAction SilentlyContinue) {
+                [pscustomobject]@{ Name = $md.Name; Version = $vd.Name; Path = $vd.FullName }
+            }
+        }
+        $plan = @(Get-DotModulePrunePlan -Installed $installed -ManagedNames $managed)
+        if (-not $plan.Count) {
+            Write-Host "prune: managed modules already at a single version — nothing stale." -ForegroundColor DarkGray
+            return
+        }
+        # Remove each stale dir, then VERIFY it's actually gone — a version that's
+        # loaded in another shell can have a locked DLL, and -ErrorAction
+        # SilentlyContinue would otherwise let us falsely report it pruned.
+        $removed = 0; $stuck = 0
+        foreach ($p in $plan) {
+            Remove-Item -LiteralPath $p.Path -Recurse -Force -ErrorAction SilentlyContinue
+            if (Test-Path -LiteralPath $p.Path) {
+                Write-DotWarn "could not remove $($p.Name) $($p.Version) (in use?)" 'close shells using it (or run from pwsh -NoProfile), then re-run -Prune'
+                $stuck++
+            } else {
+                Write-Host "  pruned $($p.Name) $($p.Version)" -ForegroundColor DarkGray
+                $removed++
+            }
+        }
+        if ($removed) { Write-Host "prune: removed $removed stale version(s) of managed modules." -ForegroundColor Green }
+        if ($stuck)   { Write-DotWarn "$stuck stale version(s) could not be removed (likely locked by a running shell)." }
+    }
 }
 
 # --- Start psmux session (top-level interactive shell only) -------------------

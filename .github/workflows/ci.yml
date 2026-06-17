@@ -230,6 +230,7 @@ jobs:
             './powershell/Dotfiles/Wsl.Helpers.ps1'
             './powershell/Dotfiles/Doctor.Helpers.ps1'
             './powershell/Dotfiles/Help.Helpers.ps1'
+            './powershell/Dotfiles/Modules.Helpers.ps1'
           )
           $cfg.CodeCoverage.CoveragePercentTarget = 85
           $r = Invoke-Pester -Configuration $cfg
@@ -247,7 +248,7 @@ jobs:
           # Floors catch a whole test file being dropped, or a chunk of tests going
           # missing. TotalCount is a floor (two -ForEach blocks expand it at run
           # time well past this number); bump these when you intentionally add/remove.
-          $minTotal = 160; $minFiles = 12
+          $minTotal = 160; $minFiles = 13
           if ($r.Containers.Count -lt $minFiles) {
             throw "Only $($r.Containers.Count) test file(s) ran (floor $minFiles) — did a *.Tests.ps1 file get removed?"
           }
