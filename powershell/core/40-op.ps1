@@ -7,6 +7,10 @@
 #  Docs: https://developer.1password.com/docs/cli
 # ============================================================================
 
+# --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
+# provides: opsecret, openv, optoken, opssh
+# requires: Write-DotOk
+
 if (-not (Get-Command op -ErrorAction SilentlyContinue)) { return }
 
 # opsecret — fetch a secret by vault/item/field path

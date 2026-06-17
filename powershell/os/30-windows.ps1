@@ -2,6 +2,10 @@
 #  os/30-windows.ps1  -  native Windows host helpers (scoop / winget / paths)
 # ============================================================================
 
+# --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
+# provides: scu, scs, sci, scl, sccl, wgu, wgs, wgi, update-host, path, open, admin, setenv, getenv, modules-localize
+# requires: Test-Cmd, up, Write-DotErr
+
 # --- scoop (your primary CLI package manager on the host) ---------------------
 if (Test-Cmd scoop) {
     function scu  { scoop update * @args }            # update all apps

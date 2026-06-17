@@ -14,6 +14,10 @@
 #    $env:DOTFILES_UPDATE_CHECK = '0'   # disable the startup nudge entirely
 # ============================================================================
 
+# --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
+# provides: update-check, up
+# requires: Get-DotGlyph, Write-DotBanner, Write-DotHost, Write-DotOk, Write-DotWarn
+
 $script:PkgUpCache          = Join-Path $env:LOCALAPPDATA 'dotfiles\pkg-updates'
 $script:UpdateCheckInterval = 86400   # seconds between background checks
 if (-not $env:DOTFILES_UPDATE_CHECK) { $env:DOTFILES_UPDATE_CHECK = '1' }

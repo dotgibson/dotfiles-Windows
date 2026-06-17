@@ -13,6 +13,10 @@
 #  Get-DotToolNudge (core/05-lib.ps1), so the wording is unit-tested.
 # ============================================================================
 
+# --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
+# provides: (none)
+# requires: Get-DotToolNudge, Test-Cmd, Write-DotWarn
+
 if ($env:FAST_START -eq '1') { return }
 
 # The handful whose absence most degrades the cross-fleet shell feel. Deliberately

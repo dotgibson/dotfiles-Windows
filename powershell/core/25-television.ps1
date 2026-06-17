@@ -20,6 +20,10 @@
 #  equivalents belong in dotfiles-core (canonical), with this as the PS port.
 # ============================================================================
 
+# --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
+# provides: tvim, ttext, tcd, trepo, tbranch, tenv
+# requires: Test-Cmd
+
 if (Test-Cmd tv) {
 
     # --- tvim: fuzzy-pick a file (files channel) and open it in nvim ----------

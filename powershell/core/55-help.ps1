@@ -16,6 +16,10 @@
 #  module export; add a row to the catalog and it shows up here.
 # ============================================================================
 
+# --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
+# provides: dothelp
+# requires: Get-DotDidYouMean, Get-DotfilesHelpData, Get-DotHelpFilters, Get-DotHelpFlatLines, Get-DotHelpPrimaryVerb, Write-DotBanner, Write-DotErr, Write-DotHost
+
 function global:dothelp {
     [CmdletBinding()]
     param([string]$Filter, [switch]$Interactive)

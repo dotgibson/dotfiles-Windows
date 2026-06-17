@@ -12,6 +12,10 @@
 #  underlying tool isn't installed; nothing here shells out at load.
 # ============================================================================
 
+# --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
+# provides: (none)
+# requires: Get-DotHelpFilters
+
 # Small helper: turn a list of strings into prefix-filtered CompletionResults.
 function script:New-DotCompletions {
     param([string[]]$Values, [string]$Word, [string]$Tooltip = '')

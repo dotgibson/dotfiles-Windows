@@ -13,6 +13,10 @@
 #  The wsl-dependent verbs below call it via that module export.
 # ============================================================================
 
+# --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
+# provides: kali, debian, wsls, wslip, cdwsl, hostip, wslhome, wsl-restart
+# requires: ConvertTo-WslPath, Test-Cmd
+
 if (-not (Test-Cmd wsl)) { return }
 
 # --- distro shortcuts ---------------------------------------------------------
