@@ -48,7 +48,7 @@ $failed = [System.Collections.Generic.List[string]]::new()
 
 # Shared rendering helpers (Write-DotWarn / Write-DotHost / glyphs). Dot-sourced
 # so a standalone run gets the same NO_COLOR-aware layout as install.ps1.
-$lib = Join-Path $here '..\powershell\core\05-lib.ps1'
+$lib = Join-Path $here '../powershell/core/05-lib.ps1'
 if (Test-Path $lib) { . $lib }
 
 # Make "best-effort if the lib is missing" actually true: if 05-lib didn't load
