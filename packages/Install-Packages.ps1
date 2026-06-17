@@ -20,6 +20,10 @@ param(
     # Update-PackageLock.ps1 on a working box to produce it). A managed app with no
     # lock entry is skipped, not floated — frozen means frozen. (B4)
     [switch]$Frozen,
+    # Never prompt: skip the optional-group picker and install every group (the
+    # opt-out default). install.ps1 passes its own -NonInteractive through so a
+    # CI/unattended run is unchanged. (U3)
+    [switch]$NonInteractive,
     [switch]$Help
 )
 
@@ -30,19 +34,22 @@ function Get-PackagesUsage {
         'Install-Packages.ps1 - install the host toolchain from the manifests'
         ''
         'USAGE'
-        '  .\packages\Install-Packages.ps1 [-SkipScoop] [-SkipWinget] [-Frozen] [-Help]'
+        '  .\packages\Install-Packages.ps1 [-SkipScoop] [-SkipWinget] [-Frozen] [-NonInteractive] [-Help]'
         ''
         'OPTIONS'
-        '  -SkipScoop    Skip the scoop bucket/app install pass.'
-        '  -SkipWinget   Skip the winget package install pass.'
-        '  -Frozen       Install exact versions from packages.lock.json (reproducible).'
-        '  -Help         Show this help and exit.'
+        '  -SkipScoop       Skip the scoop bucket/app install pass.'
+        '  -SkipWinget      Skip the winget package install pass.'
+        '  -Frozen          Install exact versions from packages.lock.json (reproducible).'
+        '  -NonInteractive  Never prompt; install every optional package group.'
+        '  -Help            Show this help and exit.'
         ''
         'NOTES'
         '  Resilient: a package that fails is logged and skipped, never halting the'
         '  batch. Re-run to retry — already-installed items are detected and skipped.'
         '  PowerShell modules always install to a local (off-OneDrive) modules dir.'
         '  -Frozen needs packages.lock.json (generate it with Update-PackageLock.ps1).'
+        '  Optional package groups: the first interactive run picks which to install'
+        '  (gum), persisting the choice to powershell/local.ps1 (DOTFILES_PKG_GROUPS).'
     )
 }
 
@@ -104,8 +111,128 @@ function Get-ScoopInstallToken {
 }
 function ConvertTo-DotWingetSpec {
     param($Entry)
-    if ($Entry -is [string]) { return [pscustomobject]@{ Id = $Entry; Version = $null } }
-    return [pscustomobject]@{ Id = "$($Entry.id)"; Version = $(if ($Entry.version) { "$($Entry.version)" } else { $null }) }
+    if ($Entry -is [string]) { return [pscustomobject]@{ Id = $Entry; Version = $null; Group = $null } }
+    return [pscustomobject]@{
+        Id      = "$($Entry.id)"
+        Version = $(if ($Entry.version) { "$($Entry.version)" } else { $null })
+        Group   = $(if ($Entry.group)   { "$($Entry.group)"   } else { $null })
+    }
+}
+
+# --- optional package groups (U3) ---------------------------------------------
+# A manifest entry MAY carry a "group" tag (e.g. { "id": "...", "group": "gui" }).
+# Untagged entries are CORE and always install; a tagged entry belongs to an
+# optional group the user can opt out of. The selection is resolved ONCE
+# (persisted choice > interactive gum picker > opt-out default = everything) and
+# applied per entry. These helpers are pure, so the policy is unit-tested; the
+# gum picker + persistence (I/O) sit just below them.
+
+# Distinct optional-group names present across the given manifest entries, sorted.
+# Scoop apps / bare winget ids carry no .Group, so they contribute nothing.
+function Get-DotOptionalGroups {
+    [OutputType([string[]])]
+    param([object[]]$Entries)
+    $g = foreach ($e in $Entries) { if ($e -and $e.Group) { "$($e.Group)" } }
+    return @($g | Sort-Object -Unique)
+}
+
+# Parse a persisted selection ("gui security", "gui,security", or "none"/"") into
+# a clean, lowercased, de-duplicated string[]. 'none' is the explicit empty marker
+# so "chose nothing optional" round-trips distinctly from "never chose".
+function ConvertFrom-DotGroupList {
+    [OutputType([string[]])]
+    param([AllowEmptyString()][string]$Value)
+    if ([string]::IsNullOrWhiteSpace($Value)) { return @() }
+    # Lowercase FIRST so 'NONE'/'None' are recognised as the empty marker too.
+    $parts = $Value -split '[,\s]+' | ForEach-Object { $_.ToLowerInvariant() } | Where-Object { $_ -and $_ -ne 'none' }
+    return @($parts | Sort-Object -Unique)
+}
+
+# Format a selection back to the persisted token ('none' when empty).
+function ConvertTo-DotGroupList {
+    [OutputType([string])]
+    param([string[]]$Groups)
+    $clean = @($Groups | Where-Object { $_ } | Sort-Object -Unique)
+    if ($clean.Count -eq 0) { return 'none' }
+    return ($clean -join ' ')
+}
+
+# Should an entry install, given the selected optional groups? Core (no group)
+# always installs. For a tagged entry, $null $Selected means "selection unknown"
+# (e.g. discovery failed) and falls back to the opt-out default — install it;
+# only an explicit (possibly empty) list gates a tagged entry by membership.
+function Test-DotGroupSelected {
+    [OutputType([bool])]
+    param([string]$Group, [string[]]$Selected)
+    if ([string]::IsNullOrWhiteSpace($Group)) { return $true }
+    if ($null -eq $Selected) { return $true }   # unknown selection -> opt-out default (install all)
+    return ($Selected -contains $Group)
+}
+
+# Pure: return $Content with the managed DOTFILES_PKG_GROUPS line upserted to
+# $Value. ANY prior $env:DOTFILES_PKG_GROUPS assignment (whether written by us or
+# by hand) is dropped, then our managed line is appended — so the result has
+# exactly one assignment and the write is idempotent. A List avoids PowerShell's
+# single-element-array unwrap (which would turn the append into string concat).
+function Set-DotGroupLine {
+    [OutputType([string])]
+    param([AllowEmptyString()][string]$Content, [string]$Value)
+    $line = "`$env:DOTFILES_PKG_GROUPS = '$Value'   # U3: optional package groups (managed by Install-Packages.ps1)"
+    $kept = [System.Collections.Generic.List[string]]::new()
+    if (-not [string]::IsNullOrEmpty($Content)) {
+        foreach ($l in ($Content -split "`r?`n")) {
+            if ($l -notmatch '^\s*\$env:DOTFILES_PKG_GROUPS\s*=') { $kept.Add($l) }
+        }
+        while ($kept.Count -gt 0 -and [string]::IsNullOrEmpty($kept[$kept.Count - 1])) { $kept.RemoveAt($kept.Count - 1) }
+    }
+    $kept.Add($line)
+    return (($kept -join "`n") + "`n")
+}
+
+# Persist the selection to powershell/local.ps1 (gitignored) so future runs — and
+# the next shell — reuse it without re-prompting. Best-effort: a write failure
+# warns but never aborts the install.
+function Save-DotPackageGroupSelection {
+    param([string]$Path, [string[]]$Groups)
+    try {
+        $value = ConvertTo-DotGroupList $Groups
+        $existing = if (Test-Path $Path) { Get-Content $Path -Raw } else {
+            # Seed from the example rather than clobbering a not-yet-created local.ps1.
+            $ex = Join-Path (Split-Path $Path) 'local.ps1.example'
+            if (Test-Path $ex) { Get-Content $ex -Raw } else { '' }
+        }
+        Set-DotGroupLine -Content $existing -Value $value | Set-Content -Path $Path -Encoding UTF8
+        $env:DOTFILES_PKG_GROUPS = $value   # so the rest of THIS run agrees with the choice
+        Write-DotHost "  saved selection to local.ps1 (DOTFILES_PKG_GROUPS = $value)" -Color DarkGray
+    } catch {
+        Write-DotWarn "couldn't persist package-group selection: $_" 'install proceeds; it will ask again next time.'
+    }
+}
+
+# Resolve which optional groups to install. Precedence:
+#   1. $env:DOTFILES_PKG_GROUPS set (persisted choice / explicit override) -> use it.
+#   2. interactive + gum available -> gum choose --no-limit (all preselected;
+#      deselect to opt out), then persist the result.
+#   3. otherwise (-NonInteractive / CI / no gum) -> opt-out default: install all.
+function Resolve-DotPackageGroupSelection {
+    [OutputType([string[]])]
+    param([string[]]$Available, [bool]$NonInteractive, [string]$LocalPs1Path)
+    if (-not $Available -or $Available.Count -eq 0) { return @() }   # nothing optional to choose
+
+    if ($env:DOTFILES_PKG_GROUPS) {
+        return @((ConvertFrom-DotGroupList $env:DOTFILES_PKG_GROUPS) | Where-Object { $Available -contains $_ })
+    }
+    if ($NonInteractive -or -not (Test-DotGum)) { return @($Available) }
+
+    Write-DotHost 'Optional package groups — space toggles, enter confirms (all on by default):' -Color Cyan
+    $gumArgs = @('choose', '--no-limit')
+    foreach ($g in $Available) { $gumArgs += @('--selected', $g) }
+    $gumArgs += $Available
+    $picked = @(& gum @gumArgs 2>$null)
+    if ($LASTEXITCODE -ne 0) { $picked = @($Available) }   # ESC/Ctrl-C: keep the default (all)
+    $picked = @($picked | Where-Object { $_ })
+    Save-DotPackageGroupSelection -Path $LocalPs1Path -Groups $picked
+    return $picked
 }
 
 # Library-only hook for the test suite: expose the helpers without installing.
@@ -127,6 +254,23 @@ if ($Frozen) {
         return
     }
     Write-DotHost 'Frozen install: pinning every app to packages.lock.json.' -Color Cyan
+}
+
+# --- resolve optional package groups (U3) -------------------------------------
+# Discover the optional groups from BOTH manifests (a side-effect-free read), then
+# resolve the selection ONCE so the picker shows up at most once per run. The
+# scoop/winget loops below filter each entry through Test-DotGroupSelected.
+# $null = "selection unknown" -> Test-DotGroupSelected installs everything (the
+# opt-out default), so any read/parse failure errs toward installing, not skipping.
+$script:DotSelectedGroups = $null
+try {
+    $wgSpecs   = @((Get-Content (Join-Path $here 'winget.json')  -Raw | ConvertFrom-Json).packages | ForEach-Object { ConvertTo-DotWingetSpec $_ })
+    $scApps    = @((Get-Content (Join-Path $here 'scoopfile.json') -Raw | ConvertFrom-Json).apps)
+    $available = Get-DotOptionalGroups (@($wgSpecs) + @($scApps))
+    $script:DotSelectedGroups = Resolve-DotPackageGroupSelection -Available $available -NonInteractive ([bool]$NonInteractive) -LocalPs1Path (Join-Path $here '../powershell/local.ps1')
+} catch {
+    Write-DotWarn "couldn't read optional package groups: $_" 'installing every group.'
+    $script:DotSelectedGroups = $null   # unknown -> opt-out default (install all)
 }
 
 # Wrap the whole batch so a Ctrl-C mid-install still prints the skipped/failed
@@ -178,6 +322,10 @@ if (-not $SkipScoop) {
     foreach ($app in $apps) {
         $i++
         $name = $app.Name
+        if (-not (Test-DotGroupSelected -Group "$($app.group)" -Selected $script:DotSelectedGroups)) {
+            Write-DotHost "  [$i/$($apps.Count)] - $name (optional group '$($app.group)' — not selected)" -Color DarkGray
+            continue
+        }
         if ($installed -contains $name) {
             Write-Host "  [$i/$($apps.Count)] = $name (already installed)" -ForegroundColor DarkGray
             continue
@@ -239,8 +387,12 @@ if (-not $SkipWinget) {
         $j = 0
         foreach ($entry in $pkgs) {
             $j++
-            $spec = ConvertTo-DotWingetSpec $entry   # { Id; Version (optional) }
+            $spec = ConvertTo-DotWingetSpec $entry   # { Id; Version; Group (all optional) }
             $id = $spec.Id
+            if (-not (Test-DotGroupSelected -Group $spec.Group -Selected $script:DotSelectedGroups)) {
+                Write-DotHost "  [$j/$($pkgs.Count)] - $id (optional group '$($spec.Group)' — not selected)" -Color DarkGray
+                continue
+            }
             if ($Frozen) {
                 # Frozen: override any floating/inline spec with the locked version;
                 # skip (don't float) when this id isn't locked.

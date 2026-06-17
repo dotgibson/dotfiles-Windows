@@ -314,7 +314,9 @@ if (-not $SkipPackages) {
     if ($script:DryRun) {
         Write-DotHost '  would install scoop + winget + PowerShell-module packages' -Color Cyan
     } else {
-        & (Join-Path $RepoRoot 'packages/Install-Packages.ps1')
+        # Pass our interactivity through so an unattended install never blocks on
+        # the optional-group picker (it installs every group instead). (U3)
+        & (Join-Path $RepoRoot 'packages/Install-Packages.ps1') -NonInteractive:$NonInteractive
     }
 }
 
