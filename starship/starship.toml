@@ -1,10 +1,6 @@
 "$schema" = 'https://starship.rs/config-schema.json'
 
-# Give modules that shell out (git on a big/slow repo) a little more headroom than
-# the 500ms default before starship gives up and renders the prompt without them.
-command_timeout = 1000
-
-# dotfiles-Windows :: starship prompt  (tokyonight-storm, low-glare revision)
+# dotfiles-* :: starship prompt  (tokyonight-storm, low-glare revision)
 # ──────────────────────────────────────────────────────────────────────────────
 # WHAT CHANGED & WHY:
 # The previous revision kept the gruvbox-era layout but swapped in tokyonight hex
@@ -24,6 +20,19 @@ command_timeout = 1000
 # (the `fg:` inside its `format`). To go even calmer, point a module at
 # color_comment. Nothing else needs to move.
 # ──────────────────────────────────────────────────────────────────────────────
+# BAND STRUCTURE (why git rides the same surface as dir, and time the same as
+# docker): a powerline band that can be EMPTY leaves its two arrows back-to-back
+# with nothing between them — a stray notch that looks like a gap (this is what
+# happened to the git band in a non-repo dir). The fix is to group modules so
+# every colored band is anchored by an always-present module. The only modules
+# that ALWAYS render are os/username, directory, and time — so there are exactly
+# three gap-proof bands:
+#   srf1 : os + username
+#   srf2 : directory + git + languages          (anchored by directory)
+#   srf1 : docker/k8s/aws/conda/… + custom + cmd_duration + jobs + time  (by time)
+# Only two interior arrows remain, both flanked by always-present content, so no
+# empty-band gaps can appear. (We also dropped $fill: it claims the whole line
+# width, which left zero room for zsh's RPROMPT and suppressed right_format.)
 
 format = """
 [](fg:color_srf1)\
@@ -31,12 +40,11 @@ $os\
 $username\
 [](fg:color_srf1 bg:color_srf2)\
 $directory\
-[](fg:color_srf2 bg:color_srf1)\
 $git_branch\
 $git_commit\
 $git_state\
 $git_status\
-[](fg:color_srf1 bg:color_srf2)\
+$git_metrics\
 $c\
 $cpp\
 $rust\
@@ -52,14 +60,24 @@ $ruby\
 $lua\
 [](fg:color_srf2 bg:color_srf1)\
 $docker_context\
+$kubernetes\
+$aws\
 $conda\
 $pixi\
-[](fg:color_srf1 bg:color_srf2)\
-$cmd_duration\
+$direnv\
+$custom\
 $jobs\
 $time\
-[ ](fg:color_srf2)\
-$line_break$status$character"""
+[](fg:color_srf1)\
+$line_break$status$character$sudo"""
+
+right_format = """
+[](fg:color_srf1)\
+$shell$cmd_duration$memory_usage
+[](fg:color_srf1)\
+"""
+
+continuation_prompt = "[∙](fg:color_comment)"   # the > > on multi-line input
 
 palette = 'tokyonight_storm'
 
@@ -81,7 +99,7 @@ color_srf2    = '#1f2335'   # bg_dark, a touch deeper
 
 [os]
 disabled = false
-style = "bg:color_srf1 fg:color_blue"
+style = "bg:color_srf1 fg:color_aqua"
 
 [os.symbols]
 Windows = "󰍲"
@@ -109,15 +127,25 @@ Pop = ""
 
 [username]
 show_always = true
-style_user = "bg:color_srf1 fg:color_fg0"
+style_user = "bg:color_srf1 fg:color_purple"
 style_root = "bg:color_srf1 fg:color_red"   # root stands out (kept readable, not a fill)
 format = '[ $user ]($style)'
 
 [directory]
 style = "fg:color_yellow bg:color_srf2"
-format = "[ $path ]($style)"
+format = '[ $path ]($style)'
 truncation_length = 3
-truncation_symbol = "…/"
+truncation_symbol = "../"
+read_only = "󰌾 "       # NEW vs your config: lock icon in read-only dirs
+read_only_style = "fg:color_red bg:color_srf2"
+repo_root_style = "bold fg:color_yellow bg:color_srf2"   # make the git-root segment pop
+before_repo_root_style = "fg:color_comment bg:color_srf2"
+# When repo_root_style is set, starship renders the path via repo_root_format
+# (NOT `format` above) — and the built-in default ends with a literal unstyled
+# trailing space, which showed up as a blank hole between directory and git on
+# the powerline. Redefine it here without that trailing space, and pad the
+# leading edge inside a bg:color_srf2 span so the bar stays continuous.
+repo_root_format = "[$before_root_path]($before_repo_root_style)[$repo_root]($repo_root_style)[$path]($style)[$read_only]($read_only_style)"
 
 [directory.substitutions]
 "Documents" = "󰈙 "
@@ -127,13 +155,22 @@ truncation_symbol = "…/"
 "Developer" = "󰲋 "
 
 [git_branch]
-symbol = ""
-style = "bg:color_srf1"
-format = '[[ $symbol $branch ](fg:color_green bg:color_srf1)]($style)'
+symbol = "󰘬"
+style = "fg:color_green bg:color_srf2"
+format = '[ $symbol $branch ]($style)'
 
 [git_status]
-style = "bg:color_srf1"
-format = '[[($all_status$ahead_behind )](fg:color_orange bg:color_srf1)]($style)'
+style = "fg:color_orange bg:color_srf2"
+format = '([ $all_status $ahead_behind ]($style))'
+
+# Added/deleted line counts (+12 -3) on the same srf1 git band, after status. Green/red
+# text matching git's own diff colors. only_nonzero_diffs keeps it silent in a clean tree,
+# so the segment only appears once you've actually changed something.
+[git_metrics]
+disabled = false
+added_style = "fg:color_green bg:color_srf2"
+deleted_style = "fg:color_red bg:color_srf2"
+format = '([ +$added ]($added_style))([ -$deleted ]($deleted_style))'
 
 # Short commit hash, shown ONLY in detached-HEAD state (only_detached = true) so
 # a `git checkout <sha>`/`<tag>` no longer leaves the git band misleadingly blank.
@@ -141,8 +178,8 @@ format = '[[($all_status$ahead_behind )](fg:color_orange bg:color_srf1)]($style)
 [git_commit]
 only_detached = true
 tag_disabled = false      # also surface an exact tag (e.g. v1.2.0) when on one
-tag_symbol = " "
-style = "bg:color_srf1"
+tag_symbol = " 󰓹 "
+style = "bg:color_srf2"
 format = '[[ $hash$tag ](fg:color_green bg:color_srf1)]($style)'
 
 # Mid-operation state (REBASING 2/8, MERGING, CHERRY-PICKING…). Red text so an
@@ -150,76 +187,131 @@ format = '[[ $hash$tag ](fg:color_green bg:color_srf1)]($style)'
 # between branch and status, and only appears when an operation is underway.
 
 [git_state]
-style = "bg:color_srf1"
-format = '[[ $state( $progress_current/$progress_total) ](fg:color_red bg:color_srf1)]($style)'
+style = "bg:color_srf2"
+format = '[[ $state ($progress_current/$progress_total) ](fg:color_red bg:color_srf2)]($style)'
 
 [nodejs]
 symbol = ""
 style = "bg:color_srf2"
-format = '[[ $symbol( $version) ](fg:color_aqua bg:color_srf2)]($style)'
+format = '[[ $symbol($version) ](fg:color_aqua bg:color_srf2)]($style)'
 
 [bun]
 symbol = ""
 style = "bg:color_srf2"
-format = '[[ $symbol( $version) ](fg:color_aqua bg:color_srf2)]($style)'
+format = '[[ $symbol($version) ](fg:color_aqua bg:color_srf2)]($style)'
 
 [c]
 symbol = " "
 style = "bg:color_srf2"
-format = '[[ $symbol( $version) ](fg:color_aqua bg:color_srf2)]($style)'
+format = '[[ $symbol($version) ](fg:color_aqua bg:color_srf2)]($style)'
 
 [cpp]
 symbol = " "
 style = "bg:color_srf2"
-format = '[[ $symbol( $version) ](fg:color_aqua bg:color_srf2)]($style)'
+format = '[[ $symbol($version) ](fg:color_aqua bg:color_srf2)]($style)'
 
 [rust]
 symbol = ""
 style = "bg:color_srf2"
-format = '[[ $symbol( $version) ](fg:color_aqua bg:color_srf2)]($style)'
+format = '[[ $symbol($version) ](fg:color_aqua bg:color_srf2)]($style)'
 
 [golang]
 symbol = ""
 style = "bg:color_srf2"
-format = '[[ $symbol( $version) ](fg:color_aqua bg:color_srf2)]($style)'
+format = '[[ $symbol($version) ](fg:color_aqua bg:color_srf2)]($style)'
 
 [php]
 symbol = ""
 style = "bg:color_srf2"
-format = '[[ $symbol( $version) ](fg:color_aqua bg:color_srf2)]($style)'
+format = '[[ $symbol($version) ](fg:color_aqua bg:color_srf2)]($style)'
 
 [java]
 symbol = ""
 style = "bg:color_srf2"
-format = '[[ $symbol( $version) ](fg:color_aqua bg:color_srf2)]($style)'
+format = '[[ $symbol($version) ](fg:color_aqua bg:color_srf2)]($style)'
 
 [kotlin]
 symbol = ""
 style = "bg:color_srf2"
-format = '[[ $symbol( $version) ](fg:color_aqua bg:color_srf2)]($style)'
+format = '[[ $symbol($version) ](fg:color_aqua bg:color_srf2)]($style)'
 
 [haskell]
 symbol = ""
 style = "bg:color_srf2"
-format = '[[ $symbol( $version) ](fg:color_aqua bg:color_srf2)]($style)'
+format = '[[ $symbol($version) ](fg:color_aqua bg:color_srf2)]($style)'
 
 [python]
 symbol = ""
 style = "bg:color_srf2"
-format = '[[ $symbol( $version) ](fg:color_aqua bg:color_srf2)]($style)'
+format = '[[ $symbol($version) ](fg:color_aqua bg:color_srf2)]($style)'
 
 [docker_context]
 symbol = ""
 style = "bg:color_srf1"
-format = '[[ $symbol( $context) ](fg:color_purple bg:color_srf1)]($style)'
+format = '[[ $symbol($context) ](fg:color_purple bg:color_srf1)]($style)'
+
+# ── [custom]: the real power — any command becomes a segment ──────────────────
+# Example: show the active VPN/tunnel interface (matches your tmux-netinfo idea).
+[custom.vpn]
+description = "active tunnel interface"
+#command = "ifconfig | awk '/^(utun|wg|tun)/{print $1; exit}' | tr -d ':'"
+#when = "ifconfig | grep -qE '^(utun|wg|tun)'"
+symbol = "󰦝 "
+style = "fg:color_purple bg:color_srf1"
+format = '[ $symbol $output ]($style)'
+# Other classic [custom] uses: gcloud project, terraform workspace, 1Password
+# account, current Burp/engagement tag from an env var, etc.
+
+# Kubernetes context (+ namespace) on the srf1 ops band, cyan text. GATED on real k8s
+# project markers (Helm charts, kustomize, skaffold, a k8s/ dir, or an explicit
+# KUBECONFIG export) — without detect_* config starship would render this in EVERY
+# directory that has a current context, which is noise. context_aliases can shorten
+# long ARNs/GKE names; add your clusters there as needed.
+[kubernetes]
+disabled = false
+symbol = "󱃾 "
+style = "bg:color_srf1"
+format = '[[ $symbol $context (\($namespace\)) ](fg:color_aqua bg:color_srf1)]($style)'
+detect_files = ['Chart.yaml', 'skaffold.yaml', 'kustomization.yaml']
+detect_folders = ['k8s', '.helm', 'manifests']
+detect_env_vars = ['KUBECONFIG']
+# [kubernetes.context_aliases]
+# "arn:aws:eks:us-east-1:123456789:cluster/prod" = "prod"
+
+[aws]
+symbol = "󰸏 "
+style = "fg:color_orange bg:color_srf1"
+format = '[ $symbol ($profile) (\($region\)) ]($style)'
+# disabled by default elsewhere; shows AWS_PROFILE/region when set
+
+[env_var.ENGAGEMENT]            # show a custom env var when present (e.g. client tag)
+variable = "ENGAGEMENT"
+symbol = "🎯 "
+style = "fg:color_red"
+format = '[ $symbol $env_value ]($style)'
 
 [conda]
 style = "bg:color_srf1"
-format = '[[ $symbol( $environment) ](fg:color_purple bg:color_srf1)]($style)'
+format = '[[ $symbol ($environment) ](fg:color_purple bg:color_srf1)]($style)'
 
 [pixi]
 style = "bg:color_srf1"
-format = '[[ $symbol( $version)( $environment) ](fg:color_purple bg:color_srf1)]($style)'
+format = '[[ $symbol($version) ($environment) ](fg:color_purple bg:color_srf1)]($style)'
+
+# direnv state on the srf1 band — you hook direnv in os/macos.zsh but had no visual
+# feedback that an .envrc was loaded vs. waiting for `direnv allow`. Yellow when allowed
+# & loaded, red when blocked/denied so an un-allowed .envrc is obvious. Only renders in a
+# directory under direnv's control (an .envrc up the tree).
+[direnv]
+disabled = false
+symbol = " "
+style = "bg:color_srf1"
+format = '[[ $symbol $loaded ](fg:color_yellow bg:color_srf1)]($style)'
+loaded_msg = "on"
+unloaded_msg = "off"
+allowed_msg = " "
+not_allowed_msg = "󰍷 "
+denied_msg = " "
 
 # ruby + lua are declared in mise/config.toml as global runtimes, so they belong
 # in the language band alongside the rest. Same cyan-on-srf2 treatment. (Section
@@ -227,35 +319,58 @@ format = '[[ $symbol( $version)( $environment) ](fg:color_purple bg:color_srf1)]
 [ruby]
 symbol = ""
 style = "bg:color_srf2"
-format = '[[ $symbol( $version) ](fg:color_aqua bg:color_srf2)]($style)'
+format = '[[ $symbol($version) ](fg:color_aqua bg:color_srf2)]($style)'
 
 [lua]
 symbol = ""
 style = "bg:color_srf2"
-format = '[[ $symbol( $version) ](fg:color_aqua bg:color_srf2)]($style)'
+format = '[[ $symbol($version) ](fg:color_aqua bg:color_srf2)]($style)'
 
-# How long the last command took (only when it exceeds min_time). Orange text on
-# the same srf2 surface as time, so slow commands gently announce themselves
-# without a color clash. Transient: it vanishes after a quick command.
+# How long the last command took (only when it exceeds min_time). Lives in the
+# RIGHT prompt (see right_format) — same srf1 surface as the rest of that pill,
+# orange text so slow commands gently announce themselves. Transient: vanishes
+# after a quick command. starship passes --cmd-duration to `prompt --right`, so
+# it renders correctly on the right side.
 [cmd_duration]
-min_time = 2000
-style = "bg:color_srf2"
-format = '[[  $duration ](fg:color_orange bg:color_srf2)]($style)'
-
-# Background job count (`&`, Ctrl-Z). Purple text, srf2 surface; only shows when
+min_time = 500
+style = "fg:color_orange bg:color_srf1"
+format = '[ 󰔛 $duration ]($style)'
+# Background job count (`&`, Ctrl-Z). Purple text, srf1 surface; only shows when
 # at least one job is running.
 [jobs]
 symbol = '+'
 symbol_threshold = 1
 number_threshold = 1
-style = "bg:color_srf2"
-format = '[[ $symbol $number ](fg:color_purple bg:color_srf2)]($style)'
+style = "bg:color_srf1"
+format = '[[ $symbol $number ](fg:color_purple bg:color_srf1)]($style)'
 
 [time]
 disabled = false
 time_format = "%R"
-style = "bg:color_srf2"
-format = '[[  $time ](fg:color_fg_dark bg:color_srf2)]($style)'
+style = "fg:color_comment bg:color_srf1"
+format = '[ $time ]($style)'
+
+# ── RIGHT prompt modules: shell · cmd_duration · memory_usage ────────────────
+# (battery removed — it's already in the tmux status bar. cmd_duration is
+# configured above, in its original spot; section order is irrelevant.)
+[shell]
+disabled = false
+style = "fg:color_comment bg:color_srf1"
+zsh_indicator = "zsh"
+format = '[ $indicator ]($style)'
+
+[memory_usage]
+disabled = false
+threshold = 50          # only show when RAM > 50%
+symbol = "󰍛 "
+style = "fg:color_purple bg:color_srf1"
+format = '[ $symbol $ram_pct ]($style)'
+
+[sudo]
+disabled = false        # shows a marker while sudo creds are cached
+symbol = "󱐋 "
+style = "fg:color_yellow"
+format = '[ $symbol ]($style)'
 
 [line_break]
 disabled = false
@@ -270,22 +385,22 @@ disabled = false
 disabled = false
 style = "fg:color_red"
 symbol = "✘ "
-not_executable_symbol = " "
-not_found_symbol = " "
-sigint_symbol = " "
-signal_symbol = "⚡"
+not_executable_symbol = "🚫 "
+not_found_symbol = "🔍 "
+sigint_symbol = "🧱 "
+signal_symbol = "⚡ "
 recognize_signal_code = true
 map_symbol = true
 pipestatus = true
 pipestatus_separator = '[|](fg:color_comment)'
-format = '[$symbol$common_meaning$signal_name$maybe_int]($style) '
-pipestatus_format = '[$pipestatus]($style) => [$symbol$common_meaning$signal_name$maybe_int]($style) '
+format = '[ $symbol $common_meaning $signal_name $maybe_int ]($style)'
+pipestatus_format = '[ $pipestatus]($style)=>[ $symbol $common_meaning $signal_name $maybe_int]($style)'
 
 [character]
 disabled = false
-success_symbol = '[](bold fg:color_green)'
-error_symbol = '[](bold fg:color_red)'
-vimcmd_symbol = '[](bold fg:color_green)'
-vimcmd_replace_one_symbol = '[](bold fg:color_purple)'
-vimcmd_replace_symbol = '[](bold fg:color_purple)'
-vimcmd_visual_symbol = '[](bold fg:color_yellow)'
+success_symbol = '[❖](bold fg:color_green)'
+error_symbol = '[❖](bold fg:color_red)'
+vimcmd_symbol = '[ ](bold fg:color_green)'
+vimcmd_replace_one_symbol = '[ ](bold fg:color_purple)'
+vimcmd_replace_symbol = '[ ](bold fg:color_purple)'
+vimcmd_visual_symbol = '[ ](bold fg:color_yellow)'
