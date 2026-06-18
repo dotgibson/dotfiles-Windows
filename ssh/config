@@ -8,6 +8,7 @@
 
 Host *
     AddKeysToAgent yes
+    IdentitiesOnly yes              # only offer keys named by IdentityFile, don't spray every agent key at each host
     ServerAliveInterval 60
     ServerAliveCountMax 3
     HashKnownHosts yes
