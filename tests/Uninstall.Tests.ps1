@@ -6,6 +6,7 @@ BeforeAll {
     $RepoRoot = Split-Path -Parent $PSScriptRoot
     $env:DOTFILES_UNINSTALL_LIBONLY = '1'
     . (Join-Path $RepoRoot 'uninstall.ps1')
+    . (Join-Path $PSScriptRoot '_TestHelpers.ps1')   # New-DotTestTempDir
 }
 AfterAll {
     Remove-Item Env:DOTFILES_UNINSTALL_LIBONLY -ErrorAction SilentlyContinue
@@ -28,7 +29,7 @@ Describe 'Get-DotfilesLinkMap' {
 
 Describe 'Test-LinkIntoRepo' {
     BeforeAll {
-        $script:Tmp = Join-Path ([IO.Path]::GetTempPath()) ("untest-" + [guid]::NewGuid().ToString('N'))
+        $script:Tmp = New-DotTestTempDir -Prefix 'untest'
         $script:Repo = Join-Path $script:Tmp 'repo'
         New-Item -ItemType Directory -Force -Path $script:Repo | Out-Null
         $script:RepoFile = Join-Path $script:Repo 'thing.conf'; 'x' | Set-Content $script:RepoFile

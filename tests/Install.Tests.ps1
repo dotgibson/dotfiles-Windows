@@ -6,8 +6,8 @@ BeforeAll {
     $RepoRoot = Split-Path -Parent $PSScriptRoot
     $env:DOTFILES_INSTALL_LIBONLY = '1'
     . (Join-Path $RepoRoot 'install.ps1')
-    $script:Tmp = Join-Path ([IO.Path]::GetTempPath()) ("lnktest-" + [guid]::NewGuid().ToString('N'))
-    New-Item -ItemType Directory -Force -Path $script:Tmp | Out-Null
+    . (Join-Path $PSScriptRoot '_TestHelpers.ps1')
+    $script:Tmp = New-DotTestTempDir -Prefix 'lnktest'
 }
 AfterAll {
     if ($script:Tmp -and (Test-Path $script:Tmp)) { Remove-Item $script:Tmp -Recurse -Force -ErrorAction SilentlyContinue }
@@ -38,10 +38,14 @@ Describe 'Test-SymlinkCurrent' {
 Describe 'Get-InstallSummaryLines' {
     It 'renders all four tally categories' {
         $lines = Get-InstallSummaryLines -Stats ([ordered]@{ linked = 3; copied = 0; skipped = 2; backedup = 1 })
-        $lines.Count | Should -Be 4
-        ($lines -join "`n") | Should -Match 'linked   : 3'
-        ($lines -join "`n") | Should -Match 'skipped  : 2'
-        ($lines -join "`n") | Should -Match 'backed up: 1'
+        # Exact, ordered output — covers the previously-unchecked 'copied' line and
+        # the 'skipped' "(already correct)" suffix, not just three loose substrings.
+        $lines | Should -Be @(
+            'linked   : 3'
+            'copied   : 0'
+            'skipped  : 2  (already correct)'
+            'backed up: 1'
+        )
     }
 }
 
