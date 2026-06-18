@@ -150,10 +150,11 @@ dotfiles-Windows/
 ├── .githooks/pre-commit         runs tests/Invoke-Validation.ps1 before commits
 ├── powershell/
 │   ├── profile.ps1              loader (core→os→local)
-│   ├── core/                    aliases, tools init, functions, update, op
-│   │     00-aliases  10-tools  15-update  20-functions  40-op
-│   ├── os/                      windows helpers + wsl bridge + psmux + maint
-│   │     30-windows  31-wsl-bridge  32-psmux  40-maint
+│   ├── core/                    aliases, shared lib, tool inits, functions, completions, help
+│   │     00-aliases  05-lib  10-tools  15-update  20-functions  25-television
+│   │     40-op  45-crypto  50-completions  55-help  57-health-nudge
+│   ├── os/                      windows helpers + wsl bridge + psmux + maint + doctor
+│   │     30-windows  31-wsl-bridge  32-psmux  33-psmux-pill  40-maint  45-doctor
 │   └── local.ps1.example        copy to local.ps1 (gitignored)
 ├── maint/Maintenance.ps1        unattended daily maint runner (Task Scheduler)
 ├── windows-terminal/settings.json
@@ -178,7 +179,7 @@ dotfiles-Windows/
 | `Ctrl+t` / `Ctrl+r`                           | fzf file picker / history search                                              |
 | `http` / `dns` / `md`                         | xh / doggo / glow (guarded if installed)                                      |
 | `lg`                                          | lazygit                                                                       |
-| `serve [port]`                                | HTTP server in the CWD, prints the host LAN URL                               |
+| `serve [port] [-Local]`                       | HTTP server in the CWD; prints the host LAN URL (`-Local` binds localhost only) |
 | `fif <term>` / `fbr`                          | find-in-files / fuzzy git-branch checkout                                     |
 | `tmux` / `psmux` / `pmux`                     | native host multiplexer (psmux; reads `~/.config/psmux/psmux.conf`)           |
 | `mux [session]`                               | attach-or-create a psmux session (defaults to `main`)                         |
