@@ -15,7 +15,7 @@
 
 # --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
 # provides: kali, debian, wsls, wslip, cdwsl, hostip, wslhome, wsl-restart
-# requires: ConvertTo-WslPath, Test-Cmd
+# requires: ConvertTo-WslPath, Test-Cmd, Write-DotHost
 
 if (-not (Test-Cmd wsl)) { return }
 
@@ -55,4 +55,4 @@ function hostip {
 function wslhome { wsl -d kali-linux --cd '~' }
 
 # --- restart the WSL subsystem (clears stuck mounts / network) ----------------
-function wsl-restart { wsl --shutdown; Write-Host 'WSL shut down; next `wsl` call cold-starts it.' -ForegroundColor Yellow }
+function wsl-restart { wsl --shutdown; Write-DotHost 'WSL shut down; next `wsl` call cold-starts it.' -Color Yellow }

@@ -33,7 +33,7 @@
 
 # --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
 # provides: psmux-pill-now, psmux-pill-enable, psmux-pill-disable, psmux-pill-status
-# requires: Test-Cmd, Write-DotErr, Write-DotOk
+# requires: Test-Cmd, Write-DotErr, Write-DotHost, Write-DotOk
 
 if (-not (Test-Cmd psmux)) { return }
 
@@ -59,7 +59,7 @@ function psmux-pill-now {
     $netScript = Get-PillScript
     if (-not $netScript) { return }
     if ($AllNetworks) { & $netScript -AllNetworks | Out-Null } else { & $netScript | Out-Null }
-    Write-Host "refreshed -> $script:PillCache" -ForegroundColor DarkGray
+    Write-DotHost "refreshed -> $script:PillCache" -Color DarkGray
 }
 
 # Start-PillRefresher — arm the per-session timer (idempotent within a session).
@@ -126,11 +126,11 @@ function psmux-pill-enable {
     }
     Start-PillRefresher -AllNetworks:$AllNetworks
     Write-DotOk 'psmux pill enabled — in-session refresher (no scheduled task, no elevation)'
-    Write-Host '  refreshes every 60s while a psmux pane is open; new panes auto-arm it.' -ForegroundColor DarkGray
+    Write-DotHost '  refreshes every 60s while a psmux pane is open; new panes auto-arm it.' -Color DarkGray
     if (-not (Test-InMux)) {
-        Write-Host '  (not inside psmux now — it kicks in when you `mux`.)' -ForegroundColor DarkGray
+        Write-DotHost '  (not inside psmux now — it kicks in when you `mux`.)' -Color DarkGray
     } else {
-        Write-Host '  the bar picks it up within one status-interval; force a repaint with prefix + r.' -ForegroundColor DarkGray
+        Write-DotHost '  the bar picks it up within one status-interval; force a repaint with prefix + r.' -Color DarkGray
     }
 }
 
@@ -142,7 +142,7 @@ function psmux-pill-disable {
     Stop-PillRefresher
     Remove-Item $script:PillCache -Force -ErrorAction SilentlyContinue
     Write-DotOk 'psmux pill disabled (refresher stopped in this session; cache cleared)'
-    Write-Host '  other open panes keep their timer until they close — or run this in each.' -ForegroundColor DarkGray
+    Write-DotHost '  other open panes keep their timer until they close — or run this in each.' -Color DarkGray
 }
 
 function psmux-pill-status {
@@ -158,12 +158,12 @@ function psmux-pill-status {
     if (Test-Path $script:PillCache) {
         $raw = [System.IO.File]::ReadAllText($script:PillCache)
         if ([string]::IsNullOrEmpty($raw)) {
-            Write-Host 'pill cache is empty (no tunnel up; pass -AllNetworks to show LAN too)' -ForegroundColor DarkGray
+            Write-DotHost 'pill cache is empty (no tunnel up; pass -AllNetworks to show LAN too)' -Color DarkGray
         } else {
-            Write-Host "pill cache: $raw" -ForegroundColor DarkGray
+            Write-DotHost "pill cache: $raw" -Color DarkGray
         }
     } else {
-        Write-Host "no pill cache yet at $script:PillCache (run psmux-pill-enable)" -ForegroundColor DarkGray
+        Write-DotHost "no pill cache yet at $script:PillCache (run psmux-pill-enable)" -Color DarkGray
     }
 }
 

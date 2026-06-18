@@ -5,7 +5,7 @@
 
 # --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
 # provides: Get-InitCache, Clear-InitCache, shell-bench, prof-trace
-# requires: Get-DotStringSha256, Test-Cmd, Test-SensitiveHistoryLine, Write-DotErr, Write-DotWarn
+# requires: Get-DotStringSha256, Test-Cmd, Test-SensitiveHistoryLine, Write-DotErr, Write-DotHost, Write-DotWarn
 
 # --- FAST_START escape hatch --------------------------------------------------
 # Skips ALL the heavy prompt/history/completion init in this fragment. The cheap
@@ -159,7 +159,7 @@ function global:Clear-InitCache {
     if (Test-Path $global:DotfilesInitCacheDir) {
         Remove-Item (Join-Path $global:DotfilesInitCacheDir '*.ps1') -Force -ErrorAction SilentlyContinue
     }
-    Write-Host 'init cache cleared (regenerates on next shell start)' -ForegroundColor Green
+    Write-DotHost 'init cache cleared (regenerates on next shell start)' -Color Green
 }
 Set-Alias init-cache-clear Clear-InitCache -Scope Global
 
@@ -212,12 +212,12 @@ function global:prof-trace {
         Remove-Item Env:DOTFILES_TRACE_OUT -ErrorAction SilentlyContinue
     }
     if (Test-Path $out) {
-        Write-Host "`nprofile load trace (slowest first):" -ForegroundColor Cyan
+        Write-DotHost "`nprofile load trace (slowest first):" -Color Cyan
         Get-Content $out
     } else {
         Write-DotWarn 'prof-trace: child wrote no file — the profile likely errored before the trace ran.'
-        Write-Host  'Fallback (loads the profile the plain way, no -Command indirection):' -ForegroundColor DarkGray
-        Write-Host  "  `$env:DOTFILES_PROFILE_TRACE='1'; `$env:PSMUX_NO_AUTOLAUNCH='1'; pwsh -NoLogo" -ForegroundColor DarkGray
+        Write-DotHost  'Fallback (loads the profile the plain way, no -Command indirection):' -Color DarkGray
+        Write-DotHost  "  `$env:DOTFILES_PROFILE_TRACE='1'; `$env:PSMUX_NO_AUTOLAUNCH='1'; pwsh -NoLogo" -Color DarkGray
     }
 }
 
