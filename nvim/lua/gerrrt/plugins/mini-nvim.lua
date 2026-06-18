@@ -9,6 +9,11 @@
 return {
 	"echasnovski/mini.nvim",
 	version = "*",
+	-- Deferred off the startup critical path: none of these modules are needed before the
+	-- first UI paint. mini.notify only has to replace vim.notify before the first toast, and
+	-- mini.trailspace.trim() only runs in the BufWritePre autocmd (config/autocmds.lua) — both
+	-- fire well after VeryLazy. ai/move/surround/pairs are ready before you can edit a buffer.
+	event = "VeryLazy",
 	config = function()
 		require("mini.ai").setup({})
 		require("mini.move").setup({})

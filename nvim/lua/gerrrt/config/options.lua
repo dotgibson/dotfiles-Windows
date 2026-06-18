@@ -40,6 +40,11 @@ vim.opt.showmode = false -- Don't show mode in command line
 vim.opt.pumheight = 10 -- Popup menu height
 vim.opt.pumblend = 10 -- Popup menu transparency
 vim.opt.winblend = 0 -- Floating window transparency
+-- Global default border for ALL floating windows (LSP hover, signature help, diagnostics
+-- floats, etc.). One setting instead of per-plugin `border=` options. (Neovim 0.11+)
+-- The diagnostics float already requests "rounded" explicitly in utils/diagnostics.lua;
+-- this makes everything else match it for free.
+vim.opt.winborder = "rounded"
 -- NOTE: conceallevel/concealcursor are set per-filetype in the markdown autocmd
 -- (config/autocmds.lua), not globally — concealing in non-markdown buffers can hide
 -- characters unexpectedly (e.g. in some JSON/LSP setups).

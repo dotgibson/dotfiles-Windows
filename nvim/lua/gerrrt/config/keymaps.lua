@@ -8,14 +8,8 @@
 --        use — same philosophy. All three were duplicated here before and the plugins silently won.
 -- ================================================================================================
 
--- Quick config editing. stdpath("config") resolves per-OS — ~/.config/nvim on
--- Unix, %LOCALAPPDATA%\nvim on Windows — so this works on the vendored Windows
--- host too; a hardcoded ~/.config/nvim opened a nonexistent file there. (U16)
-vim.keymap.set("n", "<leader>rc", function()
-	-- args-as-list so a config path containing spaces (e.g. C:\Users\First Last\…)
-	-- stays ONE argument instead of being split by :edit's argument parser.
-	vim.cmd.edit({ args = { vim.fs.joinpath(vim.fn.stdpath("config"), "init.lua") } })
-end, { desc = "Edit config" })
+-- Quick config editing
+vim.keymap.set("n", "<leader>rc", "<Cmd>e ~/.config/nvim/init.lua<CR>", { desc = "Edit config" })
 
 -- Wrap-aware vertical motion
 vim.keymap.set("n", "j", function()

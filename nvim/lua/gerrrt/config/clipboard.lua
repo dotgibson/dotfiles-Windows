@@ -20,31 +20,36 @@
 -- ─────────────────────────────────────────────────────────────────────────────
 
 if vim.fn.executable("clip") == 1 and vim.fn.executable("clip-paste") == 1 then
-	vim.g.clipboard = {
-		name = "clip-crossos",
-		copy = {
-			["+"] = "clip",
-			["*"] = "clip",
-		},
-		paste = {
-			["+"] = "clip-paste",
-			["*"] = "clip-paste",
-		},
-		cache_enabled = 0,
-	}
+  vim.g.clipboard = {
+    name = "clip-crossos",
+    copy = {
+      ["+"] = "clip",
+      ["*"] = "clip",
+    },
+    paste = {
+      ["+"] = "clip-paste",
+      ["*"] = "clip-paste",
+    },
+    -- cache_enabled = 0 on purpose: every "+p reflects the LIVE system clipboard
+    -- (including copies made in other apps), never a stale value nvim cached. That
+    -- means nvim re-execs clip-paste per access, so the scripts themselves are kept
+    -- fork-light — their WSL probe reads /proc/version with a bash builtin instead
+    -- of forking grep each time (see bin/clip). Correctness kept, waste removed.
+    cache_enabled = 0,
+  }
 elseif vim.fn.executable("clip.exe") == 1 then
-	-- Windows-native fallback (psmux / no Core bootstrap)
-	local pwsh = vim.fn.executable("pwsh") == 1 and "pwsh" or "powershell"
-	vim.g.clipboard = {
-		name = "clip-windows",
-		copy = {
-			["+"] = "clip.exe",
-			["*"] = "clip.exe",
-		},
-		paste = {
-			["+"] = { pwsh, "-NoProfile", "-Command", "Get-Clipboard" },
-			["*"] = { pwsh, "-NoProfile", "-Command", "Get-Clipboard" },
-		},
-		cache_enabled = 0,
-	}
+  -- Windows-native fallback (psmux / no Core bootstrap)
+  local pwsh = vim.fn.executable("pwsh") == 1 and "pwsh" or "powershell"
+  vim.g.clipboard = {
+    name = "clip-windows",
+    copy = {
+      ["+"] = "clip.exe",
+      ["*"] = "clip.exe",
+    },
+    paste = {
+      ["+"] = { pwsh, "-NoProfile", "-Command", "Get-Clipboard" },
+      ["*"] = { pwsh, "-NoProfile", "-Command", "Get-Clipboard" },
+    },
+    cache_enabled = 0,
+  }
 end

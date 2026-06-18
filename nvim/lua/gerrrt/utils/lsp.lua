@@ -73,7 +73,7 @@ M.on_attach = function(event)
 	keymap("n", "<leader>fw", "<cmd>FzfLua lsp_workspace_symbols<CR>", opts("Workspace symbols"))
 
 	-- ── Organize imports (if the server supports it) ─────────────────────────
-	if client:supports_method("textDocument/codeAction", { bufnr = bufnr }) then
+	if client:supports_method("textDocument/codeAction", bufnr) then
 		keymap("n", "<leader>oi", function()
 			vim.lsp.buf.code_action({
 				context = { only = { "source.organizeImports" }, diagnostics = {} },

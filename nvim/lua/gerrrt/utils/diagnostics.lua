@@ -21,6 +21,12 @@ M.setup = function()
 			},
 		},
 		severity_sort = true,
+		-- Inline diagnostics. Neovim 0.13 defaults virtual_text/virtual_lines to OFF, so without
+		-- this the message text only shows on hover (<leader>cd / float). virtual_text prints a
+		-- concise message at end of line; the \u{25cf} (●) prefix is written as an escape so it
+		-- survives copy/paste like the other glyphs here. `source` is kept to the float to avoid
+		-- cluttering the end-of-line text when several servers attach.
+		virtual_text = { spacing = 2, prefix = "\u{25cf}" }, -- 25cf BLACK CIRCLE
 		float = { border = "rounded", source = true },
 	})
 end

@@ -12,8 +12,9 @@ return function(capabilities)
 			"svelte",
 			"vue",
 		},
-		root_dir = function(fname)
-			return vim.fs.root(fname, { "package.json", ".git" })
-		end,
+		-- Native vim.lsp.config uses `root_markers` (a list), not the old lspconfig
+		-- `root_dir = function(fname)` form, which native LSP ignores (it expects
+		-- fun(bufnr, on_dir) and would never start the server otherwise).
+		root_markers = { "package.json", ".git" },
 	})
 end
