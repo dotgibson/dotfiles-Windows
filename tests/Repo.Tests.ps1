@@ -103,6 +103,31 @@ Describe 'repo hygiene' {
     }
 }
 
+Describe 'README layout box tracks the actual fragments (B15)' {
+    BeforeAll {
+        $RepoRoot = Split-Path -Parent $PSScriptRoot
+        $readme = Get-Content (Join-Path $RepoRoot 'README.md') -Raw
+        # Grab the fenced code block under "## Layout".
+        $m = [regex]::Match($readme, '(?ms)^## Layout\s*\r?\n```\r?\n(.*?)\r?\n```')
+        $script:LayoutBlock = if ($m.Success) { $m.Groups[1].Value } else { '' }
+        # Fragment tokens in the box (NN-name), e.g. 05-lib, 31-wsl-bridge, 57-health-nudge.
+        $script:DocFrags = [regex]::Matches($script:LayoutBlock, '\b\d{2}-[a-z][a-z-]*') |
+            ForEach-Object { $_.Value } | Sort-Object -Unique
+        # Actual fragments on disk (core + os), basename without .ps1.
+        $script:DiskFrags = Get-ChildItem `
+            (Join-Path $RepoRoot 'powershell/core'), (Join-Path $RepoRoot 'powershell/os') -Filter *.ps1 |
+            ForEach-Object { $_.BaseName } | Sort-Object -Unique
+    }
+    It 'finds the Layout code block' {
+        $script:LayoutBlock | Should -Not -BeNullOrEmpty
+    }
+    It 'lists exactly the on-disk core/os fragments (no missing, no stale)' {
+        # Equal sets: a new fragment must be added to the box, a removed one dropped.
+        ($script:DocFrags -join ', ') | Should -Be ($script:DiskFrags -join ', ') `
+            -Because 'the README Layout box drifted from powershell/core + powershell/os (update it)'
+    }
+}
+
 Describe 'psmux config' {
     BeforeAll {
         $RepoRoot = Split-Path -Parent $PSScriptRoot
