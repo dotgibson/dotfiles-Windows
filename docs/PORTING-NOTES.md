@@ -109,7 +109,11 @@ through `set-clipboard on` (OSC52) instead.
   and vendored. Pull the current Core nvim tree in (subtree pull or a straight
   copy of `core/nvim/` → this repo's `nvim/`). `.luacheckrc` has been synced to
   Core's current version; the rest of the tree should follow the same way the
-  Linux repos vendor it.
+  Linux repos vendor it. **Carry the U16 fix upstream:** `config/keymaps.lua`'s
+  `<leader>rc` now opens `vim.fn.stdpath("config")` instead of a hardcoded
+  `~/.config/nvim` (which pointed at a nonexistent path on Windows). The change
+  is OS-portable, so push it into Core before re-vendoring — otherwise the
+  `robocopy /MIR` sync overwrites `keymaps.lua` and reintroduces the wart.
 - **Align `psmux/psmux.conf` with Core's tmux config.** The host config is a
   standalone, portable starter that already remaps the prefix to `C-a`
   (`psmux.reset.conf`). When convenient, reconcile the remaining keybinds with
