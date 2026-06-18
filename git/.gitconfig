@@ -117,11 +117,11 @@
 	light = false
 	line-numbers = true
 	side-by-side = false          # toggle on the fly with --side-by-side
-	syntax-theme = TwoDark
+	syntax-theme = ansi           # follow the terminal's Tokyo Night ANSI palette (matches BAT_THEME in 00-aliases.ps1)
 	hyperlinks = true
 	true-color = always           # Windows Terminal is truecolor
 	tabs = 2
-	width = "variable"
+	width = variable
 [delta "decorations"]
 	commit-decoration-style = bold yellow box ul
 	file-decoration-style = bold yellow ul
