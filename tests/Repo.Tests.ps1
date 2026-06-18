@@ -107,8 +107,9 @@ Describe 'README layout box tracks the actual fragments (B15)' {
     BeforeAll {
         $RepoRoot = Split-Path -Parent $PSScriptRoot
         $readme = Get-Content (Join-Path $RepoRoot 'README.md') -Raw
-        # Grab the fenced code block under "## Layout".
-        $m = [regex]::Match($readme, '(?ms)^## Layout\s*\r?\n```\r?\n(.*?)\r?\n```')
+        # Grab the fenced code block under "## Layout" (allow an optional language/
+        # info string after the opening fence, e.g. ```text).
+        $m = [regex]::Match($readme, '(?ms)^## Layout\s*\r?\n```[^\r\n]*\r?\n(.*?)\r?\n```')
         $script:LayoutBlock = if ($m.Success) { $m.Groups[1].Value } else { '' }
         # Fragment tokens in the box (NN-name), e.g. 05-lib, 31-wsl-bridge, 57-health-nudge.
         $script:DocFrags = [regex]::Matches($script:LayoutBlock, '\b\d{2}-[a-z][a-z-]*') |
