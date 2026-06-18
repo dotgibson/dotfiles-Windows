@@ -16,10 +16,11 @@ BeforeAll {
     . (Join-Path $RepoRoot 'powershell/core/05-lib.ps1')   # Get-DotfilesLinkPlan
     . (Join-Path $RepoRoot 'install.ps1')                  # Test-SymlinkCurrent
     . (Join-Path $RepoRoot 'uninstall.ps1')                # Test-LinkIntoRepo
+    . (Join-Path $PSScriptRoot '_TestHelpers.ps1')         # New-DotTestTempDir
 
     # A self-contained fake world: a fake repo with the target files, and fake
     # HOME / LOCALAPPDATA / Documents roots the plan links into.
-    $script:World = Join-Path ([IO.Path]::GetTempPath()) ("rt-" + [guid]::NewGuid().ToString('N'))
+    $script:World = New-DotTestTempDir -Prefix 'rt'
     $script:Repo  = Join-Path $script:World 'repo'
     $script:HomeDir  = Join-Path $script:World 'home'
     $script:Local = Join-Path $script:World 'local'

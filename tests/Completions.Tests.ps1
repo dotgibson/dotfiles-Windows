@@ -9,6 +9,7 @@ BeforeAll {
     # dot-source 55-help for the dothelp VERB the completer is registered against.
     $script:Module = Import-Module (Join-Path $RepoRoot 'powershell/Dotfiles/Dotfiles.psd1') -Force -DisableNameChecking -PassThru
     . (Join-Path $RepoRoot 'powershell/core/55-help.ps1')
+    . (Join-Path $PSScriptRoot '_TestHelpers.ps1')   # New-DotTestTempDir
     # Stub the remaining target commands so completion resolves against real names.
     function global:mux       { param([string]$Session = 'main') }
     function global:cdwsl     { param([string]$Distro = 'kali-linux') }
@@ -58,7 +59,7 @@ Describe 'argument completers are registered' {
     It 'normalizes pinned { id, version } winget entries to id strings' {
         # Guards the B2 pinned-entry shape: the completer must never emit a
         # PSCustomObject. Point $global:DOTFILES at a temp manifest with both forms.
-        $tmp = Join-Path ([IO.Path]::GetTempPath()) ("wgnorm-" + [guid]::NewGuid().ToString('N'))
+        $tmp = New-DotTestTempDir -Prefix 'wgnorm'
         New-Item -ItemType Directory -Force -Path (Join-Path $tmp 'packages') | Out-Null
         try {
             @{ packages = @('Git.Git', @{ id = 'Mozilla.Firefox'; version = '120.0' }) } |

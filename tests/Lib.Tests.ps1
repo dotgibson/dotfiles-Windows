@@ -146,15 +146,11 @@ Describe 'Get-DotToolNudge' {
         Get-DotToolNudge @($null)   | Should -BeNullOrEmpty
     }
     It 'uses the singular for one missing tool and names it' {
-        $n = Get-DotToolNudge @('eza')
-        $n | Should -Match '1 core tool missing'
-        $n | Should -Match 'eza'
-        $n | Should -Match 'dotfiles-doctor'
+        Get-DotToolNudge @('eza') | Should -Be '1 core tool missing (eza) — run dotfiles-doctor'
     }
     It 'uses the plural and lists all missing tools' {
-        $n = Get-DotToolNudge @('starship', 'zoxide', 'fzf')
-        $n | Should -Match '3 core tools missing'
-        $n | Should -Match 'starship, zoxide, fzf'
+        Get-DotToolNudge @('starship', 'zoxide', 'fzf') |
+            Should -Be '3 core tools missing (starship, zoxide, fzf) — run dotfiles-doctor'
     }
 }
 
@@ -231,7 +227,13 @@ Describe 'Write-DotBanner' {
         try { $env:NO_COLOR = '1'; (Write-DotBanner 'A' -Subtitle 'B' 6>&1 | Out-String).Trim() | Should -Be '== A :: B ==' }
         finally { $env:NO_COLOR = $prev }
     }
-    It 'does not throw with colour on' { { Write-DotBanner 'X' -Subtitle 'Y' 6>$null } | Should -Not -Throw }
+    It 'keeps the title and subtitle text in the coloured output' {
+        # Colour-on wraps the chip in ANSI/SGR, but the title and subtitle text
+        # must survive regardless of palette (truecolor vs 16-colour fallback).
+        $out = Write-DotBanner 'Doctor' -Subtitle 'preview' 6>&1 | Out-String
+        $out | Should -Match 'Doctor'
+        $out | Should -Match 'preview'
+    }
 }
 
 Describe 'Write-DotRule' {
@@ -243,8 +245,12 @@ Describe 'Write-DotRule' {
         try { $env:DOTFILES_ASCII = '1'; (Write-DotRule -Width 4 6>&1 | Out-String).Trim() | Should -Be '----' }
         finally { $env:DOTFILES_ASCII = $prev }
     }
-    It 'auto-sizes (does not throw) when no width is given' {
-        { Write-DotRule -Title 'Summary' 6>$null } | Should -Not -Throw
+    It 'auto-sizes to the console when no width is given' {
+        # No explicit -Width: the rule still leads with the title and fills past it
+        # (Width floors at 8), so the line is longer than the bare "-- Summary " prefix.
+        $out = (Write-DotRule -Title 'Summary' 6>&1 | Out-String).Trim()
+        $out | Should -Match '^-- Summary '
+        $out.Length | Should -BeGreaterThan '-- Summary '.Length
     }
 }
 
