@@ -3,7 +3,7 @@
 # ============================================================================
 
 # --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
-# provides: Test-Cmd, ls, l, ll, la, lt, llt, cat, catp, grep, http, https, md, dns, du, pss, watch, hex, loc, g, gs, ga, gaa, gc, gcm, gco, gd, gl, gp, gpl, lg, .., ..., ...., ~, mkcd, which, reload, dotfiles
+# provides: Test-Cmd, ls, l, ll, la, lt, llt, cat, catp, grep, http, https, md, dns, du, pss, watch, hex, loc, g, gs, gst, gss, gsb, ga, gaa, gc, gcm, gco, gd, gl, glog, gp, lg, .., ..., ...., ~, mkcd, which, reload, dotfiles
 # requires: Write-DotHost
 # PowerShell has built-in aliases (ls, cat, cp...) that point at cmdlets.
 # We remove the ones we want to override, then define functions that shadow
@@ -72,18 +72,24 @@ if (Test-Cmd hexyl) { function hex   { hexyl @args } }
 # tokei: lines-of-code counter by language. `loc` for muscle memory.
 if (Test-Cmd tokei) { function loc   { tokei @args } }
 
-# --- git shorthands (parity with the fleet) -----------------------------------
+# --- git shorthands (parity with Core's zsh/git.zsh) --------------------------
+# Names + semantics track Core so muscle memory carries across the fleet: notably
+# `gl` PULLS (Core's omz convention) and `glog` is the graph log — the old
+# Windows `gl`=log / `gpl`=pull layout was the one place these drifted.
 function g    { git @args }
-function gs   { git status -sb @args }
+function gs   { git status -sb @args }            # Windows-kept extra; identical to gsb
+function gst  { git status @args }
+function gss  { git status --short @args }
+function gsb  { git status --short --branch @args }
 function ga   { git add @args }
 function gaa  { git add --all @args }
-function gc   { git commit @args }
+function gc   { git commit --verbose @args }
 function gcm  { git commit -m @args }
 function gco  { git checkout @args }
 function gd   { git diff @args }
-function gl   { git log --oneline --graph --decorate -20 @args }
+function gl   { git pull @args }
+function glog { git log --oneline --decorate --graph @args }
 function gp   { git push @args }
-function gpl  { git pull @args }
 if (Test-Cmd lazygit) { function lg { lazygit @args } }
 
 # --- navigation ---------------------------------------------------------------

@@ -30,9 +30,11 @@ function Get-DotfilesHelpData {
         @{ Command = 'dotfiles';     Desc = 'cd to the dotfiles repo' }
     )
     $g['Git'] = @(
-        @{ Command = 'g / gs / gl';  Desc = 'git / status -sb / pretty log' }
-        @{ Command = 'ga / gaa / gc / gcm'; Desc = 'add / add --all / commit / commit -m' }
-        @{ Command = 'gco / gd / gp / gpl'; Desc = 'checkout / diff / push / pull' }
+        @{ Command = 'g / gs / gst';  Desc = 'git / status -sb / status' }
+        @{ Command = 'gss / gsb';     Desc = 'status --short / --short --branch' }
+        @{ Command = 'ga / gaa / gc / gcm'; Desc = 'add / add --all / commit -v / commit -m' }
+        @{ Command = 'gco / gd / gp'; Desc = 'checkout / diff / push' }
+        @{ Command = 'gl / glog';     Desc = 'pull / log graph' }
         @{ Command = 'lg';           Desc = 'lazygit' }
         @{ Command = 'fbr';          Desc = 'fuzzy git-branch checkout' }
     )
