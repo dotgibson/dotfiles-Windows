@@ -33,7 +33,7 @@
 
 # --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
 # provides: psmux-pill-now, psmux-pill-enable, psmux-pill-disable, psmux-pill-status
-# requires: Test-Cmd, Write-DotErr, Write-DotOk
+# requires: Test-Cmd, Write-DotErr, Write-DotHost, Write-DotOk
 
 if (-not (Test-Cmd psmux)) { return }
 

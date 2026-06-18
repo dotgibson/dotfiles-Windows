@@ -4,7 +4,7 @@
 
 # --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
 # provides: scu, scs, sci, scl, sccl, wgu, wgs, wgi, update-host, path, open, admin, setenv, getenv, modules-localize
-# requires: Get-DotModulePrunePlan, Test-Cmd, up, Write-DotErr, Write-DotWarn
+# requires: Get-DotModulePrunePlan, Test-Cmd, up, Write-DotErr, Write-DotHost, Write-DotWarn
 
 # --- scoop (your primary CLI package manager on the host) ---------------------
 if (Test-Cmd scoop) {

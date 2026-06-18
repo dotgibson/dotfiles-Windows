@@ -18,7 +18,7 @@
 
 # --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
 # provides: Get-MaintRunnerPath, Get-PwshPath, maint-install, maint-run, maint-log, maint-status, maint-uninstall
-# requires: Write-DotErr, Write-DotOk
+# requires: Write-DotErr, Write-DotHost, Write-DotOk
 
 $script:MaintTaskName = 'dotfiles-maint'
 $script:MaintScript   = if ($global:DOTFILES) { Join-Path $global:DOTFILES 'maint\Maintenance.ps1' } else { $null }

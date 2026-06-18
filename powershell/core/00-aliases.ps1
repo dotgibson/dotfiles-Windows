@@ -4,7 +4,7 @@
 
 # --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
 # provides: Test-Cmd, ls, l, ll, la, lt, llt, cat, catp, grep, http, https, md, dns, du, pss, watch, hex, loc, g, gs, ga, gaa, gc, gcm, gco, gd, gl, gp, gpl, lg, .., ..., ...., ~, mkcd, which, reload, dotfiles
-# requires: (none)
+# requires: Write-DotHost
 # PowerShell has built-in aliases (ls, cat, cp...) that point at cmdlets.
 # We remove the ones we want to override, then define functions that shadow
 # them with the modern Rust tools. Functions (not Set-Alias) are used where we

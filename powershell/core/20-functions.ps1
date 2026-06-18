@@ -4,7 +4,7 @@
 
 # --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
 # provides: myip, myip-full, localips, extract, compress, mkbak, sha256, sha1, md5, cheat, pbcopy, pbpaste, serve, fif, fbr
-# requires: Get-DotServePlan, Test-Cmd, Write-DotErr
+# requires: Get-DotServePlan, Test-Cmd, Write-DotErr, Write-DotHost
 
 # --- public IP / network quicklook (parity with your `myip` aliases) ----------
 function myip      { (Invoke-RestMethod -Uri 'https://ipinfo.io/ip').Trim() }
