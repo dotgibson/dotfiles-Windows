@@ -53,7 +53,7 @@ function mkbak {
     param([Parameter(Mandatory)][string]$Path)
     $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
     Copy-Item $Path "$Path.$stamp.bak"
-    Write-Host "-> $Path.$stamp.bak" -ForegroundColor Green
+    Write-DotHost "-> $Path.$stamp.bak" -Color Green
 }
 
 # --- sha helpers --------------------------------------------------------------
@@ -83,10 +83,10 @@ function serve {
             Sort-Object SkipAsSource | Select-Object -First 1 -ExpandProperty IPAddress
     }
     $plan = Get-DotServePlan -Port $Port -Local:$Local -LanIp $ip
-    Write-Host "serving $((Get-Location).Path) on port $Port  (Ctrl-C to stop)" -ForegroundColor Cyan
+    Write-DotHost "serving $((Get-Location).Path) on port $Port  (Ctrl-C to stop)" -Color Cyan
     if ($plan.Url) {
         $tag = if ($plan.Scope -eq 'local') { 'local only' } else { 'lan' }
-        Write-Host "  -> $($plan.Url)   ($tag)" -ForegroundColor Green
+        Write-DotHost "  -> $($plan.Url)   ($tag)" -Color Green
     }
     if (-not ((Test-Cmd python) -or (Test-Cmd python3))) {
         Write-DotErr 'python not found' 'scoop install python'; return
@@ -97,7 +97,7 @@ function serve {
         if (Test-Cmd python) { python -m http.server $Port $plan.BindArgs }
         else { python3 -m http.server $Port $plan.BindArgs }
     } finally {
-        Write-Host "`nserver stopped." -ForegroundColor DarkGray
+        Write-DotHost "`nserver stopped." -Color DarkGray
     }
 }
 

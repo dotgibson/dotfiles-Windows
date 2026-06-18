@@ -30,15 +30,15 @@ if (Test-Cmd age) {
         $dir = Split-Path $script:AgeKey -Parent
         if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
         if (Test-Path $script:AgeKey) {
-            Write-Host "key already exists at $script:AgeKey" -ForegroundColor DarkYellow
-            Write-Host "  public key: $(age-keygen -y $script:AgeKey)" -ForegroundColor DarkGray
+            Write-DotHost "key already exists at $script:AgeKey" -Color DarkYellow
+            Write-DotHost "  public key: $(age-keygen -y $script:AgeKey)" -Color DarkGray
             return
         }
         age-keygen -o $script:AgeKey
-        Write-Host "key written to $script:AgeKey" -ForegroundColor Green
-        Write-Host "  back it up in 1Password (create a 'Password'/'Secure Note' item, paste the file), e.g.:" -ForegroundColor DarkGray
-        Write-Host "    op item create --category 'Secure Note' --title 'age private key' notesPlain=`"`$(Get-Content $script:AgeKey -Raw)`"" -ForegroundColor DarkGray
-        Write-Host "  retrieve later with: opsecret 'Personal/age private key/notesPlain' > $script:AgeKey" -ForegroundColor DarkGray
+        Write-DotHost "key written to $script:AgeKey" -Color Green
+        Write-DotHost "  back it up in 1Password (create a 'Password'/'Secure Note' item, paste the file), e.g.:" -Color DarkGray
+        Write-DotHost "    op item create --category 'Secure Note' --title 'age private key' notesPlain=`"`$(Get-Content $script:AgeKey -Raw)`"" -Color DarkGray
+        Write-DotHost "  retrieve later with: opsecret 'Personal/age private key/notesPlain' > $script:AgeKey" -Color DarkGray
     }
 
     # age-pubkey: show the public key for the default key (share this, not the key file)
@@ -63,7 +63,7 @@ if (Test-Cmd age) {
         $pub = $script:AgePubKey
         if (-not $Out) { $Out = "$File.age" }
         age -r $pub -o $Out $File
-        if ($LASTEXITCODE -eq 0) { Write-Host "encrypted -> $Out" -ForegroundColor Green }
+        if ($LASTEXITCODE -eq 0) { Write-DotHost "encrypted -> $Out" -Color Green }
     }
 
     # age-dec <file.age> [output]: decrypt a file encrypted with your key.
@@ -78,7 +78,7 @@ if (Test-Cmd age) {
         if (-not (Test-Path $script:AgeKey))  { Write-DotErr "no age key at $script:AgeKey" 'run age-setup'; return }
         if (-not $Out) { $Out = $File -replace '\.age$', '' }
         age -d -i $script:AgeKey -o $Out $File
-        if ($LASTEXITCODE -eq 0) { Write-Host "decrypted -> $Out" -ForegroundColor Green }
+        if ($LASTEXITCODE -eq 0) { Write-DotHost "decrypted -> $Out" -Color Green }
     }
 
     # age-enc-pw <file> [output]: password-based encryption (no key file needed).
@@ -91,7 +91,7 @@ if (Test-Cmd age) {
         if (-not (Test-Path $File)) { Write-DotErr "file not found: $File"; return }
         if (-not $Out) { $Out = "$File.age" }
         age -p -o $Out $File
-        if ($LASTEXITCODE -eq 0) { Write-Host "encrypted (passphrase) -> $Out" -ForegroundColor Green }
+        if ($LASTEXITCODE -eq 0) { Write-DotHost "encrypted (passphrase) -> $Out" -Color Green }
     }
 
 }

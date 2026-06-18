@@ -55,4 +55,4 @@ function hostip {
 function wslhome { wsl -d kali-linux --cd '~' }
 
 # --- restart the WSL subsystem (clears stuck mounts / network) ----------------
-function wsl-restart { wsl --shutdown; Write-Host 'WSL shut down; next `wsl` call cold-starts it.' -ForegroundColor Yellow }
+function wsl-restart { wsl --shutdown; Write-DotHost 'WSL shut down; next `wsl` call cold-starts it.' -Color Yellow }

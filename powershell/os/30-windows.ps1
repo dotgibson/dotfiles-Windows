@@ -79,18 +79,18 @@ function modules-localize {
     # --- copy pass (only when there's an OneDrive source to pull from) ---------
     if (Test-Path $src) {
         if ($src -notlike '*OneDrive*') {
-            Write-Host "your modules path isn't under OneDrive ($src) — no move needed." -ForegroundColor DarkYellow
+            Write-DotHost "your modules path isn't under OneDrive ($src) — no move needed." -Color DarkYellow
         }
-        Write-Host "copying modules to local disk" -ForegroundColor Cyan
-        Write-Host "  from $src" -ForegroundColor DarkGray
-        Write-Host "  to   $dst" -ForegroundColor DarkGray
+        Write-DotHost "copying modules to local disk" -Color Cyan
+        Write-DotHost "  from $src" -Color DarkGray
+        Write-DotHost "  to   $dst" -Color DarkGray
         # /E copy (not /MOVE): leaves the OneDrive copies in place so a module loaded
         # in THIS session can't block the operation. The prepend makes the local copy
         # win regardless; delete the OneDrive Modules folder by hand later if you like.
         robocopy $src $dst /E /NFL /NDL /NJH /NJS /NP | Out-Null
         if ($LASTEXITCODE -ge 8) { Write-DotErr "robocopy failed (exit $LASTEXITCODE)" 'check that the source/destination paths are writable, then retry'; return }
-        Write-Host "done — open a NEW shell. Modules now load from $dst (off OneDrive)." -ForegroundColor Green
-        Write-Host "verify with: (Get-Module -ListAvailable PSReadLine).Path" -ForegroundColor DarkGray
+        Write-DotHost "done — open a NEW shell. Modules now load from $dst (off OneDrive)." -Color Green
+        Write-DotHost "verify with: (Get-Module -ListAvailable PSReadLine).Path" -Color DarkGray
     } elseif (-not $Prune) {
         Write-Host "no user modules at $src (nothing to move)"; return
     }
@@ -113,7 +113,7 @@ function modules-localize {
         }
         $plan = @(Get-DotModulePrunePlan -Installed $installed -ManagedNames $managed)
         if (-not $plan.Count) {
-            Write-Host "prune: managed modules already at a single version — nothing stale." -ForegroundColor DarkGray
+            Write-DotHost "prune: managed modules already at a single version — nothing stale." -Color DarkGray
             return
         }
         # Remove each stale dir, then VERIFY it's actually gone — a version that's
@@ -126,11 +126,11 @@ function modules-localize {
                 Write-DotWarn "could not remove $($p.Name) $($p.Version) (in use?)" 'close shells using it (or run from pwsh -NoProfile), then re-run -Prune'
                 $stuck++
             } else {
-                Write-Host "  pruned $($p.Name) $($p.Version)" -ForegroundColor DarkGray
+                Write-DotHost "  pruned $($p.Name) $($p.Version)" -Color DarkGray
                 $removed++
             }
         }
-        if ($removed) { Write-Host "prune: removed $removed stale version(s) of managed modules." -ForegroundColor Green }
+        if ($removed) { Write-DotHost "prune: removed $removed stale version(s) of managed modules." -Color Green }
         if ($stuck)   { Write-DotWarn "$stuck stale version(s) could not be removed (likely locked by a running shell)." }
     }
 }

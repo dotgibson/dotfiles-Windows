@@ -147,11 +147,11 @@ function up {
     if ($Preview) {
         Write-DotBanner 'pending updates' -Subtitle 'preview — nothing will be changed'
         if (Get-Command scoop -ErrorAction SilentlyContinue) {
-            Write-Host ''; Write-Host '== scoop ==' -ForegroundColor Cyan
+            Write-Host ''; Write-DotHost '== scoop ==' -Color Cyan
             scoop status
         }
         if (Get-Command winget -ErrorAction SilentlyContinue) {
-            Write-Host ''; Write-Host '== winget ==' -ForegroundColor Cyan
+            Write-Host ''; Write-DotHost '== winget ==' -Color Cyan
             winget upgrade --include-unknown
         }
         Write-Host ''
@@ -165,13 +165,13 @@ function up {
     $done = $false
     try {
         if (Get-Command scoop -ErrorAction SilentlyContinue) {
-            Write-Host '== scoop ==' -ForegroundColor Cyan
+            Write-DotHost '== scoop ==' -Color Cyan
             scoop update
             scoop update *
             scoop cleanup *
         }
         if (Get-Command winget -ErrorAction SilentlyContinue) {
-            Write-Host '== winget ==' -ForegroundColor Cyan
+            Write-DotHost '== winget ==' -Color Cyan
             $wargs = @('upgrade', '--all', '--include-unknown')
             if ($y) { $wargs += @('--silent', '--accept-package-agreements', '--accept-source-agreements') }
             winget @wargs

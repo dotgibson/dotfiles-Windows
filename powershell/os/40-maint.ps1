@@ -69,9 +69,9 @@ function maint-install {
             -Description 'dotfiles daily maintenance (scoop, mise, nvim, PS modules)' `
             -Force -ErrorAction Stop | Out-Null
         Write-DotOk "scheduled task '$script:MaintTaskName' installed for $When"
-        Write-Host '  (StartWhenAvailable: catches up if the machine was off at that time)' -ForegroundColor DarkGray
-        Write-Host '  winget upgrades are OFF by default — to include them, edit the task to set' -ForegroundColor DarkGray
-        Write-Host '  the MAINT_WINGET_UPGRADE=1 environment variable, or run maint manually with it set.' -ForegroundColor DarkGray
+        Write-DotHost '  (StartWhenAvailable: catches up if the machine was off at that time)' -Color DarkGray
+        Write-DotHost '  winget upgrades are OFF by default — to include them, edit the task to set' -Color DarkGray
+        Write-DotHost '  the MAINT_WINGET_UPGRADE=1 environment variable, or run maint manually with it set.' -Color DarkGray
     } catch {
         Write-DotErr "maint-install failed: $_"
     }
@@ -83,7 +83,7 @@ function maint-run {
     $pwshPath = Get-PwshPath
     if (-not $pwshPath) { return }
 
-    Write-Host "running $maintScript ..." -ForegroundColor Cyan
+    Write-DotHost "running $maintScript ..." -Color Cyan
     & $pwshPath -NoProfile -ExecutionPolicy Bypass -File $maintScript
 }
 
@@ -93,9 +93,9 @@ function maint-log {
     if (-not (Test-Path $script:MaintLog)) { Write-Host "no log yet at $script:MaintLog"; return }
 
     if ("$Arg" -in $script:FollowArgs) {
-        Write-Host "following $script:MaintLog  (Ctrl-C to stop)" -ForegroundColor DarkGray
+        Write-DotHost "following $script:MaintLog  (Ctrl-C to stop)" -Color DarkGray
         try { Get-Content $script:MaintLog -Wait -Tail 20 }
-        finally { Write-Host "`nstopped following the log." -ForegroundColor DarkGray }
+        finally { Write-DotHost "`nstopped following the log." -Color DarkGray }
     } else {
         $lineCount = 0
         if (-not [int]::TryParse("$Arg", [ref]$lineCount) -or $lineCount -le 0) {
@@ -124,6 +124,6 @@ function maint-uninstall {
         Unregister-ScheduledTask -TaskName $script:MaintTaskName -Confirm:$false
         Write-DotOk "removed scheduled task '$script:MaintTaskName'"
     } else {
-        Write-Host "nothing to remove (task '$script:MaintTaskName' not found)" -ForegroundColor DarkYellow
+        Write-DotHost "nothing to remove (task '$script:MaintTaskName' not found)" -Color DarkYellow
     }
 }

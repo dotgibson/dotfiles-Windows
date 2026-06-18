@@ -107,7 +107,7 @@ function which {
         default    { "$n ($($cmd.CommandType))" }
     }
 }
-function reload { . $PROFILE; Write-Host 'profile reloaded' -ForegroundColor Green }
+function reload { . $PROFILE; Write-DotHost 'profile reloaded' -Color Green }
 function dotfiles { Set-Location $global:DOTFILES }
 
 # --- Neovim ----------------------------------------------------------------
