@@ -108,12 +108,12 @@ function Get-LanIp {
 
 $tun = Get-TunnelInfo
 if ($tun) {
-    Pill $ORANGE " $($tun.Iface) $($tun.Addr)"   # shield: you're tunneled
+    Pill $ORANGE " $($tun.Iface) $($tun.Addr)"   # shield: you're tunneled
 }
 elseif ($AllNetworks) {
     $lan = Get-LanIp
     if ($lan) {
-        Pill $GREEN " $lan"                       # ethernet: LAN only
+        Pill $GREEN " $lan"                       # ethernet: LAN only
     }
 }
 

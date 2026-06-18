@@ -337,7 +337,7 @@ format = '[[ $symbol($version) ](fg:color_aqua bg:color_srf2)]($style)'
 [cmd_duration]
 min_time = 500
 style = "fg:color_orange bg:color_srf1"
-format = '[ 󰔛 $duration]($style)'
+format = '[󰔛 $duration]($style)'
 # Background job count (`&`, Ctrl-Z). Purple text, srf1 surface; only shows when
 # at least one job is running.
 [jobs]
@@ -351,7 +351,7 @@ format = '[[ $symbol $number ](fg:color_purple bg:color_srf1)]($style)'
 disabled = false
 time_format = "%R"
 style = "fg:color_comment bg:color_srf1"
-format = '[ $time]($style)'
+format = '[$time]($style)'
 
 # ── RIGHT prompt modules: shell · cmd_duration · memory_usage ────────────────
 # (battery removed — it's already in the tmux status bar. cmd_duration is
