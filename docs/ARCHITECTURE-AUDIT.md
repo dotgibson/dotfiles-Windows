@@ -56,10 +56,10 @@ each item has a stable ID, an impact, and a status, and PRs reference the ID.
 ## Secondary long-tail
 
 These were promoted to tracked IDs above (`B13`–`B16`, `U14`–`U16`) so they're cited like
-everything else; all are still ⬜ and most are lower-impact — the exception is
-`B13` (the `serve` LAN exposure), tracked at **Medium**. The earlier free-text
-bucket of `~15–25 items` collapses into those seven coherent work items — when one
-is picked up, scope its sub-findings in that PR and split the row if it grows.
+everything else. Six of the seven have since shipped (`B13`, `B15`, `B16`, `U14`–`U16`);
+only `B14` (test-suite refinements, **Low**) remains open. The earlier free-text
+bucket of `~15–25 items` collapsed into those seven coherent work items — when the last
+one is picked up, scope its sub-findings in that PR and split the row if it grows.
 
 ---
 
