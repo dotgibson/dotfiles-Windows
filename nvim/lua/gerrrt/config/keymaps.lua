@@ -12,7 +12,9 @@
 -- Unix, %LOCALAPPDATA%\nvim on Windows — so this works on the vendored Windows
 -- host too; a hardcoded ~/.config/nvim opened a nonexistent file there. (U16)
 vim.keymap.set("n", "<leader>rc", function()
-	vim.cmd.edit(vim.fs.joinpath(vim.fn.stdpath("config"), "init.lua"))
+	-- args-as-list so a config path containing spaces (e.g. C:\Users\First Last\…)
+	-- stays ONE argument instead of being split by :edit's argument parser.
+	vim.cmd.edit({ args = { vim.fs.joinpath(vim.fn.stdpath("config"), "init.lua") } })
 end, { desc = "Edit config" })
 
 -- Wrap-aware vertical motion
