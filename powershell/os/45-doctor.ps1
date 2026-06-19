@@ -17,7 +17,7 @@
 
 # --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
 # provides: dotfiles-doctor
-# requires: Format-DotWrap, Get-DoctorFixPlan, Get-DoctorGroup, Get-DoctorSummary, Get-DotConsoleWidth, Get-DotfilesLinkPlan, Get-DotGlyph, Get-DotRepoVersionDetail, Get-FragmentHealthResult, Get-NvimVendorDetail, modules-localize, New-DoctorResult, Test-Cmd, Test-DotUnicode, Write-DotBanner, Write-DotErr, Write-DotHost, Write-DotWarn
+# requires: Format-DotWrap, Get-DoctorFixPlan, Get-DoctorGroup, Get-DoctorSummary, Get-DotConsoleWidth, Get-DotfilesLinkPlan, Get-DotGlyph, Get-DotRepoVersionDetail, Get-FragmentHealthResult, Get-NvimVendorDetail, modules-localize, New-DoctorResult, Test-Cmd, Test-CmdRuns, Test-DotUnicode, Write-DotBanner, Write-DotErr, Write-DotHost, Write-DotWarn
 
 # --- render one result line ---------------------------------------------------
 # Glyphs/colour route through the shared helpers (core/05-lib.ps1) so the report
@@ -193,6 +193,20 @@ function script:Get-DoctorResults {
         $r.Add((New-DoctorResult 'Core toolchain' 'ok' "$($core.Count) tools present"))
     } else {
         $r.Add((New-DoctorResult 'Core toolchain' 'warn' "missing: $($missing -join ', ')" 're-run .\packages\Install-Packages.ps1'))
+    }
+
+    # core toolchain EXECUTES (not just resolves): a shim can resolve via Get-Command
+    # yet fail to LAUNCH — a stale Chocolatey shim, or a scoop shim whose app was
+    # removed, shadowing the working binary. Test-Cmd above can't see that, so a
+    # broken fzf/rg only bit inside fif/fbr/Ctrl+t. Probe the present tools for real
+    # ("cannot find file" / "failed to run") and surface it with a concrete fix.
+    # psmux is omitted on purpose: it's a shell tool with a non-standard version flag.
+    $execCore = 'git', 'starship', 'zoxide', 'fzf', 'rg', 'fd', 'bat', 'eza', 'nvim'
+    $broken   = $execCore | Where-Object { (Test-Cmd $_) -and -not (Test-CmdRuns $_) }
+    if (-not $broken) {
+        $r.Add((New-DoctorResult 'Core toolchain runs' 'ok' 'present tools launch'))
+    } else {
+        $r.Add((New-DoctorResult 'Core toolchain runs' 'fail' "on PATH but won't launch: $($broken -join ', ')" 'a stale Chocolatey/duplicate shim is shadowing the scoop binary — `scoop reset <pkg>` (e.g. ripgrep, fzf) or remove the duplicate, and put scoop\shims ahead of it on PATH'))
     }
 
     return $r

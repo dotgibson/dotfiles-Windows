@@ -177,7 +177,7 @@ dotfiles-Windows/
 | `cat` / `catp`                                | bat (no-pager / paged)                                                        |
 | `z foo`                                       | zoxide jump; `cd` is rebound to `z`                                           |
 | `Ctrl+t` / `Ctrl+r`                           | fzf file picker / history search                                              |
-| `http` / `dns` / `md`                         | xh / doggo / glow (guarded if installed)                                      |
+| `http` / `dns` / `gmd`                        | xh / doggo / glow (guarded if installed; `gmd` renders markdown)              |
 | `lg`                                          | lazygit                                                                       |
 | `serve [port] [-Local]`                       | HTTP server in the CWD; prints the host LAN URL (`-Local` binds localhost only) |
 | `fif <term>` / `fbr`                          | find-in-files / fuzzy git-branch checkout                                     |

@@ -52,6 +52,24 @@ experience, grouped by theme.
 - **`serve -Local`** — opt-in localhost-only bind (`127.0.0.1`) for the quick
   CWD HTTP server; LAN exposure stays the default.
 
+### Fixes
+
+- **`md` no longer shadows `mkdir`** — the glow markdown-render alias was bound to
+  `md`, clobbering PowerShell's built-in `md` (mkdir). It's now `gmd`; `md` is
+  mkdir again. README, `docs/TOOLS.md`, and the `dothelp` catalog updated.
+- **`tools` command implemented** — the cheatsheet advertised `tools` ("open the
+  host tool docs") but nothing defined it. It now renders `docs/TOOLS.md` (glow →
+  bat → nvim → plain), and is listed in `dothelp`.
+- **Dead-shim guards for `fif` / `fbr`** — a tool that *resolves* on PATH but
+  won't *launch* (a stale Chocolatey shim, or a scoop shim whose app was removed,
+  shadowing the real binary) produced raw `Program rg.exe failed to run` /
+  `cannot find file ...fzf.exe` errors. A new `Test-CmdRuns` helper probes
+  executability so `fif`/`fbr` (and the same class of `Ctrl+t`/`Ctrl+r` breakage)
+  fail with an actionable fix hint instead.
+- **`dotfiles-doctor` now checks executability** — a new *Core toolchain runs*
+  probe flags tools that resolve but won't launch, which the resolve-only check
+  could not see.
+
 _Per-finding backlog IDs and their status live in
 [`docs/ARCHITECTURE-AUDIT.md`](docs/ARCHITECTURE-AUDIT.md) — the single ID
 registry, so this log stays prose with no competing `B#`/`U#` scheme._
