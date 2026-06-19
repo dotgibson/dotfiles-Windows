@@ -70,7 +70,10 @@ if (Test-Cmd rg) { function grep { rg --smart-case @args } }
 # Parity with Core's aliases.zsh. Each is a distinct verb so it never shadows the
 # classic tool in scripts.
 if (Test-Cmd xh)    { function http  { xh @args }; function https { xh --https @args } }  # Rust HTTPie — poke APIs/web targets
-if (Test-Cmd glow)  { function gmd   { glow --pager @args } }                              # render markdown (engagement notes/READMEs); `gmd` avoids shadowing the built-in `md`/mkdir
+# render markdown; `gmd` avoids shadowing the built-in `md`/mkdir. Only page when a
+# pager exists — glow's default pager is `less`, absent on a stock Windows box, which
+# otherwise makes `glow --pager` abort with `exec: "less" not found`.
+if (Test-Cmd glow)  { function gmd { if ($env:PAGER -or (Test-Cmd less)) { glow --pager @args } else { glow @args } } }
 if (Test-Cmd doggo) { function dns   { doggo @args } }                                     # modern dig (DNS recon)
 # gron / sd are their own commands (no alias — never shadow sed/jq usage in scripts).
 
