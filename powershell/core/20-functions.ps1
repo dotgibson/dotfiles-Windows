@@ -156,8 +156,11 @@ function tools {
         Write-DotErr 'tools: docs\TOOLS.md not found' 'check $global:DOTFILES (re-run install.ps1)'
         return
     }
-    if     (Test-Cmd glow) { glow --pager $doc }
-    elseif (Test-Cmd bat)  { bat --language markdown $doc }
-    elseif (Test-Cmd nvim) { nvim $doc }
+    # Gate each renderer on Test-CmdRuns, not Test-Cmd: a dead/dangling shim
+    # (glow/bat/nvim) resolves yet won't launch, so a resolution-only check would
+    # pick it and break the fallback chain instead of falling through to the next.
+    if     (Test-CmdRuns glow) { glow --pager $doc }
+    elseif (Test-CmdRuns bat)  { bat --language markdown $doc }
+    elseif (Test-CmdRuns nvim) { nvim $doc }
     else   { Get-Content $doc }
 }
