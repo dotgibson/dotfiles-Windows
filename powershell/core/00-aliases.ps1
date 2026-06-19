@@ -73,7 +73,7 @@ if (Test-Cmd xh)    { function http  { xh @args }; function https { xh --https @
 # render markdown; `gmd` avoids shadowing the built-in `md`/mkdir. Only page when a
 # pager exists — glow's default pager is `less`, absent on a stock Windows box, which
 # otherwise makes `glow --pager` abort with `exec: "less" not found`.
-if (Test-Cmd glow)  { function gmd { if ($env:PAGER -or (Test-Cmd less)) { glow --pager @args } else { glow @args } } }
+if (Test-Cmd glow)  { function gmd { if ($env:PAGER -or (Test-CmdRuns less)) { glow --pager @args } else { glow @args } } }
 if (Test-Cmd doggo) { function dns   { doggo @args } }                                     # modern dig (DNS recon)
 # gron / sd are their own commands (no alias — never shadow sed/jq usage in scripts).
 

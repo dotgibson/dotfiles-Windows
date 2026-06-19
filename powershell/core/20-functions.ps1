@@ -163,7 +163,7 @@ function tools {
     # glow/bat page through $PAGER (default `less`), which isn't on a stock Windows
     # box — `glow --pager` then aborts with `exec: "less" not found`. Only ask for
     # paging when a pager actually exists; otherwise render inline.
-    $canPage = [bool]($env:PAGER -or (Test-Cmd less))
+    $canPage = [bool]($env:PAGER -or (Test-CmdRuns less))
     if     (Test-CmdRuns glow) { if ($canPage) { glow --pager $doc } else { glow $doc } }
     elseif (Test-CmdRuns bat)  {
         if ($canPage) { bat --language markdown $doc }
