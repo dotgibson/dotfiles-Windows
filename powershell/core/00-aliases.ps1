@@ -3,7 +3,7 @@
 # ============================================================================
 
 # --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
-# provides: Test-Cmd, ls, l, ll, la, lt, llt, cat, catp, grep, http, https, md, dns, du, pss, watch, hex, loc, g, gs, gst, gss, gsb, ga, gaa, gc, gcm, gco, gd, gl, glog, gp, lg, .., ..., ...., ~, mkcd, which, reload, dotfiles
+# provides: Test-Cmd, Test-CmdRuns, ls, l, ll, la, lt, llt, cat, catp, grep, http, https, gmd, dns, du, pss, watch, hex, loc, g, gs, gst, gss, gsb, ga, gaa, gc, gcm, gco, gd, gl, glog, gp, lg, .., ..., ...., ~, mkcd, which, reload, dotfiles
 # requires: Write-DotHost
 # PowerShell has built-in aliases (ls, cat, cp...) that point at cmdlets.
 # We remove the ones we want to override, then define functions that shadow
@@ -12,6 +12,26 @@
 
 # --- helper: define a function-backed alias only if the tool exists -----------
 function Test-Cmd { param([string]$Name) [bool](Get-Command $Name -ErrorAction SilentlyContinue) }
+
+# --- helper: does a command RESOLVE *and* actually launch? ---------------------
+# Test-Cmd only proves a NAME resolves (Get-Command). A dead/dangling shim — e.g.
+# a leftover Chocolatey shim whose target was removed, or a scoop shim pointing at
+# an uninstalled app — still resolves fine, then errors with "Program X failed to
+# run" / "cannot find file" the instant you invoke it. Test-CmdRuns probes one step
+# further: it actually launches the tool (a cheap version flag) and reports whether
+# it started. Exit code is deliberately ignored — some tools return non-zero for an
+# unknown flag yet are perfectly runnable; we only care that the process LAUNCHED,
+# so the only failure signal is a thrown native-launch error. Used by fif/fbr and
+# dotfiles-doctor so a broken shim surfaces as an actionable hint, not a raw error.
+function Test-CmdRuns {
+    param([string]$Name, [string[]]$ProbeArgs = @('--version'))
+    if (-not (Get-Command $Name -ErrorAction SilentlyContinue)) { return $false }
+    # Local Continue so a non-zero exit can't throw under pwsh 7.4+'s
+    # $PSNativeCommandUseErrorActionPreference — only a real launch failure should.
+    $ErrorActionPreference = 'Continue'
+    try { & $Name @ProbeArgs *> $null; return $true }
+    catch { return $false }
+}
 
 # --- ls -> eza (fall back to lsd, then Get-ChildItem) -------------------------
 Remove-Item Alias:ls -ErrorAction SilentlyContinue
@@ -50,7 +70,7 @@ if (Test-Cmd rg) { function grep { rg --smart-case @args } }
 # Parity with Core's aliases.zsh. Each is a distinct verb so it never shadows the
 # classic tool in scripts.
 if (Test-Cmd xh)    { function http  { xh @args }; function https { xh --https @args } }  # Rust HTTPie — poke APIs/web targets
-if (Test-Cmd glow)  { function md    { glow --pager @args } }                              # render markdown (engagement notes/READMEs)
+if (Test-Cmd glow)  { function gmd   { glow --pager @args } }                              # render markdown (engagement notes/READMEs); `gmd` avoids shadowing the built-in `md`/mkdir
 if (Test-Cmd doggo) { function dns   { doggo @args } }                                     # modern dig (DNS recon)
 # gron / sd are their own commands (no alias — never shadow sed/jq usage in scripts).
 

@@ -19,6 +19,7 @@ function Get-DotfilesHelpData {
     $g['Listing & files'] = @(
         @{ Command = 'll / la / lt'; Desc = 'eza listings (long / all+hidden / tree)' }
         @{ Command = 'cat / catp';   Desc = 'bat (no-pager / paged)' }
+        @{ Command = 'gmd <file>';   Desc = 'render markdown in the terminal (glow)' }
         @{ Command = 'du / hex / loc'; Desc = 'dust disk-usage / hexyl / tokei LOC' }
         @{ Command = 'extract / compress'; Desc = 'archive in/out (ouch, with fallbacks)' }
         @{ Command = 'mkbak <f>';    Desc = 'timestamped backup copy of a file' }
@@ -80,6 +81,7 @@ function Get-DotfilesHelpData {
     $g['Shell'] = @(
         @{ Command = 'reload';       Desc = 'reload the PowerShell profile' }
         @{ Command = 'which <name>'; Desc = 'resolve a command (source / kind)' }
+        @{ Command = 'tools';        Desc = 'open the host tool docs (docs/TOOLS.md)' }
         @{ Command = 'dothelp [filter]'; Desc = 'this index (-i for an fzf picker)' }
     )
     return $g

@@ -3,8 +3,8 @@
 # ============================================================================
 
 # --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
-# provides: myip, myip-full, localips, extract, compress, mkbak, sha256, sha1, md5, cheat, pbcopy, pbpaste, serve, fif, fbr
-# requires: Get-DotServePlan, Test-Cmd, Write-DotErr, Write-DotHost
+# provides: myip, myip-full, localips, extract, compress, mkbak, sha256, sha1, md5, cheat, pbcopy, pbpaste, serve, fif, fbr, tools
+# requires: Get-DotServePlan, Test-Cmd, Test-CmdRuns, Write-DotErr, Write-DotHost
 
 # --- public IP / network quicklook (parity with your `myip` aliases) ----------
 function myip      { (Invoke-RestMethod -Uri 'https://ipinfo.io/ip').Trim() }
@@ -105,6 +105,16 @@ function serve {
 function fif {
     param([Parameter(Mandatory)][string]$Term)
     if (-not (Test-Cmd rg) -or -not (Test-Cmd fzf)) { Write-DotErr 'fif needs rg + fzf' 'scoop install ripgrep fzf'; return }
+    # A tool can RESOLVE on PATH yet fail to launch (a dead Chocolatey/scoop shim
+    # shadowing the real binary) — that's the "Program rg.exe failed to run" case.
+    # Catch it here with an actionable hint instead of letting the raw Win32 error
+    # bubble out of the pipeline.
+    foreach ($t in 'rg', 'fzf') {
+        if (-not (Test-CmdRuns $t)) {
+            Write-DotErr "fif: '$t' is on PATH but won't launch (broken shim?)" 'reset the scoop shim (e.g. scoop reset ripgrep / scoop reset fzf) or remove a stale Chocolatey/duplicate copy shadowing it; run dotfiles-doctor for detail'
+            return
+        }
+    }
     $preview = 'bat --style=numbers --color=always "{}"'  # quotes needed for paths with spaces on Windows
     $file = rg --files-with-matches --no-messages $Term |
         fzf --height 80% --layout=reverse --border --prompt 'Text Match > ' `
@@ -117,6 +127,13 @@ function fif {
 # --- fbr: fuzzy git branch checkout -------------------------------------------
 function fbr {
     if (-not (Test-Cmd fzf)) { Write-DotErr 'fbr needs fzf' 'scoop install fzf'; return }
+    # Same dead-shim guard as fif: fzf can resolve yet fail to launch (the
+    # "cannot find file at ...\fzf.exe" case when a Chocolatey/duplicate shim
+    # shadows the working scoop binary). Fail with a fix hint, not a Win32 error.
+    if (-not (Test-CmdRuns fzf)) {
+        Write-DotErr "fbr: 'fzf' is on PATH but won't launch (broken shim?)" 'reset the scoop shim (scoop reset fzf) or remove a stale Chocolatey/duplicate fzf shadowing it; run dotfiles-doctor for detail'
+        return
+    }
     # Clean the branch names in PowerShell BEFORE handing them to fzf, so {} in
     # the preview (run by fzf's shell, not PowerShell) is already a valid ref.
     $branches = git branch --all 2>$null |
@@ -126,4 +143,24 @@ function fbr {
     if (-not $branches) { return }
     $branch = $branches | fzf --preview 'git log --oneline --color=always -20 {}'
     if ($branch) { git checkout $branch.Trim() }
+}
+
+# --- tools: open the host tool docs (docs/TOOLS.md) ---------------------------
+# The README cheatsheet advertises `tools` ("open the host tool docs"); this is
+# its implementation. Renders the vendored docs\TOOLS.md with glow when present
+# (same renderer as `gmd`), falling back to bat, then nvim, then a plain dump — so
+# it still works on a fresh box before the markdown viewers are installed.
+function tools {
+    $doc = if ($global:DOTFILES) { Join-Path $global:DOTFILES 'docs\TOOLS.md' } else { $null }
+    if (-not $doc -or -not (Test-Path $doc)) {
+        Write-DotErr 'tools: docs\TOOLS.md not found' 'check $global:DOTFILES (re-run install.ps1)'
+        return
+    }
+    # Gate each renderer on Test-CmdRuns, not Test-Cmd: a dead/dangling shim
+    # (glow/bat/nvim) resolves yet won't launch, so a resolution-only check would
+    # pick it and break the fallback chain instead of falling through to the next.
+    if     (Test-CmdRuns glow) { glow --pager $doc }
+    elseif (Test-CmdRuns bat)  { bat --language markdown $doc }
+    elseif (Test-CmdRuns nvim) { nvim $doc }
+    else   { Get-Content $doc }
 }
