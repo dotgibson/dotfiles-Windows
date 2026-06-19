@@ -46,7 +46,7 @@ function script:__lap {
 # PSReadLine ships with PowerShell 7. Configure it for a zsh-like feel.
 if (Get-Module -ListAvailable PSReadLine) {
     Import-Module PSReadLine
-    Set-PSReadLineOption -EditMode Emacs
+    Set-PSReadLineOption -EditMode Vi
     Set-PSReadLineOption -HistoryNoDuplicates
     Set-PSReadLineOption -HistorySearchCursorMovesToEnd
     # CompletionPredictor (managed in packages/modules.ps1) registers itself as a
