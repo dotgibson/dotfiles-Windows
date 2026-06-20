@@ -159,8 +159,16 @@ function tools {
     # Gate each renderer on Test-CmdRuns, not Test-Cmd: a dead/dangling shim
     # (glow/bat/nvim) resolves yet won't launch, so a resolution-only check would
     # pick it and break the fallback chain instead of falling through to the next.
-    if     (Test-CmdRuns glow) { glow --pager $doc }
-    elseif (Test-CmdRuns bat)  { bat --language markdown $doc }
+    #
+    # glow/bat page through $PAGER (default `less`), which isn't on a stock Windows
+    # box — `glow --pager` then aborts with `exec: "less" not found`. Only ask for
+    # paging when a pager actually exists; otherwise render inline.
+    $canPage = [bool]($env:PAGER -or (Test-CmdRuns less))
+    if     (Test-CmdRuns glow) { if ($canPage) { glow --pager $doc } else { glow $doc } }
+    elseif (Test-CmdRuns bat)  {
+        if ($canPage) { bat --language markdown $doc }
+        else          { bat --language markdown --paging=never $doc }
+    }
     elseif (Test-CmdRuns nvim) { nvim $doc }
     else   { Get-Content $doc }
 }

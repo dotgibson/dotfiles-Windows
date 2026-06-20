@@ -69,6 +69,10 @@ experience, grouped by theme.
 - **`dotfiles-doctor` now checks executability** — a new *Core toolchain runs*
   probe flags tools that resolve but won't launch, which the resolve-only check
   could not see.
+- **`tools` / `gmd` no longer abort when `less` is absent** — glow (and bat) page
+  through `$PAGER`, defaulting to `less`, which isn't on a stock Windows box, so
+  `glow --pager` died with `exec: "less" not found`. Both now pass paging flags
+  only when a pager actually exists and render inline otherwise.
 
 _Per-finding backlog IDs and their status live in
 [`docs/ARCHITECTURE-AUDIT.md`](docs/ARCHITECTURE-AUDIT.md) — the single ID
