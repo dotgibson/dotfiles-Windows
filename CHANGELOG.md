@@ -11,6 +11,11 @@ experience, grouped by theme.
 
 ### CI / structure (backend)
 
+- **`nvim-sync` bot** (`.github/workflows/nvim-sync.yml`) — runs `nvim-sync.ps1`
+  weekly (and on demand) and opens a PR when Core's `nvim/` tree has actually
+  moved ahead, so the host editor config can't silently fall behind. Judges drift
+  on the Lua tree only (ignores `.core-ref`'s per-run timestamp). First-party
+  (`GITHUB_TOKEN` + `gh`), no third-party action.
 - **Hermetic, incremental CI** — GitHub Actions pinned to commit SHAs; Pester and
   PSScriptAnalyzer pinned to exact versions; PSGallery modules cached; a
   `detect-changes` gate skips the Windows jobs for docs-only changes.
