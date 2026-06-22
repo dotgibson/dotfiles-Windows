@@ -59,7 +59,8 @@ persistence work in **pwsh on the host** without WSL, Cygwin, or MSYS2. It ships
 | Requires | Windows 10/11 + PowerShell 7 (already the host target)                                                  |
 
 The vendored `psmux/psmux.conf` is deliberately limited to **portable** tmux
-options (prefix remapped to `C-a`, mouse off, vi copy-mode,
+options (prefix remapped to `C-a`, mouse on with `mouse-selection off` so
+in-pane TUIs own their mouse, vi copy-mode,
 `base-index 1`, OSC52 clipboard, tokyonight-storm status bar) so the same file
 can later be shared with / vendored from Core the way the nvim tree is.
 
