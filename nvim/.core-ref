@@ -3,6 +3,6 @@
 source = https://github.com/Gerrrt/dotfiles-core.git
 branch = main
 pinned = (branch tip)
-commit = 15038bd810f7029f3633d178feda1ca4bae3cef7
-date   = 2026-06-18
-synced = 2026-06-18T20:23:00Z
+commit = ea51047bc66813af9d3b2e6770caecb101390c5f
+date   = 2026-06-22
+synced = 2026-06-22T21:26:01Z

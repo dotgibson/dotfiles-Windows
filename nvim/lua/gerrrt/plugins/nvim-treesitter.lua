@@ -31,6 +31,11 @@ return {
 			"typescript",
 			"vue",
 			"yaml",
+			"toml", -- pyproject/Cargo/foundry/starship/mise + taplo LSP
+			"dockerfile", -- Dockerfile highlighting (dockerls attaches; this colours it)
+			"diff", -- diffview.nvim + git diff buffers
+			"gitcommit", -- commit message buffers (you write these via fugitive/lazygit)
+			"vimdoc", -- :help and plugin docs
 		}
 
 		local config = require("nvim-treesitter.config")
