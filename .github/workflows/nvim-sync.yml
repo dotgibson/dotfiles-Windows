@@ -15,30 +15,36 @@ permissions:
   contents: read
 
 concurrency:
-  group: nvim-sync-${{ github.ref }}
+  # Ref-independent: the bot always force-updates ONE fixed branch, so runs must
+  # never overlap regardless of which ref launched them.
+  group: nvim-sync
   cancel-in-progress: true
 
 jobs:
   sync:
-    runs-on: ubuntu-latest # nvim-sync.ps1 is a clone+copy; pwsh runs fine on Linux
-    timeout-minutes: 10
+    runs-on: windows-latest # nvim-sync.ps1 uses robocopy /MIR — Windows-only
+    timeout-minutes: 15
     permissions:
       contents: write # push the sync branch
       pull-requests: write # open/update the PR
     env:
       BRANCH: automation/nvim-sync
       GH_TOKEN: ${{ github.token }}
+      DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - name: Sync nvim/ from dotfiles-core
         shell: pwsh
         run: ./nvim-sync.ps1
       - name: Open a PR if nvim/ drifted
+        shell: bash
         run: |
           set -euo pipefail
           # nvim/.core-ref carries a per-run `synced` timestamp, so judge drift on the
-          # Lua tree only; if nothing real changed, discard the timestamp-only churn.
-          if git diff --quiet -- nvim ':(exclude)nvim/.core-ref'; then
+          # Lua tree only. Use status --porcelain (NOT diff --quiet) so a NEW file Core
+          # added under nvim/ — untracked after the copy — still counts as drift.
+          changed="$(git status --porcelain -- nvim ':(exclude)nvim/.core-ref')"
+          if [ -z "$changed" ]; then
             git checkout -- nvim/.core-ref 2>/dev/null || true
             echo "✅ nvim/ already in step with Core" >> "$GITHUB_STEP_SUMMARY"
             exit 0
@@ -51,7 +57,7 @@ jobs:
           git push -f -u origin "$BRANCH"
           # Idempotent: update the existing PR if one is already open for this branch.
           if [ -z "$(gh pr list --head "$BRANCH" --state open --json number --jq '.[].number')" ]; then
-            gh pr create --head "$BRANCH" --base "${GITHUB_REF_NAME}" \
+            gh pr create --head "$BRANCH" --base "$DEFAULT_BRANCH" \
               --title "chore(nvim): sync nvim/ from dotfiles-core" \
               --body "Automated by the nvim-sync bot. Core's \`nvim/\` tree moved ahead of the vendored copy here; this re-runs \`nvim-sync.ps1\`. Review the diff, let CI run, then merge."
           fi
