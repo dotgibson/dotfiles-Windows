@@ -16,6 +16,11 @@ experience, grouped by theme.
   moved ahead, so the host editor config can't silently fall behind. Judges drift
   on the Lua tree only (ignores `.core-ref`'s per-run timestamp). First-party
   (`GITHUB_TOKEN` + `gh`), no third-party action.
+- **`package-freshness` bot** (`.github/workflows/package-freshness.yml` +
+  `packages/Check-PackageFreshness.ps1`) — weekly on `windows-latest`, resolves the
+  live scoop/winget version of each managed app and files a deduplicated findings
+  issue when any is ahead of `packages.lock.json`. Findings only: re-pinning still
+  runs locally via `Update-PackageLock.ps1` (it needs the apps installed).
 - **Hermetic, incremental CI** — GitHub Actions pinned to commit SHAs; Pester and
   PSScriptAnalyzer pinned to exact versions; PSGallery modules cached; a
   `detect-changes` gate skips the Windows jobs for docs-only changes.
