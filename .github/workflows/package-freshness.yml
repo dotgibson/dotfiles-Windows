@@ -1,0 +1,55 @@
+name: package-freshness
+
+# Flag managed scoop/winget apps whose upstream version has moved ahead of
+# packages.lock.json — as a deduplicated FINDINGS ISSUE. Runs on windows-latest (a real
+# box) so scoop + winget resolve true versions. It does NOT re-pin: the lock can only be
+# regenerated from a machine with the apps actually installed (Update-PackageLock.ps1),
+# so this surfaces what's behind and leaves the bump to you. First-party (GITHUB_TOKEN +
+# gh, no third-party action); workflow_dispatch checks on demand.
+
+on:
+  schedule:
+    - cron: "0 9 * * 2" # Tuesdays 09:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: package-freshness
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      ISSUE_TITLE: "package-freshness: scoop/winget updates available"
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: Check scoop + winget versions against the lock
+        shell: pwsh
+        run: ./packages/Check-PackageFreshness.ps1 -ReportPath "$env:RUNNER_TEMP/package-freshness.md"
+      - name: File / update a findings issue
+        shell: pwsh
+        run: |
+          $report = "$env:RUNNER_TEMP/package-freshness.md"
+          if (-not (Test-Path $report)) { Write-Host "no drift — nothing to file"; exit 0 }
+          $title = $env:ISSUE_TITLE
+          $existing = gh issue list --state open --search "$title in:title" --json number,title |
+            ConvertFrom-Json | Where-Object { $_.title -eq $title } | Select-Object -First 1
+          $body = "## $title — $(Get-Date -Format 'yyyy-MM-dd')`n`n" +
+                  (Get-Content $report -Raw) +
+                  "`n_Filed by the package-freshness bot. Findings only — re-pin locally with Update-PackageLock.ps1._`n"
+          $bodyFile = "$env:RUNNER_TEMP/issue-body.md"
+          Set-Content -Path $bodyFile -Value $body -Encoding UTF8
+          if ($existing) {
+            gh issue comment $existing.number --body-file $bodyFile
+            Write-Host "appended to issue #$($existing.number)"
+          } else {
+            gh issue create --title $title --body-file $bodyFile
+          }
