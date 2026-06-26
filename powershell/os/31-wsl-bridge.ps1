@@ -14,14 +14,13 @@
 # ============================================================================
 
 # --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
-# provides: kali, debian, wsls, wslip, cdwsl, hostip, wslhome, wsl-restart
+# provides: kali, wsls, wslip, cdwsl, hostip, wslhome, wsl-restart
 # requires: ConvertTo-WslPath, Test-Cmd, Write-DotHost
 
 if (-not (Test-Cmd wsl)) { return }
 
 # --- distro shortcuts ---------------------------------------------------------
 function kali   { wsl -d kali-linux @args }
-function debian { wsl -d Debian @args }
 function wsls   { wsl --list --verbose }       # status of all distros
 function wslip  { wsl -d kali-linux -- hostname -I }   # the distro's IP(s)
 
