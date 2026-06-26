@@ -12,7 +12,7 @@ layer, `psmux` (native tmux), and the bridge to Linux distros under WSL2.
 
 ## The rule that bites
 
-It deliberately does **not** configure WSL distros — Core, Debian, and Kali
+It deliberately does **not** configure WSL distros — Core and Kali
 configure themselves from their own repos *inside* WSL. This repo's job is to make
 the host excellent and then get out of the way.
 
