@@ -64,6 +64,11 @@ experience, grouped by theme.
 
 ### Fixes
 
+- **Retired the `debian` WSL-jump helper** — `dotfiles-Debian` is no longer part of
+  the fleet and Debian isn't a target distro, so the `debian` shortcut is removed
+  from `os/31-wsl-bridge.ps1` (function + `provides:` line), the `dothelp` WSL-bridge
+  catalog (`Help.Helpers.ps1`), and the module header comment (`Wsl.Helpers.ps1`).
+  `kali` and the generic `cdwsl [distro]` remain for jumping into any WSL distro.
 - **`md` no longer shadows `mkdir`** — the glow markdown-render alias was bound to
   `md`, clobbering PowerShell's built-in `md` (mkdir). It's now `gmd`; `md` is
   mkdir again. README, `docs/TOOLS.md`, and the `dothelp` catalog updated.

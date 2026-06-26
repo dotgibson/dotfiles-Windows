@@ -70,7 +70,7 @@ function Get-DotfilesHelpData {
         @{ Command = 'send / recv';  Desc = 'croc peer-to-peer file transfer' }
     )
     $g['WSL bridge'] = @(
-        @{ Command = 'kali / debian'; Desc = 'jump into a WSL distro' }
+        @{ Command = 'kali'; Desc = 'jump into the Kali WSL distro' }
         @{ Command = 'cdwsl [distro]'; Desc = 'enter WSL at the current directory' }
         @{ Command = 'wsls / hostip'; Desc = 'distro status / host LAN IP' }
     )

@@ -3,7 +3,7 @@
 #
 #  Extracted from os/31-wsl-bridge.ps1 so the pure, host-independent translation
 #  lives in the module (exported, unit-tested) instead of as a global: function.
-#  The wsl-DEPENDENT command verbs (kali/debian/cdwsl/...) stay in the fragment,
+#  The wsl-DEPENDENT command verbs (kali/cdwsl/...) stay in the fragment,
 #  behind its `Test-Cmd wsl` guard, and call this via the module export.
 # ============================================================================
 
