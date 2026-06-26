@@ -5,7 +5,7 @@ Windows host: PowerShell as the daily-driver shell, Windows Terminal, the
 scoop/winget package layer, and the bridge to my Linux distros running under
 WSL2.
 
-It deliberately does **not** configure WSL distros. Core, Debian, and Kali
+It deliberately does **not** configure WSL distros. Core and Kali
 configure themselves from their own repos _inside_ WSL. This repo's job is to
 make the host excellent and then get out of the way.
 
@@ -16,7 +16,7 @@ make the host excellent and then get out of the way.
                 └───────────────────┬───────────────────────┘
                                     │  wsl
                 ┌───────────────────▼──────────────────────--─┐
-   other repos →│  WSL2: Core / Debian / Kali (zsh/tmux/...)  │
+   other repos →│  WSL2: Core / Kali (zsh/tmux/...)           │
                 └─────────────────────────────────────────────┘
 ```
 

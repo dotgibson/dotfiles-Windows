@@ -1,7 +1,7 @@
 # ============================================================================
 #  os/31-wsl-bridge.ps1  -  the seam between the host and your WSL distros
 #
-#  Your Linux dotfiles (Core / Debian / Kali) live INSIDE WSL and configure
+#  Your Linux dotfiles (Core / Kali) live INSIDE WSL and configure
 #  themselves there. This file is the host-side glue: jump into a distro,
 #  cross the filesystem boundary cleanly, and surface the host IP (handy when
 #  a service in WSL needs to be reachable from the host LAN - see
