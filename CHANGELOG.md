@@ -24,6 +24,11 @@ experience, grouped by theme.
 - **Hermetic, incremental CI** — GitHub Actions pinned to commit SHAs; Pester and
   PSScriptAnalyzer pinned to exact versions; PSGallery modules cached; a
   `detect-changes` gate skips the Windows jobs for docs-only changes.
+- **PSScriptAnalyzer signature gate** — after the pinned install, CI asserts the
+  module manifest is Authenticode `Valid` and Microsoft-signed before running the
+  analyzer, failing the build otherwise. Closes the last supply-chain gap in the
+  fleet-wide CI-tool-download hardening (the Windows analogue of the SHA-256
+  verification the Linux gate tools get via dotfiles-core's `setup-core-tools`).
 - **Coverage gate** — Pester enforces ≥85% coverage on the pure-helper library.
 - **`uninstall.ps1`** — reverse the bootstrap; removes only symlinks that point
   back into the repo, with `-DryRun` / `-RestoreBackups`.

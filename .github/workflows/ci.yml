@@ -175,6 +175,32 @@ jobs:
             Install-Module PSScriptAnalyzer -RequiredVersion $env:PSSA_VERSION `
               -Scope CurrentUser -Force
           }
+      # Supply-chain gate: -RequiredVersion above pins the version and Install-Module
+      # enforces the publisher check, but nothing asserted the installed bits are
+      # actually Microsoft-signed (a poisoned cache or a compromised feed would slip
+      # through). Verify the module manifest's Authenticode signature is Valid AND
+      # Microsoft-issued before trusting the analyzer — the Windows analogue of the
+      # SHA-256 verification the Linux gate tools get from setup-core-tools.
+      - name: Verify PSScriptAnalyzer is Microsoft-signed
+        shell: pwsh
+        run: |
+          $mod = Get-Module -ListAvailable PSScriptAnalyzer |
+            Where-Object Version -eq ([version]$env:PSSA_VERSION) |
+            Select-Object -First 1
+          if (-not $mod) { throw "PSScriptAnalyzer $($env:PSSA_VERSION) not installed" }
+          $sig = Get-AuthenticodeSignature -FilePath $mod.Path
+          "status=$($sig.Status)" | Write-Host
+          # Check Status FIRST: on a non-Valid status (e.g. NotSigned) SignerCertificate
+          # is $null, so reading .Subject before this would mask the real failure.
+          if ($sig.Status -ne 'Valid') {
+            throw "PSScriptAnalyzer signature is '$($sig.Status)', expected 'Valid'"
+          }
+          $subject = $sig.SignerCertificate.Subject
+          "signer=$subject" | Write-Host
+          if ($subject -notmatch 'Microsoft Corporation') {
+            throw "PSScriptAnalyzer signer '$subject' is not Microsoft Corporation"
+          }
+          "PSScriptAnalyzer $($env:PSSA_VERSION) verified: Valid + Microsoft-signed" | Write-Host
       - name: Analyze
         shell: pwsh
         run: |
