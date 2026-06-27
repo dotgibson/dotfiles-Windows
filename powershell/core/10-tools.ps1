@@ -259,7 +259,18 @@ if ((Test-Cmd fzf) -and (Get-Module -ListAvailable PSFzf)) {
     } else {
         Set-PsFzfOption -PSReadlineChordProvider 'Ctrl+t' -PSReadlineChordReverseHistory 'Ctrl+r'
     }
-    $env:FZF_DEFAULT_OPTS = '--height 40% --layout=reverse --border --info=inline'
+    # Layout + the EXPLICIT tokyonight-storm palette, kept byte-for-byte in step with
+    # Core's zsh fzf.zsh FZF_DEFAULT_OPTS so fzf looks identical across the WSL-zsh and
+    # Windows-pwsh halves of the fleet (previously pwsh fell back to the terminal's
+    # default colours — the one fzf inconsistency a cross-platform user would notice).
+    $env:FZF_DEFAULT_OPTS = @(
+        '--height=60% --layout=reverse --border=rounded --info=inline'
+        '--color=border:#27a1b9 --color=fg:#c0caf5 --color=gutter:#16161e'
+        '--color=header:#ff9e64 --color=hl:#2ac3de --color=hl+:#2ac3de'
+        '--color=info:#545c7e --color=marker:#ff007c --color=pointer:#ff007c'
+        '--color=prompt:#2ac3de --color=query:#c0caf5:regular --color=scrollbar:#27a1b9'
+        '--color=separator:#ff9e64 --color=spinner:#ff007c'
+    ) -join ' '
     if (Test-Cmd fd) { $env:FZF_DEFAULT_COMMAND = 'fd --type f --hidden --follow --exclude .git' }
 }
 __lap 'fzf/PSFzf'
