@@ -189,11 +189,14 @@ jobs:
             Select-Object -First 1
           if (-not $mod) { throw "PSScriptAnalyzer $($env:PSSA_VERSION) not installed" }
           $sig = Get-AuthenticodeSignature -FilePath $mod.Path
-          $subject = $sig.SignerCertificate.Subject
-          "status=$($sig.Status) signer=$subject" | Write-Host
+          "status=$($sig.Status)" | Write-Host
+          # Check Status FIRST: on a non-Valid status (e.g. NotSigned) SignerCertificate
+          # is $null, so reading .Subject before this would mask the real failure.
           if ($sig.Status -ne 'Valid') {
             throw "PSScriptAnalyzer signature is '$($sig.Status)', expected 'Valid'"
           }
+          $subject = $sig.SignerCertificate.Subject
+          "signer=$subject" | Write-Host
           if ($subject -notmatch 'Microsoft Corporation') {
             throw "PSScriptAnalyzer signer '$subject' is not Microsoft Corporation"
           }
