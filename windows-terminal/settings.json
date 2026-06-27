@@ -5,16 +5,16 @@
     {
       "command": {
         "action": "scrollToMark",
-        "direction": "next"
+        "direction": "previous"
       },
-      "id": "User.scrollToMark.2A0DA8E0"
+      "id": "User.scrollToMark.D3F0B923"
     },
     {
       "command": {
         "action": "scrollToMark",
-        "direction": "previous"
+        "direction": "next"
       },
-      "id": "User.scrollToMark.D3F0B923"
+      "id": "User.scrollToMark.2A0DA8E0"
     }
   ],
   "copyFormatting": "none",
@@ -24,32 +24,32 @@
   "initialRows": 32,
   "keybindings": [
     {
-      "id": "Terminal.SplitPaneRight",
-      "keys": "alt+shift+plus"
-    },
-    {
       "id": "Terminal.MoveFocusDown",
       "keys": "alt+down"
+    },
+    {
+      "id": "Terminal.SplitPaneRight",
+      "keys": "alt+shift+plus"
     },
     {
       "id": "Terminal.SplitPaneDown",
       "keys": "alt+shift+minus"
     },
     {
-      "id": "Terminal.ClosePane",
-      "keys": "ctrl+shift+w"
-    },
-    {
-      "id": "Terminal.MoveFocusRight",
-      "keys": "alt+right"
+      "id": "Terminal.FindText",
+      "keys": "ctrl+shift+f"
     },
     {
       "id": "Terminal.MoveFocusUp",
       "keys": "alt+up"
     },
     {
-      "id": "Terminal.FindText",
-      "keys": "ctrl+shift+f"
+      "id": "Terminal.MoveFocusRight",
+      "keys": "alt+right"
+    },
+    {
+      "id": "Terminal.ClosePane",
+      "keys": "ctrl+shift+w"
     },
     {
       "id": "Terminal.MoveFocusLeft",
@@ -103,6 +103,12 @@
         "guid": "{61c54bbd-c2c6-5271-96e7-009a87ff44bf}",
         "hidden": true,
         "name": "Windows PowerShell"
+      },
+      {
+        "guid": "{8f13d75b-c233-5152-a906-3dac402da8a3}",
+        "hidden": false,
+        "name": "kali-linux",
+        "source": "Microsoft.WSL"
       }
     ]
   },
@@ -134,4 +140,3 @@
   "themes": [],
   "useAcrylicInTabRow": false
 }
-
