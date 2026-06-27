@@ -1,0 +1,37 @@
+# Pings dotfiles-web to rebuild & redeploy its static showcase when this repo
+# changes — the static-site equivalent of a cache purge. Receiving side:
+# dotfiles-web's deploy.yml (repository_dispatch: refresh) + its README.
+#
+# Setup: add a fine-grained PAT with contents:write on Gerrrt/dotfiles-web as a
+# repo secret named GITHUB_WEBHOOK_SECRET. Without it, this job no-ops.
+name: Refresh showcase
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dispatch:
+    # Only the canonical repo should dispatch; forks lack the secret.
+    if: github.repository_owner == 'Gerrrt'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify dotfiles-web to rebuild
+        env:
+          TOKEN: ${{ secrets.GITHUB_WEBHOOK_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "${TOKEN:-}" ]; then
+            echo "::warning::GITHUB_WEBHOOK_SECRET not set — skipping showcase refresh"
+            exit 0
+          fi
+          curl -fsS -X POST \
+            -H "Authorization: Bearer ${TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/Gerrrt/dotfiles-web/dispatches \
+            -d '{"event_type":"refresh"}'
+          echo "Dispatched refresh to dotfiles-web"
