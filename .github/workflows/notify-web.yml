@@ -3,7 +3,7 @@
 # dotfiles-web's deploy.yml (repository_dispatch: refresh) + its README.
 #
 # Setup: add a fine-grained PAT with "Contents: Read and write" on
-# Gerrrt/dotfiles-web as a repo secret named GITHUB_WEBHOOK_SECRET. Without it,
+# Gerrrt/dotfiles-web as a repo secret named WEBHOOK_SECRET. Without it,
 # this job no-ops.
 name: Refresh showcase
 
@@ -25,11 +25,11 @@ jobs:
     steps:
       - name: Notify dotfiles-web to rebuild
         env:
-          TOKEN: ${{ secrets.GITHUB_WEBHOOK_SECRET }}
+          TOKEN: ${{ secrets.WEBHOOK_SECRET }}
         run: |
           set -euo pipefail
           if [ -z "${TOKEN:-}" ]; then
-            echo "::warning::GITHUB_WEBHOOK_SECRET not set — skipping showcase refresh"
+            echo "::warning::WEBHOOK_SECRET not set — skipping showcase refresh"
             exit 0
           fi
           curl -fsS -X POST \
