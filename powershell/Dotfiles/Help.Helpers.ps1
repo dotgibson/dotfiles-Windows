@@ -38,6 +38,7 @@ function Get-DotfilesHelpData {
         @{ Command = 'gl / glog';     Desc = 'pull / log graph' }
         @{ Command = 'lg';           Desc = 'lazygit' }
         @{ Command = 'fbr';          Desc = 'fuzzy git-branch checkout' }
+        @{ Command = 'gaf / grf / grsf'; Desc = 'fuzzy git stage / restore / unstage' }
     )
     $g['Find / fuzzy'] = @(
         @{ Command = 'Ctrl+t / Ctrl+r'; Desc = 'fzf file picker / history search' }

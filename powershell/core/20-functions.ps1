@@ -3,7 +3,7 @@
 # ============================================================================
 
 # --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
-# provides: myip, myip-full, localips, extract, compress, mkbak, sha256, sha1, md5, cheat, pbcopy, pbpaste, serve, fif, fbr, tools
+# provides: myip, myip-full, localips, extract, compress, mkbak, sha256, sha1, md5, cheat, pbcopy, pbpaste, serve, fif, fbr, gaf, grf, grsf, tools
 # requires: Get-DotServePlan, Test-Cmd, Test-CmdRuns, Write-DotErr, Write-DotHost
 
 # --- public IP / network quicklook (parity with your `myip` aliases) ----------
@@ -155,7 +155,7 @@ function gaf {
     if (-not (Test-Cmd fzf)) { Write-DotErr 'gaf needs fzf' 'scoop install fzf'; return }
     if (-not (Test-CmdRuns fzf)) { Write-DotErr "gaf: 'fzf' is on PATH but won't launch (broken shim?)" 'reset the scoop shim (scoop reset fzf); run dotfiles-doctor for detail'; return }
     $files = git ls-files --modified --others --exclude-standard 2>$null |
-        fzf --multi --prompt 'add> ' --preview 'git diff --color=always -- {}'
+        fzf --multi --prompt 'add> ' --preview 'git diff --color=always -- "{}"'
     if ($files) { $files | ForEach-Object { git add -- $_ }; git status --short }
 }
 function grf {
@@ -163,7 +163,7 @@ function grf {
     if (-not (Test-Cmd fzf)) { Write-DotErr 'grf needs fzf' 'scoop install fzf'; return }
     if (-not (Test-CmdRuns fzf)) { Write-DotErr "grf: 'fzf' is on PATH but won't launch (broken shim?)" 'reset the scoop shim (scoop reset fzf); run dotfiles-doctor for detail'; return }
     $files = git diff --name-only 2>$null |
-        fzf --multi --prompt 'restore> ' --preview 'git diff --color=always -- {}'
+        fzf --multi --prompt 'restore> ' --preview 'git diff --color=always -- "{}"'
     if ($files) { $files | ForEach-Object { git restore -- $_ } }
 }
 function grsf {
@@ -171,7 +171,7 @@ function grsf {
     if (-not (Test-Cmd fzf)) { Write-DotErr 'grsf needs fzf' 'scoop install fzf'; return }
     if (-not (Test-CmdRuns fzf)) { Write-DotErr "grsf: 'fzf' is on PATH but won't launch (broken shim?)" 'reset the scoop shim (scoop reset fzf); run dotfiles-doctor for detail'; return }
     $files = git diff --staged --name-only 2>$null |
-        fzf --multi --prompt 'unstage> ' --preview 'git diff --staged --color=always -- {}'
+        fzf --multi --prompt 'unstage> ' --preview 'git diff --staged --color=always -- "{}"'
     if ($files) { $files | ForEach-Object { git restore --staged -- $_ } }
 }
 

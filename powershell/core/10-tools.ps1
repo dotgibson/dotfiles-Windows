@@ -4,7 +4,7 @@
 # ============================================================================
 
 # --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
-# provides: Get-InitCache, Clear-InitCache, shell-bench, prof-trace
+# provides: Get-InitCache, Clear-InitCache, shell-bench, prof-trace, Invoke-DotfilesSessionizer
 # requires: Get-DotStringSha256, Test-Cmd, Test-SensitiveHistoryLine, Write-DotErr, Write-DotHost, Write-DotWarn
 
 # --- FAST_START escape hatch --------------------------------------------------
@@ -297,7 +297,14 @@ if ((Test-Cmd atuin) -and -not $global:DotfilesInit.Atuin) {
     Set-PSReadLineKeyHandler -Chord 'Ctrl+e' -BriefDescription 'Atuin search' -ScriptBlock { Invoke-AtuinSearch }
     Set-PSReadLineKeyHandler -Key UpArrow   -Function HistorySearchBackward
     Set-PSReadLineKeyHandler -Key DownArrow -Function HistorySearchForward
-    if (Get-Module PSFzf) { Set-PsFzfOption -PSReadlineChordReverseHistory 'Ctrl+r' }
+    if (Get-Module PSFzf) {
+        Set-PsFzfOption -PSReadlineChordReverseHistory 'Ctrl+r'
+    } else {
+        # No PSFzf to own Ctrl+R: hand it to PSReadLine's built-in history search so
+        # atuin still ends up on Ctrl+E ONLY (else atuin's init keeps Ctrl+R and the
+        # advertised parity — Ctrl+E atuin, Ctrl+R quick history — silently breaks).
+        Set-PSReadLineKeyHandler -Key 'Ctrl+r' -Function ReverseSearchHistory
+    }
     $global:DotfilesInit.Atuin = $true
 }
 __lap 'atuin'
@@ -318,20 +325,21 @@ __lap 'carapace'
 
 # --- Ctrl+G sessionizer + Alt+Z zoxide jump (cross-shell parity, PARITY.md) ----
 # Ctrl+G = jump-to-session everywhere (the contract's Option A): pick a project dir
-# (zoxide frecency + project roots) and attach-or-create a psmux session via `mux` —
-# the bare-prompt host port of zsh's sesh-on-Ctrl+G, mirroring psmux/scripts/psmux-sesh.ps1
+# (zoxide frecency + project roots) and attach-or-create a psmux session for it — the
+# bare-prompt host port of zsh's sesh-on-Ctrl+G, mirroring psmux/scripts/psmux-sesh.ps1
 # (the in-psmux prefix+f version). This REPLACES navi's old Ctrl+G cheatsheet widget:
 # navi now lives in NO shell binding (matching the contract), reachable as the `navi`
 # command / the `cheat` helper — which frees Ctrl+G for the sessionizer on both shells.
 #
 # The key handler types+runs the function as a normal foreground command (RevertLine /
-# Insert / AcceptLine), so fzf and the interactive `mux` attach behave exactly as they
-# would when typed — no nested-readline weirdness. mux/psmux is checked at RUN time
-# (the os layer that defines `mux` loads after this core module).
+# Insert / AcceptLine), so fzf and the interactive psmux attach behave exactly as they
+# would when typed — no nested-readline weirdness. We call `psmux new-session -A`
+# directly (the body of the os-layer `mux` verb, inlined) so this core fragment carries
+# no dependency on a later-loading os fragment; psmux itself is checked at run time.
 if (Test-Cmd fzf) {
     function Invoke-DotfilesSessionizer {
-        if (-not (Get-Command mux -ErrorAction SilentlyContinue)) {
-            Write-DotErr 'sessionizer: psmux (mux) not available' 'install psmux, or check the os layer loaded'
+        if (-not (Test-Cmd psmux)) {
+            Write-DotErr 'sessionizer: psmux not on PATH' 'install psmux (scoop install psmux)'
             return
         }
         $dirs = [System.Collections.Generic.List[string]]::new()
@@ -343,12 +351,16 @@ if (Test-Cmd fzf) {
             }
         }
         if ($dirs.Count -eq 0) { return }
-        $pick = $dirs | Sort-Object -Unique |
-            fzf --prompt 'session > ' --preview 'eza --icons --tree --level=1 --color=always {}'
+        # fzf runs --preview via its OWN shell, so quote {} for paths with spaces (same
+        # rule fif documents). eza is optional on the host (falls back elsewhere), so only
+        # add the preview when it's present — Ctrl+G stays usable without it.
+        $fzfArgs = @('--prompt', 'session > ')
+        if (Test-Cmd eza) { $fzfArgs += @('--preview', 'eza --icons --tree --level=1 --color=always "{}"') }
+        $pick = $dirs | Sort-Object -Unique | fzf @fzfArgs
         if (-not $pick) { return }
         $name = (Split-Path $pick -Leaf).ToLower() -replace '[ .]', '_'
         Set-Location -LiteralPath $pick
-        mux $name
+        psmux new-session -A -s $name   # attach-or-create (the `mux` verb, inlined)
     }
     Set-PSReadLineKeyHandler -Chord 'Ctrl+g' -BriefDescription 'Sessionizer (dir -> psmux session)' -ScriptBlock {
         [Microsoft.PowerShell.PSConsoleReadLine]::RevertLine()
