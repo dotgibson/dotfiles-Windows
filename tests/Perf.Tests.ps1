@@ -22,10 +22,12 @@ Describe 'cold-start invariants' {
     }
 
     It 'caches every spawn-on-load tool init via Get-InitCache' {
-        # starship/zoxide/mise/atuin/carapace/navi each shell out to print their
-        # init script; all six must resolve it through the cache, or a cold shell
-        # pays a subprocess spawn per tool again.
-        foreach ($tool in 'starship', 'zoxide', 'mise', 'atuin', 'carapace', 'navi') {
+        # starship/zoxide/mise/atuin/carapace each shell out to print their init
+        # script; all must resolve it through the cache, or a cold shell pays a
+        # subprocess spawn per tool again. (navi no longer has a shell init — its
+        # Ctrl+G widget was replaced by the Ctrl+G sessionizer in 10-tools.ps1, so
+        # navi is now a plain command with nothing to cache.)
+        foreach ($tool in 'starship', 'zoxide', 'mise', 'atuin', 'carapace') {
             $script:Tools | Should -Match "Get-InitCache -Name $tool"
         }
     }
