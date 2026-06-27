@@ -145,6 +145,36 @@ function fbr {
     if ($branch) { git checkout $branch.Trim() }
 }
 
+# --- gaf / grf / grsf: fuzzy git stage / restore / unstage --------------------
+# Cross-shell parity (PARITY.md) with Core's zsh git.zsh helpers: multi-select files
+# from the relevant set with a diff preview, then act on the picks. TAB toggles in fzf;
+# each acts on one path at a time (no xargs/-0 needed — pwsh hands fzf's lines straight
+# to git). Same dead-shim guard as fif/fbr.
+function gaf {
+    # fuzzy `git add` — pick from modified + untracked
+    if (-not (Test-Cmd fzf)) { Write-DotErr 'gaf needs fzf' 'scoop install fzf'; return }
+    if (-not (Test-CmdRuns fzf)) { Write-DotErr "gaf: 'fzf' is on PATH but won't launch (broken shim?)" 'reset the scoop shim (scoop reset fzf); run dotfiles-doctor for detail'; return }
+    $files = git ls-files --modified --others --exclude-standard 2>$null |
+        fzf --multi --prompt 'add> ' --preview 'git diff --color=always -- {}'
+    if ($files) { $files | ForEach-Object { git add -- $_ }; git status --short }
+}
+function grf {
+    # fuzzy `git restore` — discard unstaged changes to picked files
+    if (-not (Test-Cmd fzf)) { Write-DotErr 'grf needs fzf' 'scoop install fzf'; return }
+    if (-not (Test-CmdRuns fzf)) { Write-DotErr "grf: 'fzf' is on PATH but won't launch (broken shim?)" 'reset the scoop shim (scoop reset fzf); run dotfiles-doctor for detail'; return }
+    $files = git diff --name-only 2>$null |
+        fzf --multi --prompt 'restore> ' --preview 'git diff --color=always -- {}'
+    if ($files) { $files | ForEach-Object { git restore -- $_ } }
+}
+function grsf {
+    # fuzzy `git restore --staged` — unstage picked files
+    if (-not (Test-Cmd fzf)) { Write-DotErr 'grsf needs fzf' 'scoop install fzf'; return }
+    if (-not (Test-CmdRuns fzf)) { Write-DotErr "grsf: 'fzf' is on PATH but won't launch (broken shim?)" 'reset the scoop shim (scoop reset fzf); run dotfiles-doctor for detail'; return }
+    $files = git diff --staged --name-only 2>$null |
+        fzf --multi --prompt 'unstage> ' --preview 'git diff --staged --color=always -- {}'
+    if ($files) { $files | ForEach-Object { git restore --staged -- $_ } }
+}
+
 # --- tools: open the host tool docs (docs/TOOLS.md) ---------------------------
 # The README cheatsheet advertises `tools` ("open the host tool docs"); this is
 # its implementation. Renders the vendored docs\TOOLS.md with glow when present

@@ -254,11 +254,11 @@ __lap 'zoxide'
 # owns Ctrl+R cleanly.
 if ((Test-Cmd fzf) -and (Get-Module -ListAvailable PSFzf)) {
     Import-Module PSFzf
-    if (Test-Cmd atuin) {
-        Set-PsFzfOption -PSReadlineChordProvider 'Ctrl+t'
-    } else {
-        Set-PsFzfOption -PSReadlineChordProvider 'Ctrl+t' -PSReadlineChordReverseHistory 'Ctrl+r'
-    }
+    # Ctrl+T = file picker, Ctrl+R = quick fzf history — on BOTH shells (PARITY.md).
+    # atuin (loaded below) ignores ATUIN_NOBIND and seizes Ctrl+R on init, so the atuin
+    # block RE-ASSERTS PSFzf on Ctrl+R afterwards and moves atuin's TUI to Ctrl+E to
+    # match zsh (Ctrl+E = atuin, Ctrl+R = quick history).
+    Set-PsFzfOption -PSReadlineChordProvider 'Ctrl+t' -PSReadlineChordReverseHistory 'Ctrl+r'
     # Layout + the EXPLICIT tokyonight-storm palette, kept byte-for-byte in step with
     # Core's zsh fzf.zsh FZF_DEFAULT_OPTS so fzf looks identical across the WSL-zsh and
     # Windows-pwsh halves of the fleet (previously pwsh fell back to the terminal's
@@ -290,6 +290,14 @@ __lap 'mise'
 if ((Test-Cmd atuin) -and -not $global:DotfilesInit.Atuin) {
     $cf = Get-InitCache -Name atuin -Generate { atuin init powershell }
     if ($cf) { . $cf } else { Invoke-Expression (& { (atuin init powershell | Out-String) }) }
+    # atuin's pwsh module ignores ATUIN_NOBIND and seizes Ctrl+R + Up/Down on init. For
+    # cross-shell parity (PARITY.md: Ctrl+E = atuin TUI, Ctrl+R = quick history, arrows =
+    # prefix search), move atuin's interactive search to Ctrl+E and hand the rest back.
+    # Invoke-AtuinSearch is the function atuin's init defines for the TUI.
+    Set-PSReadLineKeyHandler -Chord 'Ctrl+e' -BriefDescription 'Atuin search' -ScriptBlock { Invoke-AtuinSearch }
+    Set-PSReadLineKeyHandler -Key UpArrow   -Function HistorySearchBackward
+    Set-PSReadLineKeyHandler -Key DownArrow -Function HistorySearchForward
+    if (Get-Module PSFzf) { Set-PsFzfOption -PSReadlineChordReverseHistory 'Ctrl+r' }
     $global:DotfilesInit.Atuin = $true
 }
 __lap 'atuin'
@@ -308,27 +316,53 @@ if ($env:DOTFILES_CARAPACE -eq '1' -and (Test-Cmd carapace) -and -not $global:Do
 }
 __lap 'carapace'
 
-# --- navi (interactive cheatsheet; Ctrl+G to open the widget) -----------------
-# navi's shell widget binds Ctrl+G to open an interactive cheatsheet picker.
-# We deliberately do NOT bind Ctrl+T/Ctrl+R (those belong to PSFzf/atuin above).
-# Guard: only invoke if the widget output is non-empty. The current scoop build
-# of navi does not support `widget powershell` and returns nothing — in that
-# case we skip silently rather than erroring. `navi` itself still works as a
-# standalone command; you just won't get the Ctrl+G keybind.
+# --- Ctrl+G sessionizer + Alt+Z zoxide jump (cross-shell parity, PARITY.md) ----
+# Ctrl+G = jump-to-session everywhere (the contract's Option A): pick a project dir
+# (zoxide frecency + project roots) and attach-or-create a psmux session via `mux` —
+# the bare-prompt host port of zsh's sesh-on-Ctrl+G, mirroring psmux/scripts/psmux-sesh.ps1
+# (the in-psmux prefix+f version). This REPLACES navi's old Ctrl+G cheatsheet widget:
+# navi now lives in NO shell binding (matching the contract), reachable as the `navi`
+# command / the `cheat` helper — which frees Ctrl+G for the sessionizer on both shells.
 #
-# CACHED like the other inits (Get-InitCache): `navi widget powershell` is a
-# subprocess spawn, and this was the ONLY tool init still paying that on EVERY
-# new shell/pane (starship/zoxide/mise/atuin all cache). Caching it makes each
-# split/new-window cheaper. The Shim-noise filter runs inside the generator so
-# only clean output is cached; an empty widget (broken build) yields $null and we
-# skip, exactly as before. Cache busts when the navi binary is upgraded.
-if ((Test-Cmd navi) -and -not $global:DotfilesInit.Navi) {
-    try {
-        $cf = Get-InitCache -Name navi -Generate {
-            (& navi widget powershell 2>$null) -split "`n" |
-                Where-Object { $_ -notmatch '^Shim:' }
+# The key handler types+runs the function as a normal foreground command (RevertLine /
+# Insert / AcceptLine), so fzf and the interactive `mux` attach behave exactly as they
+# would when typed — no nested-readline weirdness. mux/psmux is checked at RUN time
+# (the os layer that defines `mux` loads after this core module).
+if (Test-Cmd fzf) {
+    function Invoke-DotfilesSessionizer {
+        if (-not (Get-Command mux -ErrorAction SilentlyContinue)) {
+            Write-DotErr 'sessionizer: psmux (mux) not available' 'install psmux, or check the os layer loaded'
+            return
         }
-        if ($cf) { . $cf; $global:DotfilesInit.Navi = $true }
-    } catch { }
+        $dirs = [System.Collections.Generic.List[string]]::new()
+        if (Test-Cmd zoxide) { zoxide query -l 2>$null | ForEach-Object { if ($_) { $dirs.Add($_) } } }
+        foreach ($root in @("$HOME\Projects", "$HOME\dev", "$HOME\work", "$HOME\.config")) {
+            if (Test-Path $root) {
+                Get-ChildItem $root -Directory -ErrorAction SilentlyContinue |
+                    ForEach-Object { $dirs.Add($_.FullName) }
+            }
+        }
+        if ($dirs.Count -eq 0) { return }
+        $pick = $dirs | Sort-Object -Unique |
+            fzf --prompt 'session > ' --preview 'eza --icons --tree --level=1 --color=always {}'
+        if (-not $pick) { return }
+        $name = (Split-Path $pick -Leaf).ToLower() -replace '[ .]', '_'
+        Set-Location -LiteralPath $pick
+        mux $name
+    }
+    Set-PSReadLineKeyHandler -Chord 'Ctrl+g' -BriefDescription 'Sessionizer (dir -> psmux session)' -ScriptBlock {
+        [Microsoft.PowerShell.PSConsoleReadLine]::RevertLine()
+        [Microsoft.PowerShell.PSConsoleReadLine]::Insert('Invoke-DotfilesSessionizer')
+        [Microsoft.PowerShell.PSConsoleReadLine]::AcceptLine()
+    }
 }
-__lap 'navi'
+# Alt+Z = zoxide frecency jump (matches zsh's Alt+Z). zoxide's own `zi` already drives
+# the fzf picker, so just run it.
+if (Test-Cmd zoxide) {
+    Set-PSReadLineKeyHandler -Chord 'Alt+z' -BriefDescription 'zoxide interactive jump' -ScriptBlock {
+        [Microsoft.PowerShell.PSConsoleReadLine]::RevertLine()
+        [Microsoft.PowerShell.PSConsoleReadLine]::Insert('zi')
+        [Microsoft.PowerShell.PSConsoleReadLine]::AcceptLine()
+    }
+}
+__lap 'sessionizer/altz'
