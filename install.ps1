@@ -364,9 +364,10 @@ if (-not (Test-Path -LiteralPath $ppmDir)) {
         # expected ppm\ folder actually exists in the clone before copying it.
         $ppmRef = $env:DOTFILES_PPM_REF
         # A ref beginning with '-' could smuggle an option into the git commands
-        # below (e.g. --upload-pack=… on fetch is a known argument-injection RCE);
-        # reject it exactly as bootstrap.ps1 guards DOTFILES_REF, and terminate the
-        # checkout's ref list with `--` so the value can't be parsed as a flag.
+        # below (e.g. --upload-pack=… on fetch is a known argument-injection RCE),
+        # so reject it exactly as bootstrap.ps1 guards DOTFILES_REF — that rejection
+        # is the injection guard. The trailing `--` added to checkout below is the
+        # ref/pathspec separator (matching bootstrap.ps1), not the guard itself.
         if ($ppmRef -and $ppmRef.StartsWith('-')) {
             Write-DotWarn "ignoring DOTFILES_PPM_REF '$ppmRef' (cannot start with '-')." 'Using the default branch.'
             $ppmRef = $null
