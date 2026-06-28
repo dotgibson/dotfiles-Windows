@@ -9,6 +9,21 @@ so entries are grouped by theme rather than strict semver releases.
 A structural + terminal-UX pass focused on a world-class bootstrap and shell
 experience, grouped by theme.
 
+### Security / robustness (install)
+
+- **`install.ps1` now uses `-LiteralPath` for every existence/copy/move/remove**
+  in `Link-Item` and the seed/ppm steps. Bare `Test-Path`/`Copy-Item`/`Move-Item`
+  treat `[`/`]` as wildcards, so a profile path containing brackets could read an
+  existing real config as absent — skipping the back-up branch and clobbering it
+  with no `.bak`. Brackets are now matched literally.
+- **`DOTFILES_PPM_REF` is rejected when it begins with `-`** and the ppm
+  `git checkout` gained a `--` terminator, closing the argument-injection seam
+  (e.g. `--upload-pack=…`) that `bootstrap.ps1` already guards for `DOTFILES_REF`.
+- **Dependency probes scoped to real executables** — `Get-Command gum/git/scoop/winget`
+  now pass `-CommandType Application`, so a user-defined function/alias of the same
+  name can no longer satisfy a presence check (the repo's profile encourages such
+  wrappers, which previously could flip `Test-DotGum` true with no real `gum`).
+
 ### CI / structure (backend)
 
 - **`nvim-sync` bot** (`.github/workflows/nvim-sync.yml`) — runs `nvim-sync.ps1`

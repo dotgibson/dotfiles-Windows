@@ -79,7 +79,7 @@ if (-not $IsWindows) {
     Write-Warning 'bootstrap (and install.ps1) target Windows; nothing to do on this OS.'
     return
 }
-if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+if (-not (Get-Command git -CommandType Application -ErrorAction SilentlyContinue)) {
     Write-Warning 'git is required to bootstrap. Install Git (winget install Git.Git) and re-run.'
     return
 }
