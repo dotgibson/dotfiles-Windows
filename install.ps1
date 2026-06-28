@@ -178,23 +178,27 @@ function Link-Item {
     }
 
     # Dry-run: report the action and mutate nothing (no mkdir, no backup, no link).
+    # NB: every existence/copy/move/remove below uses -LiteralPath. A profile path
+    # containing `[` or `]` is a wildcard to bare Test-Path/Copy-Item/Move-Item, so
+    # without -LiteralPath an existing real file can read as absent — silently
+    # skipping the back-up branch and clobbering the user's own config with no .bak.
     if ($script:DryRun) {
-        if (Test-Path $Link) { Write-DotHost "  would back up + $verb  $Link" -Color DarkYellow }
-        else                 { Write-DotHost "  would $verb  $Link" -Color Cyan }
+        if (Test-Path -LiteralPath $Link) { Write-DotHost "  would back up + $verb  $Link" -Color DarkYellow }
+        else                              { Write-DotHost "  would $verb  $Link" -Color Cyan }
         return
     }
 
     $parent = Split-Path -Parent $Link
-    if (-not (Test-Path $parent)) { New-Item -ItemType Directory -Force -Path $parent | Out-Null }
+    if (-not (Test-Path -LiteralPath $parent)) { New-Item -ItemType Directory -Force -Path $parent | Out-Null }
 
-    if (Test-Path $Link) {
+    if (Test-Path -LiteralPath $Link) {
         if (-not (Confirm-Overwrite $Link)) {
             Write-Host "  skip    $Link (kept existing, by request)" -ForegroundColor DarkGray
             $script:LinkStats.skipped++
             return
         }
         $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
-        Move-Item $Link "$Link.$stamp.bak" -Force
+        Move-Item -LiteralPath $Link -Destination "$Link.$stamp.bak" -Force
         Write-DotHost "  backed up existing -> $Link.$stamp.bak" -Color DarkYellow
         $script:LinkStats.backedup++
     }
@@ -205,8 +209,8 @@ function Link-Item {
     } else {
         # -Recurse so directory targets (nvim\, psmux\scripts) copy in full — a
         # plain Copy-Item only takes the top-level entry and leaves them empty.
-        $recurse = (Test-Path $Target -PathType Container)
-        Copy-Item $Target $Link -Force -Recurse:$recurse
+        $recurse = (Test-Path -LiteralPath $Target -PathType Container)
+        Copy-Item -LiteralPath $Target -Destination $Link -Force -Recurse:$recurse
         Write-DotHost "  copied  $Link" -Color Green
         $script:LinkStats.copied++
     }
@@ -331,7 +335,7 @@ Write-Step 'Wiring configs'
 foreach ($row in (Get-DotfilesLinkPlan -RepoRoot $RepoRoot)) {
     # A row flagged ParentMustExist (Windows Terminal) is skipped when its parent
     # dir is absent — WT isn't installed — instead of materializing an empty tree.
-    if ($row.ParentMustExist -and -not (Test-Path (Split-Path -Parent $row.Link))) {
+    if ($row.ParentMustExist -and -not (Test-Path -LiteralPath (Split-Path -Parent $row.Link))) {
         Write-DotWarn "$($row.Name): target folder not found — skipping." 'If you installed Windows Terminal via scoop, link its settings.json manually.'
         continue
     }
@@ -349,7 +353,7 @@ foreach ($row in (Get-DotfilesLinkPlan -RepoRoot $RepoRoot)) {
 # saves, so everything plugin-related lives under one root. The other @plugins
 # declared in psmux.conf are fetched later by `prefix + I` inside psmux.
 $ppmDir = Join-Path $HOME '.psmux/plugins/ppm'
-if (-not (Test-Path $ppmDir)) {
+if (-not (Test-Path -LiteralPath $ppmDir)) {
     if ($script:DryRun) {
         Write-DotHost "  would clone psmux-plugins and install ppm -> $ppmDir" -Color Cyan
     } else {
@@ -359,19 +363,28 @@ if (-not (Test-Path $ppmDir)) {
         # (a moved branch then can't change the code we copy in). We also verify the
         # expected ppm\ folder actually exists in the clone before copying it.
         $ppmRef = $env:DOTFILES_PPM_REF
+        # A ref beginning with '-' could smuggle an option into the git commands
+        # below (e.g. --upload-pack=… on fetch is a known argument-injection RCE),
+        # so reject it exactly as bootstrap.ps1 guards DOTFILES_REF — that rejection
+        # is the injection guard. The trailing `--` added to checkout below is the
+        # ref/pathspec separator (matching bootstrap.ps1), not the guard itself.
+        if ($ppmRef -and $ppmRef.StartsWith('-')) {
+            Write-DotWarn "ignoring DOTFILES_PPM_REF '$ppmRef' (cannot start with '-')." 'Using the default branch.'
+            $ppmRef = $null
+        }
         try {
             git clone --depth 1 https://github.com/psmux/psmux-plugins.git $tmp
             if ($LASTEXITCODE -eq 0) {
                 if ($ppmRef) {
                     git -C $tmp fetch --depth 1 origin $ppmRef 2>$null
-                    git -C $tmp checkout --quiet $ppmRef 2>$null
+                    git -C $tmp checkout --quiet $ppmRef -- 2>$null
                     if ($LASTEXITCODE -ne 0) { Write-DotWarn "could not pin ppm to '$ppmRef' — using default branch." }
                     else { Write-DotHost "  pinned ppm to $ppmRef" -Color DarkGray }
                 }
                 $ppmSrc = Join-Path $tmp 'ppm'
-                if (Test-Path $ppmSrc) {
+                if (Test-Path -LiteralPath $ppmSrc) {
                     New-Item -ItemType Directory -Force -Path (Split-Path $ppmDir) | Out-Null
-                    Copy-Item $ppmSrc $ppmDir -Recurse -Force
+                    Copy-Item -LiteralPath $ppmSrc -Destination $ppmDir -Recurse -Force
                     Write-DotHost "  installed ppm -> $ppmDir" -Color Green
                 } else {
                     Write-DotWarn 'ppm folder missing from the clone — skipping.' 'The psmux-plugins layout may have changed; install ppm by hand.'
@@ -380,7 +393,7 @@ if (-not (Test-Path $ppmDir)) {
                 Write-DotWarn 'ppm clone failed.' 'Clone psmux-plugins by hand, copy ppm\ to ~\.psmux\plugins\ppm'
             }
         } finally {
-            if ($tmp -and (Test-Path $tmp)) { Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue }
+            if ($tmp -and (Test-Path -LiteralPath $tmp)) { Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue }
         }
     }
 }
@@ -391,21 +404,21 @@ if (-not (Test-Path $ppmDir)) {
 # --- 4. .wslconfig (COPY, don't symlink - it's host-global, edit per machine) -
 Write-Step 'Seeding host-global .wslconfig'
 $wslCfg = Join-Path $HOME '.wslconfig'
-if (Test-Path $wslCfg) {
+if (Test-Path -LiteralPath $wslCfg) {
     Write-DotHost "  exists  $wslCfg  (left as-is; compare against wsl\windows.wslconfig.example)" -Color DarkYellow
 } elseif ($script:DryRun) {
     Write-DotHost "  would seed $wslCfg from wsl\windows.wslconfig.example" -Color Cyan
 } else {
-    Copy-Item (Join-Path $RepoRoot 'wsl/windows.wslconfig.example') $wslCfg
+    Copy-Item -LiteralPath (Join-Path $RepoRoot 'wsl/windows.wslconfig.example') -Destination $wslCfg
     Write-DotHost "  seeded  $wslCfg  (review it, then run: wsl --shutdown)" -Color Green
 }
 
 # --- 5. seed local override + gitconfig.local ---------------------------------
 Write-Step 'Seeding local overrides'
 $localPs = Join-Path $RepoRoot 'powershell/local.ps1'
-if (-not (Test-Path $localPs)) {
+if (-not (Test-Path -LiteralPath $localPs)) {
     if ($script:DryRun) { Write-DotHost "  would seed $localPs from local.ps1.example" -Color Cyan }
-    else { Copy-Item (Join-Path $RepoRoot 'powershell/local.ps1.example') $localPs }
+    else { Copy-Item -LiteralPath (Join-Path $RepoRoot 'powershell/local.ps1.example') -Destination $localPs }
 }
 
 # Zero-config onboarding (U9): instead of seeding a placeholder the user must
@@ -413,7 +426,7 @@ if (-not (Test-Path $localPs)) {
 # placeholder when non-interactive, in dry-run, or when input is left blank
 # (dotfiles-doctor still flags a placeholder, so nothing is silently wrong).
 $gcLocal = Join-Path $HOME '.gitconfig.local'
-if (-not (Test-Path $gcLocal)) {
+if (-not (Test-Path -LiteralPath $gcLocal)) {
     $gitName = 'YOUR NAME'; $gitEmail = 'you@example.com'
     # Pre-fill from any identity git already knows (a prior, non-dotfiles setup),
     # so an existing user just presses Enter twice instead of retyping. A blank
@@ -441,7 +454,7 @@ if (-not (Test-Path $gcLocal)) {
 [user]
     name  = $gitName
     email = $gitEmail
-"@ | Set-Content $gcLocal -Encoding UTF8
+"@ | Set-Content -LiteralPath $gcLocal -Encoding UTF8
         $note = if ($gitName -eq 'YOUR NAME') { '  (set your git name/email)' } else { "  ($gitName <$gitEmail>)" }
         Write-DotHost "  seeded  $gcLocal$note" -Color Green
     }
@@ -488,8 +501,8 @@ $script:Completed = $true
         try { Stop-Transcript | Out-Null } catch { }
         # Redact secret-looking lines before the transcript rests on disk (B8).
         try {
-            if ($logFile -and (Test-Path $logFile)) {
-                Set-Content -Path $logFile -Encoding UTF8 -Value (Get-DotRedactedTranscript (Get-Content $logFile))
+            if ($logFile -and (Test-Path -LiteralPath $logFile)) {
+                Set-Content -LiteralPath $logFile -Encoding UTF8 -Value (Get-DotRedactedTranscript (Get-Content -LiteralPath $logFile))
             }
         } catch { }
         Write-DotHost "  log: $logFile" -Color DarkGray

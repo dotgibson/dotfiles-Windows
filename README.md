@@ -65,14 +65,14 @@ Knobs (all optional env vars): `DOTFILES_DIR` (clone location), `DOTFILES_REF`
 $b = irm https://raw.githubusercontent.com/Gerrrt/dotfiles-Windows/main/bootstrap.ps1
 $h = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData(
         [Text.Encoding]::UTF8.GetBytes(($b -replace "`r`n","`n")))).ToLower()
-if ($h -eq '7082698b8cf7d7d6b4203d5bacc6335ce26c5b21a4949af01d95c52de4bdd772') { $b | iex }
+if ($h -eq 'b8a69fe112c8c18f7929e60feeddbfc07b73285c2944997a0a5e066636551d2b') { $b | iex }
 else { Write-Error "bootstrap.ps1 hash mismatch: $h" }
 ```
 
 bootstrap.ps1 never pipes a further network script into `iex` itself: it clones
 over git (pin `DOTFILES_REF` for an exact, content-addressed checkout) and hands
 off to `install.ps1`, where scoop's installer stays behind the existing
-`DOTFILES_SCOOP_SHA256` gate. <!-- bootstrap.ps1 SHA-256 (LF-normalized): 7082698b8cf7d7d6b4203d5bacc6335ce26c5b21a4949af01d95c52de4bdd772 -->
+`DOTFILES_SCOOP_SHA256` gate. <!-- bootstrap.ps1 SHA-256 (LF-normalized): b8a69fe112c8c18f7929e60feeddbfc07b73285c2944997a0a5e066636551d2b -->
 
 ### Manual
 

@@ -324,7 +324,7 @@ try {
     # Count winget items only when the winget phase will actually run: it's skipped
     # wholesale when winget isn't on PATH, and counting it anyway would leave the
     # bar stuck short of 100% on a winget-less box.
-    if (-not $SkipWinget -and (Get-Command winget -ErrorAction SilentlyContinue)) { $script:PkgTotal += @($wgSpecs).Count }
+    if (-not $SkipWinget -and (Get-Command winget -CommandType Application -ErrorAction SilentlyContinue)) { $script:PkgTotal += @($wgSpecs).Count }
 } catch {
     Write-DotWarn "couldn't read optional package groups: $_" 'installing every group.'
     $script:DotSelectedGroups = $null   # unknown -> opt-out default (install all)
@@ -339,7 +339,7 @@ try {
 
 # --- scoop --------------------------------------------------------------------
 if (-not $SkipScoop) {
-    if (-not (Get-Command scoop -ErrorAction SilentlyContinue)) {
+    if (-not (Get-Command scoop -CommandType Application -ErrorAction SilentlyContinue)) {
         Write-Host 'Installing scoop...' -ForegroundColor Cyan
         try {
             Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
@@ -418,7 +418,7 @@ if (-not $SkipScoop) {
 
 # --- winget -------------------------------------------------------------------
 if (-not $SkipWinget) {
-    if (Get-Command winget -ErrorAction SilentlyContinue) {
+    if (Get-Command winget -CommandType Application -ErrorAction SilentlyContinue) {
         Write-Host 'Installing winget packages...' -ForegroundColor Cyan
         $wg = Get-Content (Join-Path $here 'winget.json') -Raw | ConvertFrom-Json
 

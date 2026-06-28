@@ -89,7 +89,10 @@ function Test-DotGum {
     [OutputType([bool])]
     param(
         [string]$NoGum       = $env:DOTFILES_NO_GUM,
-        [bool]  $HasGum      = [bool](Get-Command gum -ErrorAction SilentlyContinue),
+        # -CommandType Application: gum must be a real executable on PATH. Without
+        # it, a user-defined function/alias named `gum` (this repo encourages such
+        # wrappers) would flip this true and route prompts into a non-existent TUI.
+        [bool]  $HasGum      = [bool](Get-Command gum -CommandType Application -ErrorAction SilentlyContinue),
         [bool]  $Color       = (Test-DotColor),
         [bool]  $Interactive = $(try { -not [Console]::IsInputRedirected } catch { $false })
     )
