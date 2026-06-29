@@ -1,0 +1,35 @@
+name: auto-tag
+
+# Cut Windows' own next vX.Y.Z tag (+ a GitHub Release) when a mirror-sync lands new
+# nvim/ or starship/ content on main — the host-layer analog of an OS repo's Core fan-out.
+# Windows vendors no core/, but the assets it MIRRORS from dotfiles-core (nvim/ via
+# nvim-sync.ps1, starship/ via starship-sync.ps1) play the same role: when they advance,
+# this repo's own version line should advance with them. Delegates to dotfiles-core's
+# reusable auto-tag workflow (@v2) — the same one the OS repos call; auto-tag.sh only
+# reads this repo's tags, so it needs no core/ subtree here.
+#
+# Fires on a push to main touching the mirrored dirs — whether that push is you landing a
+# local `nvim-sync.ps1`/`starship-sync.ps1` run, or the nvim-sync/starship-sync BOTs' PRs
+# merging. PATCH-bumps by default; idempotent (a no-op when HEAD is already tagged).
+on:
+  push:
+    branches: [main]
+    paths:
+      - "nvim/**"
+      - "starship/**"
+      # …but NOT a marker-only change: the sync scripts rewrite the .core-ref provenance
+      # files (which carry a per-run timestamp) every run, even when the mirrored content
+      # didn't move. A negative pattern (paths supports `!`; paths-ignore can't combine
+      # with paths) drops a timestamp-only commit so it can't cut a spurious patch tag.
+      - "!**/.core-ref"
+
+permissions:
+  contents: write # the tag push + GitHub Release needs write
+
+concurrency:
+  group: auto-tag-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    uses: Gerrrt/dotfiles-core/.github/workflows/auto-tag-call.yml@v2
