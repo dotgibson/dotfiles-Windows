@@ -4,7 +4,9 @@ All notable changes to this repo. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); this is a personal dotfiles repo,
 so entries are grouped by theme rather than strict semver releases.
 
-## [Unreleased] — DX/UX overhaul
+## [Unreleased]
+
+## [v1.1.0] - 2026-06-29 — DX/UX overhaul
 
 A structural + terminal-UX pass focused on a world-class bootstrap and shell
 experience, grouped by theme.
