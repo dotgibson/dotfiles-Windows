@@ -69,13 +69,13 @@ $custom\
 $jobs\
 $time\
 [](fg:color_srf1)\
-$fill\
-[](fg:color_srf1)\
-$shell\
-$cmd_duration\
-$memory_usage\
-[](fg:color_srf1)\
 $line_break$status$character$sudo"""
+
+right_format = """
+[](fg:color_srf1)\
+$shell$cmd_duration$memory_usage
+[](fg:color_srf1)\
+"""
 
 continuation_prompt = "[∙](fg:color_comment)"   # the > > on multi-line input
 
@@ -96,9 +96,6 @@ color_comment = '#565f89'   # muted / de-emphasized
 # ── surfaces — the two dark segment fills (subtle stepped depth) ──────────────
 color_srf1    = '#24283b'   # storm bg, slightly raised above the terminal
 color_srf2    = '#1f2335'   # bg_dark, a touch deeper
-
-[fill]
-symbol = " "
 
 [os]
 disabled = false
@@ -257,8 +254,8 @@ format = '[[ $symbol($context) ](fg:color_purple bg:color_srf1)]($style)'
 # Example: show the active VPN/tunnel interface (matches your tmux-netinfo idea).
 [custom.vpn]
 description = "active tunnel interface"
-#command = "ifconfig | awk '/^(utun|wg|tun)/{print $1; exit}' | tr -d ':'"
-#when = "ifconfig | grep -qE '^(utun|wg|tun)'"
+command = "ifconfig | awk '/^(utun|wg|tun)/{print $1; exit}' | tr -d ':'"
+when = "ifconfig | grep -qE '^(utun|wg|tun)'"
 symbol = "󰦝 "
 style = "fg:color_purple bg:color_srf1"
 format = '[ $symbol $output ]($style)'
@@ -337,7 +334,7 @@ format = '[[ $symbol($version) ](fg:color_aqua bg:color_srf2)]($style)'
 [cmd_duration]
 min_time = 500
 style = "fg:color_orange bg:color_srf1"
-format = '[󰔛 $duration]($style)'
+format = '[ 󰔛 $duration ]($style)'
 # Background job count (`&`, Ctrl-Z). Purple text, srf1 surface; only shows when
 # at least one job is running.
 [jobs]
@@ -351,7 +348,7 @@ format = '[[ $symbol $number ](fg:color_purple bg:color_srf1)]($style)'
 disabled = false
 time_format = "%R"
 style = "fg:color_comment bg:color_srf1"
-format = '[$time]($style)'
+format = '[ $time ]($style)'
 
 # ── RIGHT prompt modules: shell · cmd_duration · memory_usage ────────────────
 # (battery removed — it's already in the tmux status bar. cmd_duration is
@@ -360,21 +357,24 @@ format = '[$time]($style)'
 disabled = false
 style = "fg:color_comment bg:color_srf1"
 zsh_indicator = "zsh"
-powershell_indicator = '_'
-format = '[$indicator ]($style)'
+# Cross-shell: zsh is the daily driver, but dotfiles-Windows syncs THIS file verbatim
+# (see its starship-sync.ps1) and runs starship under PowerShell — so label that shell
+# too. Benign on zsh: starship only renders the indicator matching the active shell.
+powershell_indicator = "_"
+format = '[ $indicator ]($style)'
 
 [memory_usage]
 disabled = false
 threshold = 50          # only show when RAM > 50%
 symbol = "󰍛 "
 style = "fg:color_purple bg:color_srf1"
-format = '[$symbol $ram_pct]($style)'
+format = '[ $symbol $ram_pct ]($style)'
 
 [sudo]
 disabled = false        # shows a marker while sudo creds are cached
 symbol = "󱐋 "
 style = "fg:color_yellow"
-format = '[ $symbol]($style)'
+format = '[ $symbol ]($style)'
 
 [line_break]
 disabled = false

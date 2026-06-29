@@ -20,8 +20,9 @@ This repo does **not** vendor the `dotfiles-core` `git subtree` (the canonical
 fleet is `scripts/os-repos.txt` in dotfiles-core, which deliberately excludes
 Windows). Don't confuse that with this repo's own PowerShell **`powershell/core/`**
 module — same word, different thing: `powershell/core/` is native pwsh config that
-lives and is edited here. The one tree mirrored *from* dotfiles-core is `nvim/`,
-kept in step by `nvim-sync.ps1` — sync it rather than hand-editing drift.
+lives and is edited here. Two assets are mirrored *from* dotfiles-core: `nvim/` (via
+`nvim-sync.ps1`) and `starship/starship.toml` (via `starship-sync.ps1`, since
+starship.toml is cross-shell) — sync those rather than hand-editing drift.
 
 ## Where things are
 
@@ -30,5 +31,6 @@ kept in step by `nvim-sync.ps1` — sync it rather than hand-editing drift.
 - `packages/` — scoop/winget manifests
 - `psmux/` — native tmux-alike
 - `nvim/` — Neovim config mirrored from dotfiles-core via `nvim-sync.ps1`
+- `starship/` — cross-shell prompt config mirrored from dotfiles-core via `starship-sync.ps1`
 - `install.ps1`, `bootstrap.ps1`, `uninstall.ps1` — entry points
 - `wsl/` — the WSL bridge
