@@ -17,9 +17,14 @@ on:
     paths:
       - "nvim/**"
       - "starship/**"
+      # …but NOT a marker-only change: the sync scripts rewrite the .core-ref provenance
+      # files (which carry a per-run timestamp) every run, even when the mirrored content
+      # didn't move. A negative pattern (paths supports `!`; paths-ignore can't combine
+      # with paths) drops a timestamp-only commit so it can't cut a spurious patch tag.
+      - "!**/.core-ref"
 
 permissions:
-  contents: write # the tag push + GitHub Release need write
+  contents: write # the tag push + GitHub Release needs write
 
 concurrency:
   group: auto-tag-${{ github.ref }}
