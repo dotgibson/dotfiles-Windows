@@ -1,0 +1,8 @@
+# dotfiles-Windows :: starship vendor provenance (written by starship-sync.ps1)
+# The Core commit this starship.toml was vendored from. dotfiles-doctor reads it.
+source = https://github.com/Gerrrt/dotfiles-core.git
+branch = main
+pinned = (branch tip)
+commit = 36cdf117355980461dcbea610451cddcaef982e2
+date   = 2026-06-29
+synced = 2026-06-29T16:29:54Z
