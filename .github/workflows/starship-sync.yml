@@ -1,0 +1,67 @@
+name: starship-sync
+
+# Keep starship/starship.toml in step with dotfiles-core. Windows vendors no core/
+# subtree, but starship.toml is cross-shell (Core carries `powershell_indicator`), so
+# the host can share the canonical file verbatim. This bot runs starship-sync.ps1
+# weekly and opens a PR when Core's starship.toml has ACTUALLY changed, so the prompt
+# can't silently drift from the fleet. First-party (GITHUB_TOKEN + gh, no third-party
+# action); workflow_dispatch syncs on demand. Sibling of nvim-sync.yml.
+
+on:
+  schedule:
+    - cron: "0 8 * * 3" # Wednesdays 08:00 UTC, a day after nvim-sync
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # Ref-independent: the bot always force-updates ONE fixed branch, so runs must
+  # never overlap regardless of which ref launched them.
+  group: starship-sync
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    # starship-sync.ps1 copies a single file with Copy-Item (portable, unlike nvim's
+    # robocopy /MIR), so the cheaper Linux runner is fine — pwsh ships on ubuntu-latest.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # push the sync branch
+      pull-requests: write # open/update the PR
+    env:
+      BRANCH: automation/starship-sync
+      GH_TOKEN: ${{ github.token }}
+      DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: Sync starship.toml from dotfiles-core
+        shell: pwsh
+        run: ./starship-sync.ps1
+      - name: Open a PR if starship.toml drifted
+        shell: bash
+        run: |
+          set -euo pipefail
+          # starship/.core-ref carries a per-run `synced` timestamp, so judge drift on
+          # the toml only. status --porcelain (NOT diff --quiet) so a brand-new file
+          # still counts as drift.
+          changed="$(git status --porcelain -- starship/starship.toml)"
+          if [ -z "$changed" ]; then
+            git checkout -- starship/.core-ref 2>/dev/null || true
+            echo "✅ starship.toml already in step with Core" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git switch -C "$BRANCH"
+          git add starship/starship.toml starship/.core-ref
+          git commit -m "chore(starship): sync starship.toml from dotfiles-core (starship-sync bot)"
+          git push -f -u origin "$BRANCH"
+          # Idempotent: update the existing PR if one is already open for this branch.
+          if [ -z "$(gh pr list --head "$BRANCH" --state open --json number --jq '.[].number')" ]; then
+            gh pr create --head "$BRANCH" --base "$DEFAULT_BRANCH" \
+              --title "chore(starship): sync starship.toml from dotfiles-core" \
+              --body "Automated by the starship-sync bot. Core's \`starship.toml\` moved ahead of the vendored copy here; this re-runs \`starship-sync.ps1\`. Review the diff, let CI run, then merge."
+          fi
+          echo "🧩 opened/updated PR on \`$BRANCH\`" >> "$GITHUB_STEP_SUMMARY"
