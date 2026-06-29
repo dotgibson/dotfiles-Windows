@@ -102,6 +102,18 @@ try {
     $srcRepo  = if ($CoreLocal) { $CoreLocal }  else { $tempClone }
     $srcLabel = if ($CoreLocal) { $CoreLocal }  else { $CoreRemote }
     $sha  = (& git -C $srcRepo rev-parse HEAD 2>$null)
+    # `git describe` needs the tags AND the history back to the nearest one. The
+    # clone/fetch above is shallow (--depth 1), where describe sees only a tag sitting
+    # ON the tip — so a branch-tip sync between releases finds nothing and the
+    # 'vX.Y.Z-N-g...' nearest-ancestor form is unreachable. For our throwaway temp
+    # clone, best-effort deepen + fetch tags so describe resolves the nearest release
+    # tag, matching how dotfiles-core's sync-core.sh computes core_tag from a full clone.
+    # (-CoreLocal is the user's OWN clone — don't mutate it; rely on its existing tags.)
+    if (-not $CoreLocal) {
+        git -C $srcRepo fetch --tags --unshallow --quiet 2>$null
+        # --unshallow errors on an already-complete repo; fall back to a plain tag fetch.
+        if ($LASTEXITCODE -ne 0) { git -C $srcRepo fetch --tags --quiet 2>$null }
+    }
     # Nearest Core release tag describing the vendored commit (e.g. 'v2.0.0', or
     # 'v2.0.0-3-gabc1234' a few commits past it). Lets fleet-drift label the Windows
     # row by release name like the Unix repos' core.lock 'core_tag', instead of a bare
