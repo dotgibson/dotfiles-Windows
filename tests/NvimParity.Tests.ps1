@@ -19,6 +19,7 @@ Describe 'Get-CoreRefField' {
             'source = https://github.com/Gerrrt/dotfiles-core.git',
             'branch = main',
             'commit = abc123def456',
+            'tag    = v2.0.0',
             'date   = 2026-06-01'
         )
     }
@@ -27,6 +28,9 @@ Describe 'Get-CoreRefField' {
     }
     It 'tolerates extra spacing around the = ' {
         Get-CoreRefField $script:Ref 'date' | Should -Be '2026-06-01'
+    }
+    It 'reads the release tag field (fleet-drift label)' {
+        Get-CoreRefField $script:Ref 'tag' | Should -Be 'v2.0.0'
     }
     It 'returns $null for an absent key' {
         Get-CoreRefField $script:Ref 'nope' | Should -BeNullOrEmpty

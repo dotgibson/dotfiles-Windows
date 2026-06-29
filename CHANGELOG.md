@@ -32,6 +32,13 @@ experience, grouped by theme.
   moved ahead, so the host editor config can't silently fall behind. Judges drift
   on the Lua tree only (ignores `.core-ref`'s per-run timestamp). First-party
   (`GITHUB_TOKEN` + `gh`), no third-party action.
+- **`.core-ref` records the Core release tag** — `nvim-sync.ps1` now stamps a
+  `tag` field (`git describe --tags` of the vendored commit) alongside `commit`,
+  so dotfiles-core's `fleet-drift.sh` can label the Windows row by release name
+  (e.g. `v2.0.0`) like the Unix repos' `core.lock` `core_tag`, instead of a bare
+  SHA. Best-effort and backward compatible: the line is omitted when Core carries
+  no tag (the `commit` SHA stays the source of truth and the drift verdict). Read
+  path covered by a new `Get-CoreRefField` test case.
 - **`package-freshness` bot** (`.github/workflows/package-freshness.yml` +
   `packages/Check-PackageFreshness.ps1`) — weekly on `windows-latest`, resolves the
   live scoop/winget version of each managed app and files a deduplicated findings
