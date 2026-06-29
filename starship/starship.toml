@@ -77,68 +77,68 @@ $shell$cmd_duration$memory_usage\
 [](fg:color_srf1)\
 """
 
-continuation_prompt = "[∙](fg:color_comment)"   # the > > on multi-line input
+continuation_prompt = "[∙](fg:color_comment)" # the > > on multi-line input
 
 palette = 'tokyonight_storm'
 
 [palettes.tokyonight_storm]
 # ── accents — now used as TEXT, not as fills ──────────────────────────────────
-color_fg0     = '#c0caf5'   # fg (brightest text)
-color_fg_dark = '#a9b1d6'   # softer text (quiet segments)
-color_blue    = '#7aa2f7'
-color_aqua    = '#7dcfff'   # cyan
-color_green   = '#9ece6a'
-color_orange  = '#ff9e64'
-color_purple  = '#bb9af7'   # magenta
-color_red     = '#f7768e'
-color_yellow  = '#e0af68'
-color_comment = '#565f89'   # muted / de-emphasized
+color_fg0 = '#c0caf5'     # fg (brightest text)
+color_fg_dark = '#a9b1d6' # softer text (quiet segments)
+color_blue = '#7aa2f7'
+color_aqua = '#7dcfff'    # cyan
+color_green = '#9ece6a'
+color_orange = '#ff9e64'
+color_purple = '#bb9af7'  # magenta
+color_red = '#f7768e'
+color_yellow = '#e0af68'
+color_comment = '#565f89' # muted / de-emphasized
 # ── surfaces — the two dark segment fills (subtle stepped depth) ──────────────
-color_srf1    = '#24283b'   # storm bg, slightly raised above the terminal
-color_srf2    = '#1f2335'   # bg_dark, a touch deeper
+color_srf1 = '#24283b' # storm bg, slightly raised above the terminal
+color_srf2 = '#1f2335' # bg_dark, a touch deeper
 
 [os]
 disabled = false
 style = "bg:color_srf1 fg:color_aqua"
 
 [os.symbols]
-Windows = "󰍲"
-Ubuntu = "󰕈"
-SUSE = ""
-Raspbian = "󰐿"
-Mint = "󰣭"
-Macos = "󰀵"
-Manjaro = ""
-Linux = "󰌽"
-Gentoo = "󰣨"
-Fedora = "󰣛"
-Alpine = ""
-Amazon = ""
-Android = ""
-AOSC = ""
-Arch = "󰣇"
-Artix = "󰣇"
-EndeavourOS = ""
-CentOS = ""
-Debian = "󰣚"
-Redhat = "󱄛"
-RedHatEnterprise = "󱄛"
-Pop = ""
+Windows = "󰍲 "
+Ubuntu = "󰕈 "
+SUSE = " "
+Raspbian = "󰐿 "
+Mint = "󰣭 "
+Macos = "󰀵 "
+Manjaro = " "
+Linux = "󰌽 "
+Gentoo = "󰣨 "
+Fedora = "󰣛 "
+Alpine = " "
+Amazon = " "
+Android = " "
+AOSC = " "
+Arch = "󰣇 "
+Artix = "󰣇 "
+EndeavourOS = " "
+CentOS = " "
+Debian = "󰣚 "
+Redhat = "󱄛 "
+RedHatEnterprise = "󱄛 "
+Pop = " "
 
 [username]
 show_always = true
 style_user = "bg:color_srf1 fg:color_purple"
-style_root = "bg:color_srf1 fg:color_red"   # root stands out (kept readable, not a fill)
-format = '[ $user ]($style)'
+style_root = "bg:color_srf1 fg:color_red"    # root stands out (kept readable, not a fill)
+format = '[$user ]($style)'
 
 [directory]
 style = "fg:color_yellow bg:color_srf2"
 format = '[ $path ]($style)'
 truncation_length = 3
 truncation_symbol = "../"
-read_only = "󰌾 "       # NEW vs your config: lock icon in read-only dirs
+read_only = "󰌾 "                                          # NEW vs your config: lock icon in read-only dirs
 read_only_style = "fg:color_red bg:color_srf2"
-repo_root_style = "bold fg:color_yellow bg:color_srf2"   # make the git-root segment pop
+repo_root_style = "bold fg:color_yellow bg:color_srf2"    # make the git-root segment pop
 before_repo_root_style = "fg:color_comment bg:color_srf2"
 # When repo_root_style is set, starship renders the path via repo_root_format
 # (NOT `format` above) — and the built-in default ends with a literal unstyled
@@ -155,9 +155,9 @@ repo_root_format = "[$before_root_path]($before_repo_root_style)[$repo_root]($re
 "Developer" = "󰲋 "
 
 [git_branch]
-symbol = "󰘬"
+symbol = "󰘬 "
 style = "fg:color_green bg:color_srf2"
-format = '[ $symbol $branch ]($style)'
+format = '[ $symbol$branch ]($style)'
 
 [git_status]
 style = "fg:color_orange bg:color_srf2"
@@ -177,10 +177,10 @@ format = '([ +$added ]($added_style))([ -$deleted ]($deleted_style))'
 # Green text to read as a sibling of the branch, on the same srf1 surface.
 [git_commit]
 only_detached = true
-tag_disabled = false      # also surface an exact tag (e.g. v1.2.0) when on one
-tag_symbol = " 󰓹 "
+tag_disabled = false                                              # also surface an exact tag (e.g. v1.2.0) when on one
+tag_symbol = "󰓹 "
 style = "bg:color_srf2"
-format = '[[ $hash$tag ](fg:color_green bg:color_srf1)]($style)'
+format = '[[ $hash $tag ](fg:color_green bg:color_srf1)]($style)'
 
 # Mid-operation state (REBASING 2/8, MERGING, CHERRY-PICKING…). Red text so an
 # in-progress rebase/merge is impossible to miss; sits in the same srf1 git band
@@ -191,12 +191,12 @@ style = "bg:color_srf2"
 format = '[[ $state ($progress_current/$progress_total) ](fg:color_red bg:color_srf2)]($style)'
 
 [nodejs]
-symbol = ""
+symbol = " "
 style = "bg:color_srf2"
 format = '[[ $symbol($version) ](fg:color_aqua bg:color_srf2)]($style)'
 
 [bun]
-symbol = ""
+symbol = " "
 style = "bg:color_srf2"
 format = '[[ $symbol($version) ](fg:color_aqua bg:color_srf2)]($style)'
 
@@ -211,42 +211,42 @@ style = "bg:color_srf2"
 format = '[[ $symbol($version) ](fg:color_aqua bg:color_srf2)]($style)'
 
 [rust]
-symbol = ""
+symbol = " "
 style = "bg:color_srf2"
 format = '[[ $symbol($version) ](fg:color_aqua bg:color_srf2)]($style)'
 
 [golang]
-symbol = ""
+symbol = " "
 style = "bg:color_srf2"
 format = '[[ $symbol($version) ](fg:color_aqua bg:color_srf2)]($style)'
 
 [php]
-symbol = ""
+symbol = " "
 style = "bg:color_srf2"
 format = '[[ $symbol($version) ](fg:color_aqua bg:color_srf2)]($style)'
 
 [java]
-symbol = ""
+symbol = " "
 style = "bg:color_srf2"
 format = '[[ $symbol($version) ](fg:color_aqua bg:color_srf2)]($style)'
 
 [kotlin]
-symbol = ""
+symbol = " "
 style = "bg:color_srf2"
 format = '[[ $symbol($version) ](fg:color_aqua bg:color_srf2)]($style)'
 
 [haskell]
-symbol = ""
+symbol = " "
 style = "bg:color_srf2"
 format = '[[ $symbol($version) ](fg:color_aqua bg:color_srf2)]($style)'
 
 [python]
-symbol = ""
+symbol = " "
 style = "bg:color_srf2"
 format = '[[ $symbol($version) ](fg:color_aqua bg:color_srf2)]($style)'
 
 [docker_context]
-symbol = ""
+symbol = " "
 style = "bg:color_srf1"
 format = '[[ $symbol($context) ](fg:color_purple bg:color_srf1)]($style)'
 
@@ -300,7 +300,7 @@ style = "fg:color_orange bg:color_srf1"
 format = '[ $symbol ($profile) (\($region\)) ]($style)'
 # disabled by default elsewhere; shows AWS_PROFILE/region when set
 
-[env_var.ENGAGEMENT]            # show a custom env var when present (e.g. client tag)
+[env_var.ENGAGEMENT] # show a custom env var when present (e.g. client tag)
 variable = "ENGAGEMENT"
 symbol = "🎯 "
 style = "fg:color_red"
@@ -333,12 +333,12 @@ denied_msg = " "
 # in the language band alongside the rest. Same cyan-on-srf2 treatment. (Section
 # order here is irrelevant — the `format` string at the top controls layout.)
 [ruby]
-symbol = ""
+symbol = " "
 style = "bg:color_srf2"
 format = '[[ $symbol($version) ](fg:color_aqua bg:color_srf2)]($style)'
 
 [lua]
-symbol = ""
+symbol = " "
 style = "bg:color_srf2"
 format = '[[ $symbol($version) ](fg:color_aqua bg:color_srf2)]($style)'
 
@@ -381,13 +381,13 @@ format = '[ $indicator ]($style)'
 
 [memory_usage]
 disabled = false
-threshold = 50          # only show when RAM > 50%
+threshold = 50                          # only show when RAM > 50%
 symbol = "󰍛 "
 style = "fg:color_purple bg:color_srf1"
 format = '[ $symbol $ram_pct ]($style)'
 
 [sudo]
-disabled = false        # shows a marker while sudo creds are cached
+disabled = false               # shows a marker while sudo creds are cached
 symbol = "󱐋 "
 style = "fg:color_yellow"
 format = '[ $symbol ]($style)'
@@ -418,8 +418,8 @@ pipestatus_format = '[ $pipestatus]($style)=>[ $symbol $common_meaning $signal_n
 
 [character]
 disabled = false
-success_symbol = '[❖](bold fg:color_green)'
-error_symbol = '[❖](bold fg:color_red)'
+success_symbol = '[❖ ](bold fg:color_green)'
+error_symbol = '[❖ ](bold fg:color_red)'
 vimcmd_symbol = '[ ](bold fg:color_green)'
 vimcmd_replace_one_symbol = '[ ](bold fg:color_purple)'
 vimcmd_replace_symbol = '[ ](bold fg:color_purple)'
