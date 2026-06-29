@@ -102,6 +102,12 @@ try {
     $srcRepo  = if ($CoreLocal) { $CoreLocal }  else { $tempClone }
     $srcLabel = if ($CoreLocal) { $CoreLocal }  else { $CoreRemote }
     $sha  = (& git -C $srcRepo rev-parse HEAD 2>$null)
+    # Nearest Core release tag describing the vendored commit (e.g. 'v2.0.0', or
+    # 'v2.0.0-3-gabc1234' a few commits past it). Lets fleet-drift label the Windows
+    # row by release name like the Unix repos' core.lock 'core_tag', instead of a bare
+    # SHA. Best-effort: empty when Core carries no tags yet, or for a non-git -CoreLocal
+    # — in which case the line is omitted (the SHA stays the source of truth).
+    $tag  = (& git -C $srcRepo describe --tags HEAD 2>$null)
     $when = (& git -C $srcRepo show -s --format=%cs HEAD 2>$null)
     $refFile = Join-Path $Target '.core-ref'
     $now = [DateTimeOffset]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')
@@ -112,6 +118,7 @@ try {
         "branch = $Branch"
         "pinned = $(if ($Ref) { $Ref } else { '(branch tip)' })"
         "commit = $(if ($sha)  { $sha }  else { 'unknown' })"
+        if ($tag) { "tag    = $tag" }
         "date   = $(if ($when) { $when } else { 'unknown' })"
         "synced = $now"
     ) | Set-Content -Path $refFile -Encoding UTF8
