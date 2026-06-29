@@ -73,7 +73,7 @@ $line_break$status$character$sudo"""
 
 right_format = """
 [](fg:color_srf1)\
-$shell$cmd_duration$memory_usage
+$shell$cmd_duration$memory_usage\
 [](fg:color_srf1)\
 """
 
@@ -360,7 +360,7 @@ zsh_indicator = "zsh"
 # Cross-shell: zsh is the daily driver, but dotfiles-Windows syncs THIS file verbatim
 # (see its starship-sync.ps1) and runs starship under PowerShell — so label that shell
 # too. Benign on zsh: starship only renders the indicator matching the active shell.
-powershell_indicator = "_"
+powershell_indicator = "pwsh"
 format = '[ $indicator ]($style)'
 
 [memory_usage]
