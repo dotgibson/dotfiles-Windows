@@ -251,9 +251,25 @@ style = "bg:color_srf1"
 format = '[[ $symbol($context) ](fg:color_purple bg:color_srf1)]($style)'
 
 # ── [custom]: the real power — any command becomes a segment ──────────────────
-# Example: show the active VPN/tunnel interface (matches your tmux-netinfo idea).
-[custom.vpn]
-description = "active tunnel interface"
+# Show the active VPN/tunnel interface (matches the tmux-netinfo idea).
+# OS-GATED so the single canonical file is safe on Windows too: `ifconfig` is
+# Unix-only, and on Windows starship would run the probe EVERY prompt and hit
+# command_timeout (a noisy `custom command … timed out` WARN). A custom module's
+# `os` takes ONE value (linux|macos|windows — there is no "unix"/negation), so the
+# same probe is declared once per Unix OS; Windows matches neither and never runs it.
+# (On a Unix box lacking ifconfig the probe just fast-fails and the segment hides —
+# no timeout, unlike Windows.)
+[custom.vpn_macos]
+description = "active tunnel interface (macOS)"
+os = "macos"
+command = "ifconfig | awk '/^(utun|wg|tun)/{print $1; exit}' | tr -d ':'"
+when = "ifconfig | grep -qE '^(utun|wg|tun)'"
+symbol = "󰦝 "
+style = "fg:color_purple bg:color_srf1"
+format = '[ $symbol $output ]($style)'
+[custom.vpn_linux]
+description = "active tunnel interface (Linux)"
+os = "linux"
 command = "ifconfig | awk '/^(utun|wg|tun)/{print $1; exit}' | tr -d ':'"
 when = "ifconfig | grep -qE '^(utun|wg|tun)'"
 symbol = "󰦝 "
