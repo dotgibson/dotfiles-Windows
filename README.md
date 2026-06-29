@@ -1,4 +1,20 @@
-# dotfiles-Windows
+<div align="center">
+
+# 🪟 dotfiles-Windows
+
+### A first-class terminal on Windows.
+
+The native Windows host — PowerShell, Windows Terminal, scoop/winget,
+and the WSL2 bridge.
+
+`pwsh` · `terminal` · `psmux` · `wsl2`
+
+[![showcase](https://img.shields.io/badge/showcase-live-7aa2f7?style=flat-square)](https://gerrrt.github.io/dotfiles-web/)
+[![Windows](https://img.shields.io/badge/Windows-ready-7dcfff?style=flat-square)]()
+
+</div>
+
+---
 
 The **native-host layer** of my multi-OS dotfiles fleet. This repo owns the
 Windows host: PowerShell as the daily-driver shell, Windows Terminal, the
