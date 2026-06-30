@@ -261,11 +261,13 @@ if ((Test-Cmd starship) -and -not $global:DotfilesInit.Starship) {
         # CACHE THE *FULL* INIT, not the bootstrap. `starship init powershell` only
         # prints a ~200-byte stub that itself shells out again —
         #   Invoke-Expression (& starship init powershell --print-full-init | Out-String)
-        # so caching that stub still paid a starship spawn on EVERY shell (the cache
-        # was a no-op for the one tool it mattered most for: ~300-650ms per start).
-        # `--print-full-init` emits the actual prompt/keybind code, so the cached file
-        # is self-contained and a warm shell spawns starship zero times. The fallback
-        # mirrors the stub's own behaviour so we never lose the prompt on a cache miss.
+        # so caching that stub still paid an extra starship spawn at PROFILE-LOAD time on
+        # every shell (the cache was a no-op for the one tool it mattered most for:
+        # ~300-650ms per start). `--print-full-init` emits the actual prompt/keybind code,
+        # so the cached file is self-contained and a warm shell does the load-time init
+        # with zero starship spawns. (starship.exe still runs once per PROMPT RENDER after
+        # that — that's how the prompt works; this only removes the load-time init spawn.)
+        # The fallback mirrors the stub's own behaviour so a cache miss never loses the prompt.
         $cf = Get-InitCache -Name starship -Generate { starship init powershell --print-full-init }
         if ($cf) { . $cf } else { Invoke-Expression (& starship init powershell --print-full-init | Out-String) }
         $global:DotfilesInit.Starship = $true
