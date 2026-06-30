@@ -67,7 +67,7 @@ interactive shortcuts; not all profile functions are listed here.
 | Function | Equivalent |
 |----------|------------|
 | `..` | `Set-Location ..` |
-| `...` | `Set-Location ..\..'` |
+| `...` | `Set-Location ..\..` |
 | `....` | `Set-Location ..\..\..` |
 | `~` | `Set-Location $HOME` |
 | `mkcd <path>` | Create directory and cd into it |
