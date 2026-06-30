@@ -95,7 +95,7 @@ Describe 'Get-NvimTreeHashes' {
         New-Item -ItemType Directory -Force -Path (Join-Path $script:Tree 'lua/cfg') | Out-Null
         Set-Content (Join-Path $script:Tree 'init.lua')        'return 1'
         Set-Content (Join-Path $script:Tree 'lua/cfg/o.lua')   'return 2'
-        Set-Content (Join-Path $script:Tree 'lazy-lock.json')  '{}'       # excluded
+        Set-Content (Join-Path $script:Tree 'lazy-lock.json')  '{}'       # synced -> included
         Set-Content (Join-Path $script:Tree '.core-ref')       'commit = x'  # excluded
     }
     It 'hashes real files under relative, posix-style keys' {
@@ -104,9 +104,9 @@ Describe 'Get-NvimTreeHashes' {
         $h.Keys | Should -Contain 'lua/cfg/o.lua'
         $h['init.lua'] | Should -Match '^[A-F0-9]{64}$'
     }
-    It 'excludes lazy-lock.json and .core-ref' {
+    It 'includes lazy-lock.json (cross-platform plugin pins, synced from Core) but excludes .core-ref' {
         $h = Get-NvimTreeHashes $script:Tree
-        $h.Keys | Should -Not -Contain 'lazy-lock.json'
+        $h.Keys | Should -Contain 'lazy-lock.json'
         $h.Keys | Should -Not -Contain '.core-ref'
     }
     It 'returns an empty map for a non-existent root' {

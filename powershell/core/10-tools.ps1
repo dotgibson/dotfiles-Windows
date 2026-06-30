@@ -44,8 +44,27 @@ function script:__lap {
 
 # --- PSReadLine: history, prediction, keybinds --------------------------------
 # PSReadLine ships with PowerShell 7. Configure it for a zsh-like feel.
+#
+# Vi edit mode is DELIBERATE — it's the host-side parity with Core's zsh-vi-mode.
+# But it has one sharp edge: a multi-line PASTE is only safe in Vi mode when the
+# terminal delivers it as a single BRACKETED-PASTE block (ESC[200~ … ESC[201~),
+# which PSReadLine inserts literally regardless of edit mode. Without bracketed
+# paste the block is replayed keystroke-by-keystroke and Vi interprets `:`/`d`/
+# `i`/`a`/`o`/`Esc` as commands — the classic "paste switches modes / reorders
+# text / runs vim commands" bug. Bracketed paste needs PSReadLine >= 2.2.0
+# (Windows Terminal already sends it), so packages/modules.ps1 pins a recent
+# PSReadLine and the version guard below self-diagnoses a stale in-box build.
 if (Get-Module -ListAvailable PSReadLine) {
     Import-Module PSReadLine
+    # Self-diagnose a paste-unsafe PSReadLine instead of misbehaving silently. The
+    # check is one cheap [version] compare on the already-loaded module, and the
+    # warning routes through the repo's Write-DotWarn (honours NO_COLOR/quiet) so a
+    # stale box tells the operator exactly what to bump. >= 2.2.0 has bracketed paste.
+    $prl = (Get-Module PSReadLine).Version
+    if ($prl -and $prl -lt [version]'2.2.0') {
+        Write-DotWarn "PSReadLine $prl predates bracketed paste — multi-line paste in Vi mode will run as keystrokes (modes/vim commands)." `
+                      'update: Install-Module PSReadLine -MinimumVersion 2.2.0 -Scope CurrentUser -Force (then restart pwsh)'
+    }
     Set-PSReadLineOption -EditMode Vi
     Set-PSReadLineOption -HistoryNoDuplicates
     Set-PSReadLineOption -HistorySearchCursorMovesToEnd
