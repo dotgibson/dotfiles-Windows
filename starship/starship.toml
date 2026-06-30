@@ -167,7 +167,7 @@ format = '([ $all_status $ahead_behind ]($style))'
 # text matching git's own diff colors. only_nonzero_diffs keeps it silent in a clean tree,
 # so the segment only appears once you've actually changed something.
 [git_metrics]
-disabled = false
+disabled = true
 added_style = "fg:color_green bg:color_srf2"
 deleted_style = "fg:color_red bg:color_srf2"
 format = '([ +$added ]($added_style))([ -$deleted ]($deleted_style))'

@@ -2,8 +2,8 @@
 # The Core commit this nvim/ tree was vendored from. dotfiles-doctor reads it.
 source = https://github.com/Gerrrt/dotfiles-core.git
 branch = main
-pinned = (branch tip)
-commit = 75195dfdf673d84f41322c3b6a8aec6175b3add9
-tag    = v2.4.1
-date   = 2026-06-29
-synced = 2026-06-29T22:18:07Z
+pinned = v2.6.0
+commit = 5d43a1801fea63911ba8c48e3c741d1a9e566695
+tag    = v2.6.0
+date   = 2026-06-30
+synced = 2026-06-30T23:49:06Z
