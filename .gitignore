@@ -19,6 +19,3 @@ powershell/local.ps1
 # OS cruft
 Thumbs.db
 Desktop.ini
-
-# Neovim lazy lock
-nvim/lazy-lock.json

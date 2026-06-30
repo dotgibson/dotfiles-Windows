@@ -12,15 +12,17 @@
 #  synced", not "up to date with Core". Skips cleanly when .core-ref is absent or
 #  has no resolved commit (e.g. a fresh checkout that hasn't run nvim-sync yet).
 #
-#  lazy-lock.json (gitignored, env-specific) and .core-ref (written only into the
-#  vendored copy) are excluded from the comparison.
+#  .core-ref (written only into the vendored copy) is excluded from the comparison.
+#  lazy-lock.json is NOT excluded: it's synced from Core (cross-platform plugin
+#  pins, see nvim-sync.ps1) and so must match the recorded Core commit like the
+#  rest of the tree — the gate is what keeps the Windows pin from drifting.
 #
 #  Pure helpers are exposed for unit tests via DOTFILES_NVIMPARITY_LIBONLY=1.
 # ============================================================================
 [CmdletBinding()]
 param([string]$CoreRemoteFallback = 'https://github.com/Gerrrt/dotfiles-core.git')
 
-$DefaultExclude = @('lazy-lock.json', '.core-ref')
+$DefaultExclude = @('.core-ref')
 
 # --- Get-CoreRefField ---------------------------------------------------------
 # Pull one `key = value` field out of .core-ref's lines; $null when absent.

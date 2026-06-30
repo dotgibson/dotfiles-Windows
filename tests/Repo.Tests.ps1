@@ -78,6 +78,12 @@ Describe 'Managed module pins' {
     It 'keeps the name list in sync with the pins' {
         @($script:MaintModuleNames).Count | Should -Be $script:MaintModulePins.Count
     }
+    It 'pins PSReadLine >= 2.2.0 (bracketed paste; safe multi-line paste under Vi mode)' {
+        # Below 2.2.0 PSReadLine has no bracketed-paste support, so a multi-line
+        # paste under our EditMode Vi (core/10-tools.ps1) replays as keystrokes and
+        # runs as Vi commands. Keep the floor at/above the first release that fixes it.
+        [version]$script:MaintModulePins['PSReadLine'] | Should -BeGreaterOrEqual ([version]'2.2.0')
+    }
 }
 
 Describe 'repo hygiene' {

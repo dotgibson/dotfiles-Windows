@@ -6,6 +6,29 @@ so entries are grouped by theme rather than strict semver releases.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Large multi-line pastes no longer switch modes / reorder text / run vim
+  commands.** Root cause: `core/10-tools.ps1` sets `EditMode Vi`, and PSReadLine
+  versions before 2.2.0 have no bracketed-paste support, so a pasted block is
+  replayed keystroke-by-keystroke and `:`/`d`/`i`/`a`/`o`/`Esc` are taken as Vi
+  commands. Fix: bumped the `PSReadLine` pin in `packages/modules.ps1` from
+  `2.2.0` to `2.3.6` (the current gallery release; first paste-safe release is
+  2.2.0), kept Vi mode (deliberate parity with Core's zsh-vi-mode), and added a
+  cheap `(Get-Module PSReadLine).Version` guard that emits a one-line
+  `Write-DotWarn` with the upgrade command if a stale in-box PSReadLine (< 2.2.0)
+  is loaded, so a stale box self-diagnoses. `tests/Repo.Tests.ps1` now asserts the
+  `>= 2.2.0` floor.
+- **Windows nvim plugins are now pinned to Core's `lazy-lock.json` like the rest
+  of the fleet.** `nvim-sync.ps1` previously excluded `lazy-lock.json` from the
+  `robocopy /MIR` (`/XF`) as "env-specific" — but it pins plugin commit SHAs,
+  which are cross-platform, so Windows nvim floated on plugin HEAD while every
+  Unix repo (and Core's weekly nvim-lock bot) stayed pinned. The sync now mirrors
+  it; the file is removed from `.gitignore`, committed (from Core v2.4.1), and the
+  nvim parity gate (`tests/Assert-NvimParity.ps1`) now includes it so the pin
+  can't drift. Also bumped stale `nvim/.core-ref` provenance from v2.3.0 (6e923f9)
+  to v2.4.1 (75195df) so fleet-drift stops falsely reporting Windows behind.
+
 ## [v1.1.0] - 2026-06-29 — DX/UX overhaul
 
 A structural + terminal-UX pass focused on a world-class bootstrap and shell

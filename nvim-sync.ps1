@@ -13,8 +13,8 @@
 #    .\nvim-sync.ps1 -Branch dev                      # sync from a different Core branch
 #    .\nvim-sync.ps1 -Ref v1.4.0                       # pin an exact Core commit/tag (reproducible)
 #
-#  After it runs: review `git diff nvim/`, then commit. lazy-lock.json is left
-#  untouched (it's environment-specific and gitignored here).
+#  After it runs: review `git diff nvim/`, then commit. lazy-lock.json IS synced
+#  (it pins plugin commit SHAs, which are cross-platform — same as the Unix fleet).
 # ============================================================================
 [CmdletBinding()]
 param(
@@ -83,13 +83,16 @@ try {
         if (-not (Test-Path $srcNvim)) { throw "cloned Core has no nvim/ tree" }
     }
 
-    # --- mirror source -> target, preserving the local lazy-lock.json ---------
+    # --- mirror source -> target ----------------------------------------------
     # robocopy /MIR makes the target match the source (so deletions in Core
-    # propagate). /XF lazy-lock.json keeps the env-specific lockfile out of the
-    # sync AND protects it from the mirror purge. robocopy exit codes 0-7 are
-    # success; >=8 is a real error.
+    # propagate). lazy-lock.json IS mirrored on purpose: it pins each plugin to a
+    # commit SHA, and those SHAs are CROSS-PLATFORM — excluding it would leave
+    # Windows nvim floating on plugin HEAD while every Unix repo (and Core's weekly
+    # nvim-lock freshness bot) stays pinned. Syncing it keeps Windows in lockstep
+    # with the fleet's pinned plugin set. robocopy exit codes 0-7 are success;
+    # >=8 is a real error.
     Write-Host 'Syncing nvim/ ...' -ForegroundColor Cyan
-    robocopy $srcNvim $Target /MIR /XF lazy-lock.json /NFL /NDL /NJH /NJS /NP | Out-Null
+    robocopy $srcNvim $Target /MIR /NFL /NDL /NJH /NJS /NP | Out-Null
     if ($LASTEXITCODE -ge 8) { throw "robocopy reported errors (exit $LASTEXITCODE)" }
 
     # --- record vendoring provenance -> nvim/.core-ref ------------------------
