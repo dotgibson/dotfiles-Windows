@@ -76,7 +76,15 @@ if (Get-Module -ListAvailable PSReadLine) {
     }
     try {
         Set-PSReadLineOption -PredictionSource HistoryAndPlugin
-        Set-PSReadLineOption -PredictionViewStyle ListView
+        # InlineView by DEFAULT, not ListView. ListView redraws a multi-row dropdown
+        # under the cursor on EVERY keystroke — visible churn (the "cursor blinks
+        # rapidly / lots happening" feel) and more terminal I/O per key. InlineView
+        # shows the SAME predictions as a single inline ghost suggestion: no feature
+        # loss, far less render work. Opt back into the dropdown per-machine with
+        # DOTFILES_PSRL_LISTVIEW=1 in the User environment (set before the shell starts;
+        # local.ps1 loads too late to gate this).
+        $prlView = if ($env:DOTFILES_PSRL_LISTVIEW -eq '1') { 'ListView' } else { 'InlineView' }
+        Set-PSReadLineOption -PredictionViewStyle $prlView
       } catch {
           # predictions unavailable in this host - carry on
         }
@@ -250,8 +258,18 @@ if ((Test-Cmd starship) -and -not $global:DotfilesInit.Starship) {
         $env:STARSHIP_CONFIG = $starshipCfg
     }
     try {
-        $cf = Get-InitCache -Name starship -Generate { starship init powershell }
-        if ($cf) { . $cf } else { Invoke-Expression (&starship init powershell) }   # fallback: never lose the prompt
+        # CACHE THE *FULL* INIT, not the bootstrap. `starship init powershell` only
+        # prints a ~200-byte stub that itself shells out again —
+        #   Invoke-Expression (& starship init powershell --print-full-init | Out-String)
+        # so caching that stub still paid an extra starship spawn at PROFILE-LOAD time on
+        # every shell (the cache was a no-op for the one tool it mattered most for:
+        # ~300-650ms per start). `--print-full-init` emits the actual prompt/keybind code,
+        # so the cached file is self-contained and a warm shell does the load-time init
+        # with zero starship spawns. (starship.exe still runs once per PROMPT RENDER after
+        # that — that's how the prompt works; this only removes the load-time init spawn.)
+        # The fallback mirrors the stub's own behaviour so a cache miss never loses the prompt.
+        $cf = Get-InitCache -Name starship -Generate { starship init powershell --print-full-init }
+        if ($cf) { . $cf } else { Invoke-Expression (& starship init powershell --print-full-init | Out-String) }
         $global:DotfilesInit.Starship = $true
     } catch { Write-DotWarn "starship init failed: $_" }
 }
@@ -295,12 +313,29 @@ if ((Test-Cmd fzf) -and (Get-Module -ListAvailable PSFzf)) {
 __lap 'fzf/PSFzf'
 
 # --- mise (runtime/tool version manager; shims + path setup) ------------------
-# `mise activate` injects shims and a prompt hook that keeps the active tool
-# versions consistent with the nearest .mise.toml / .tool-versions file. This is
-# the Windows equivalent of the Core zsh `mise activate zsh` call.
+# `mise activate pwsh` installs the per-prompt `mise hook-env` hook that keeps the
+# active tool versions / [env] consistent with the nearest .mise.toml / .tool-versions
+# as you `cd` around — the Windows equivalent of Core's zsh `mise activate zsh`, and
+# the fleet-parity default.
+#
+# HISTORY: this was briefly switched to `--shims` because the hook cost 0.6-1.2s on
+# EVERY prompt — but that turned out to be stacked on-access AV (Malwarebytes + McAfee)
+# scanning mise.exe's launch, not mise itself. With the AV exclusions in place,
+# `mise hook-env` is ~64ms, so the full hook is back as the default (parity + per-cd env).
+#
+# Escape hatch for any future slow box (or a machine without the AV fix): set
+# DOTFILES_MISE_SHIMS=1 in the User environment BEFORE the shell starts (local.ps1
+# loads too late to gate this) to use shims-only mode — a 90-char PATH prepend, no
+# prompt hook. Tool versions still resolve via the shims; you just lose mise's per-cd
+# env auto-injection (direnv, wired separately, still covers .envrc env).
 if ((Test-Cmd mise) -and -not $global:DotfilesInit.Mise) {
-    $cf = Get-InitCache -Name mise -Generate { mise activate pwsh }
-    if ($cf) { . $cf } else { Invoke-Expression (& { (mise activate pwsh | Out-String) }) }
+    if ($env:DOTFILES_MISE_SHIMS -eq '1') {
+        $cf = Get-InitCache -Name mise -Generate { mise activate pwsh --shims }
+        if ($cf) { . $cf } else { Invoke-Expression (& { (mise activate pwsh --shims | Out-String) }) }
+    } else {
+        $cf = Get-InitCache -Name mise -Generate { mise activate pwsh }
+        if ($cf) { . $cf } else { Invoke-Expression (& { (mise activate pwsh | Out-String) }) }
+    }
     $global:DotfilesInit.Mise = $true
 }
 __lap 'mise'
