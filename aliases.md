@@ -1,10 +1,15 @@
 # Windows PowerShell Aliases Cheat Sheet
 
-PowerShell functions and `Set-Alias` declarations across all modules.
-All functions forward extra arguments via `@args`. Tool functions are
-guarded by `Test-Cmd` — missing tools fall back gracefully.
+PowerShell functions and `Set-Alias` declarations for common interactive tasks,
+sourced from the profile modules. Many tool-backed functions are guarded by
+`Test-Cmd` — missing tools fall back gracefully. This covers the most-used
+interactive shortcuts; not all profile functions are listed here.
 
 ## File Listing (`00-aliases.ps1` — eza / lsd / Get-ChildItem fallback)
+
+> **Note:** Equivalents shown are the `eza` variants. When `eza` is absent, `lsd`
+> is used (with different flags); when neither is installed, only `ll` and `la`
+> fall back to `Get-ChildItem`.
 
 | Function | Equivalent |
 |----------|------------|
@@ -71,7 +76,7 @@ guarded by `Test-Cmd` — missing tools fall back gracefully.
 ## Utilities (`20-functions.ps1`)
 
 | Function | Purpose |
-|----------|---------|
+|----------|----------|
 | `which <cmd>` | Resolve command path |
 | `reload` | Reload the PowerShell profile |
 | `myip` | External IP address |
@@ -98,38 +103,40 @@ guarded by `Test-Cmd` — missing tools fall back gracefully.
 | `scu` | `scoop update *` |
 | `scs` | `scoop search` |
 | `scl` | `scoop list` |
-| `sccl` | `scoop cleanup *` |
+| `sccl` | `scoop cleanup * ; scoop cache rm *` |
 
 ### Winget
 
 | Function | Equivalent |
 |----------|------------|
-| `wgi` | `winget install` |
-| `wgu` | `winget upgrade --all` |
+| `wgi <id>` | `winget install --id <id> -e` |
+| `wgu` | `winget upgrade --all --include-unknown` |
 | `wgs` | `winget search` |
 
 ### Updates
 
 | Function | Purpose |
-|----------|---------|
+|----------|----------|
 | `up` | Apply all updates (scoop + winget) |
+| `update-host` | Apply all updates (wrapper for `up`) |
 | `update-check` | Check for available updates without applying |
 
 ## WSL Bridge (`31-wsl-bridge.ps1`)
 
 | Function | Purpose |
-|----------|---------|
+|----------|----------|
 | `kali` | Open Kali WSL shell |
 | `wsls` | List WSL distros |
 | `wslip` | WSL distro IP address |
-| `cdwsl` | cd into WSL home |
+| `cdwsl [distro]` | Open WSL distro at current Windows directory (translated to WSL path; falls back to distro default) |
+| `wslhome` | Open WSL distro at its home directory (`~`) |
 | `hostip` | Windows host IP (as seen from WSL) |
 | `wsl-restart` | Restart the WSL subsystem |
 
 ## System (`30-windows.ps1`)
 
 | Function | Purpose |
-|----------|---------|
+|----------|----------|
 | `admin` | Relaunch current shell as Administrator |
 | `path` | Print PATH entries one per line |
 | `open` | Open file / dir in Explorer (alias: `explorer-here`) |
@@ -140,13 +147,13 @@ guarded by `Test-Cmd` — missing tools fall back gracefully.
 ## psmux (`32-psmux.ps1`)
 
 | Function | Purpose |
-|----------|---------|
+|----------|----------|
 | `mux` | Attach to or create a psmux session |
 
 ## 1Password (`40-op.ps1`)
 
 | Function | Purpose |
-|----------|---------|
+|----------|----------|
 | `opsecret <ref>` | Read a secret by 1Password reference |
 | `openv <item>` | Load item fields as environment variables |
 | `optoken <item>` | Get a TOTP token |
@@ -155,7 +162,7 @@ guarded by `Test-Cmd` — missing tools fall back gracefully.
 ## Fuzzy Pickers — Television (`25-television.ps1`)
 
 | Function | Purpose |
-|----------|---------|
+|----------|----------|
 | `tvim` | Fuzzy-pick a file and open in nvim |
 | `ttext` | Fuzzy text search across files |
 | `tcd` | Fuzzy cd |
@@ -166,7 +173,7 @@ guarded by `Test-Cmd` — missing tools fall back gracefully.
 ## Set-Alias Declarations
 
 | Alias | Points To |
-|-------|-----------|
+|-------|----------|
 | `vim` | `nvim` (if installed) |
 | `explorer-here` | `open` |
 | `init-cache-clear` | `Clear-InitCache` |
