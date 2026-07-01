@@ -4,7 +4,7 @@
 # ============================================================================
 
 # --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
-# provides: Get-InitCache, Clear-InitCache, shell-bench, prof-trace, Invoke-DotfilesSessionizer
+# provides: Get-InitCache, Clear-InitCache, shell-bench, prof-trace, Invoke-DotfilesSessionizer, Invoke-DotLoadPSFzf
 # requires: Get-DotStringSha256, Test-Cmd, Test-SensitiveHistoryLine, Write-DotErr, Write-DotHost, Write-DotWarn
 
 # --- FAST_START escape hatch --------------------------------------------------
@@ -283,23 +283,25 @@ if ((Test-Cmd zoxide) -and -not $global:DotfilesInit.Zoxide) {
 }
 __lap 'zoxide'
 
-# --- fzf + PSFzf (Ctrl+t files, Ctrl+r history, Alt+c cd) ---------------------
-# Ctrl+R ownership: when atuin is installed it loads AFTER this and rebinds Ctrl+R
-# to its own (richer) history search — so binding it here too just gets clobbered,
-# making the winner a matter of load order. Make the intent explicit: hand Ctrl+R
-# to PSFzf ONLY when atuin isn't present; otherwise PSFzf keeps Ctrl+T and atuin
-# owns Ctrl+R cleanly.
-if ((Test-Cmd fzf) -and (Get-Module -ListAvailable PSFzf)) {
-    Import-Module PSFzf
-    # Ctrl+T = file picker, Ctrl+R = quick fzf history — on BOTH shells (PARITY.md).
-    # atuin (loaded below) ignores ATUIN_NOBIND and seizes Ctrl+R on init, so the atuin
-    # block RE-ASSERTS PSFzf on Ctrl+R afterwards and moves atuin's TUI to Ctrl+E to
-    # match zsh (Ctrl+E = atuin, Ctrl+R = quick history).
-    Set-PsFzfOption -PSReadlineChordProvider 'Ctrl+t' -PSReadlineChordReverseHistory 'Ctrl+r'
+# --- fzf + PSFzf (Ctrl+t files, Ctrl+r history) — LAZY -------------------------
+# `Import-Module PSFzf` costs ~260ms (measured) — the single biggest slice of this
+# fragment's cost — yet it's dead weight until the moment you press Ctrl+T/Ctrl+R.
+# So DEFER it: set the (cheap, child-inherited) env now, bind lightweight stub key
+# handlers, and pay the import + install PSFzf's REAL handlers on the FIRST press of
+# either chord. The stub scriptblock runs in the SESSION runspace when the key is
+# pressed, so the deferred Import-Module lands where the interactive shell sees it —
+# an OnIdle event action would import into the eventing runspace instead, so a
+# keypress trigger (not an idle one) is the correct deferral here.
+#
+# Ctrl+R ownership: atuin (loaded below) ignores ATUIN_NOBIND and seizes Ctrl+R on
+# init, so the atuin block RE-ASSERTS this lazy Ctrl+R stub afterwards and moves
+# atuin's TUI to Ctrl+E to match zsh (Ctrl+E = atuin, Ctrl+R = quick fzf history).
+if ((Test-Cmd fzf) -and (Get-Module -ListAvailable PSFzf) -and -not $global:DotfilesInit.Fzf) {
     # Layout + the EXPLICIT tokyonight-storm palette, kept byte-for-byte in step with
     # Core's zsh fzf.zsh FZF_DEFAULT_OPTS so fzf looks identical across the WSL-zsh and
     # Windows-pwsh halves of the fleet (previously pwsh fell back to the terminal's
     # default colours — the one fzf inconsistency a cross-platform user would notice).
+    # Env is cheap and inherited by child panes, so it stays EAGER — no reason to defer.
     $env:FZF_DEFAULT_OPTS = @(
         '--height=60% --layout=reverse --border=rounded --info=inline'
         '--color=border:#27a1b9 --color=fg:#c0caf5 --color=gutter:#16161e'
@@ -309,6 +311,36 @@ if ((Test-Cmd fzf) -and (Get-Module -ListAvailable PSFzf)) {
         '--color=separator:#ff9e64 --color=spinner:#ff007c'
     ) -join ' '
     if (Test-Cmd fd) { $env:FZF_DEFAULT_COMMAND = 'fd --type f --hidden --follow --exclude .git' }
+
+    # One-shot loader: import PSFzf, hand Ctrl+T + Ctrl+R to PSFzf's OWN handlers
+    # (Set-PsFzfOption overwrites the stubs below, so every later press skips this),
+    # then fire the requested handler for THIS press so the first keystroke isn't
+    # swallowed. The Invoke-FzfPsReadlineHandler* names are present from the pinned
+    # baseline PSFzf 2.4.0 (packages/modules.ps1) through the current 2.7.10 —
+    # verified against both — so the very first press is safe on a fresh box. Setup
+    # is wrapped so a broken/removed PSFzf surfaces as a friendly warning instead of
+    # a raw error at the prompt (mirrors the starship/atuin/CompletionPredictor guards);
+    # the stub stays bound on failure, so a later press simply retries.
+    function global:Invoke-DotLoadPSFzf {
+        param([ValidateSet('Provider','History')][string]$Action)
+        try {
+            Import-Module PSFzf -ErrorAction Stop
+            Set-PsFzfOption -PSReadlineChordProvider 'Ctrl+t' -PSReadlineChordReverseHistory 'Ctrl+r'
+        } catch {
+            Write-DotWarn "PSFzf lazy init failed: $_" 'reinstall: Install-Module PSFzf -Scope CurrentUser -Force'
+            return
+        }
+        # Handler runs OUTSIDE the try so its own runtime (e.g. an Esc-cancelled fzf)
+        # isn't misreported as an init failure.
+        switch ($Action) {
+            'Provider' { Invoke-FzfPsReadlineHandlerProvider }
+            'History'  { Invoke-FzfPsReadlineHandlerHistory }
+        }
+    }
+    # Cheap stubs bound now; the ~260ms import is deferred to first use, off the render path.
+    Set-PSReadLineKeyHandler -Chord 'Ctrl+t' -BriefDescription 'PSFzf file picker (lazy load)' -ScriptBlock { Invoke-DotLoadPSFzf -Action Provider }
+    Set-PSReadLineKeyHandler -Chord 'Ctrl+r' -BriefDescription 'PSFzf history (lazy load)'      -ScriptBlock { Invoke-DotLoadPSFzf -Action History }
+    $global:DotfilesInit.Fzf = $true
 }
 __lap 'fzf/PSFzf'
 
@@ -351,12 +383,20 @@ if ((Test-Cmd atuin) -and -not $global:DotfilesInit.Atuin) {
     Set-PSReadLineKeyHandler -Chord 'Ctrl+e' -BriefDescription 'Atuin search' -ScriptBlock { Invoke-AtuinSearch }
     Set-PSReadLineKeyHandler -Key UpArrow   -Function HistorySearchBackward
     Set-PSReadLineKeyHandler -Key DownArrow -Function HistorySearchForward
+    # Re-assert Ctrl+R AFTER atuin's init seized it. Three cases:
+    #   • PSFzf already imported (rare — only if Ctrl+T was pressed mid-load): hand
+    #     Ctrl+R straight to PSFzf's real handler.
+    #   • PSFzf deferred (the normal path — the lazy block above ran): re-bind the
+    #     SAME lazy stub, so atuin's grab is undone and the first Ctrl+R press loads
+    #     PSFzf + the fzf history UI.
+    #   • PSFzf not installed: hand Ctrl+R to PSReadLine's built-in reverse search so
+    #     atuin still ends up on Ctrl+E ONLY (else atuin's init keeps Ctrl+R and the
+    #     advertised parity — Ctrl+E atuin, Ctrl+R quick history — silently breaks).
     if (Get-Module PSFzf) {
         Set-PsFzfOption -PSReadlineChordReverseHistory 'Ctrl+r'
+    } elseif ($global:DotfilesInit.Fzf) {
+        Set-PSReadLineKeyHandler -Chord 'Ctrl+r' -BriefDescription 'PSFzf history (lazy load)' -ScriptBlock { Invoke-DotLoadPSFzf -Action History }
     } else {
-        # No PSFzf to own Ctrl+R: hand it to PSReadLine's built-in history search so
-        # atuin still ends up on Ctrl+E ONLY (else atuin's init keeps Ctrl+R and the
-        # advertised parity — Ctrl+E atuin, Ctrl+R quick history — silently breaks).
         Set-PSReadLineKeyHandler -Key 'Ctrl+r' -Function ReverseSearchHistory
     }
     $global:DotfilesInit.Atuin = $true
