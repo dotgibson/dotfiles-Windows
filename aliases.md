@@ -62,6 +62,12 @@ interactive shortcuts; not all profile functions are listed here.
 | `gp` | `git push` |
 | `lg` | `lazygit` |
 
+## Git Safety (`08-git-safety.ps1`)
+
+| Function | Purpose |
+|----------|----------|
+| `git-reap` | `Reset-StuckGit` — kill orphaned `git`/credential-helper processes left by a wedged shell-spawned git, so a locked git binary can be updated (`-WhatIf` previews without killing) |
+
 ## Navigation
 
 | Function | Equivalent |
