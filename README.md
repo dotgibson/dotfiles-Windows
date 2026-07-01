@@ -5,7 +5,7 @@ Windows Terminal, scoop/winget, and the WSL2 bridge.
 
 `pwsh` · `terminal` · `psmux` · `wsl2`
 
-[![showcase](https://img.shields.io/badge/showcase-live-7aa2f7?style=flat-square)](https://gerrrt.github.io/dotfiles-web/) ![Windows](https://img.shields.io/badge/Windows-ready-7dcfff?style=flat-square)
+[![showcase](https://img.shields.io/badge/showcase-live-7aa2f7?style=flat-square)](https://dotgibson.github.io/dotfiles-web/) ![Windows](https://img.shields.io/badge/Windows-ready-7dcfff?style=flat-square)
 
 ---
 
@@ -60,7 +60,7 @@ From a fresh box, `bootstrap.ps1` clones the repo and runs the installer for you
 (it needs `git` and `pwsh` 7+):
 
 ```powershell
-irm https://raw.githubusercontent.com/Gerrrt/dotfiles-Windows/main/bootstrap.ps1 | iex
+irm https://raw.githubusercontent.com/dotgibson/dotfiles-Windows/main/bootstrap.ps1 | iex
 ```
 
 Knobs (all optional env vars): `DOTFILES_DIR` (clone location), `DOTFILES_REF`
@@ -71,17 +71,17 @@ Knobs (all optional env vars): `DOTFILES_DIR` (clone location), `DOTFILES_REF`
 (piping straight to `iex` trusts whatever the URL serves):
 
 ```powershell
-$b = irm https://raw.githubusercontent.com/Gerrrt/dotfiles-Windows/main/bootstrap.ps1
+$b = irm https://raw.githubusercontent.com/dotgibson/dotfiles-Windows/main/bootstrap.ps1
 $h = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData(
         [Text.Encoding]::UTF8.GetBytes(($b -replace "`r`n","`n")))).ToLower()
-if ($h -eq 'b8a69fe112c8c18f7929e60feeddbfc07b73285c2944997a0a5e066636551d2b') { $b | iex }
+if ($h -eq '7d6855b163c8e9179e1b137c410416bfa0b41c95f94b768732cf2bf22e6292c6') { $b | iex }
 else { Write-Error "bootstrap.ps1 hash mismatch: $h" }
 ```
 
 bootstrap.ps1 never pipes a further network script into `iex` itself: it clones
 over git (pin `DOTFILES_REF` for an exact, content-addressed checkout) and hands
 off to `install.ps1`, where scoop's installer stays behind the existing
-`DOTFILES_SCOOP_SHA256` gate. <!-- bootstrap.ps1 SHA-256 (LF-normalized): b8a69fe112c8c18f7929e60feeddbfc07b73285c2944997a0a5e066636551d2b -->
+`DOTFILES_SCOOP_SHA256` gate. <!-- bootstrap.ps1 SHA-256 (LF-normalized): 7d6855b163c8e9179e1b137c410416bfa0b41c95f94b768732cf2bf22e6292c6 -->
 
 ### Manual
 

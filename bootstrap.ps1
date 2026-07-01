@@ -2,10 +2,10 @@
 #  bootstrap.ps1  -  one command to set up dotfiles-Windows on a fresh box.
 #
 #  Run it straight from the web (PowerShell 7+):
-#      irm https://raw.githubusercontent.com/Gerrrt/dotfiles-Windows/main/bootstrap.ps1 | iex
+#      irm https://raw.githubusercontent.com/dotgibson/dotfiles-Windows/main/bootstrap.ps1 | iex
 #
 #  Integrity-gated (verify the published SHA-256 before running) — see README:
-#      $b = irm https://raw.githubusercontent.com/Gerrrt/dotfiles-Windows/main/bootstrap.ps1
+#      $b = irm https://raw.githubusercontent.com/dotgibson/dotfiles-Windows/main/bootstrap.ps1
 #      # compare SHA-256 of $b to the hash pinned in the README, then: $b | iex
 #
 #  What it does: clone (or update) the repo, optionally check out a pinned ref,
@@ -34,7 +34,7 @@ function Get-BootstrapRepoUrl {
     [OutputType([string])]
     param([string]$Repo = $env:DOTFILES_REPO)
     if ($Repo) { return $Repo }
-    return 'https://github.com/Gerrrt/dotfiles-Windows.git'
+    return 'https://github.com/dotgibson/dotfiles-Windows.git'
 }
 
 # Where to clone: DOTFILES_DIR, else an existing DOTFILES_WIN, else ~/dotfiles-Windows.

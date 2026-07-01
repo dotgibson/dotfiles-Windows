@@ -18,7 +18,7 @@
 # ============================================================================
 [CmdletBinding()]
 param(
-    [string]$CoreRemote = 'https://github.com/Gerrrt/dotfiles-core.git',
+    [string]$CoreRemote = 'https://github.com/dotgibson/dotfiles-core.git',
     [string]$Branch     = 'main',
     [string]$CoreLocal,
     # Pin an EXACT Core commit/tag for a reproducible re-vendor (B1). Takes

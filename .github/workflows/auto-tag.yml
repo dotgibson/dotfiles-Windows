@@ -32,4 +32,4 @@ concurrency:
 
 jobs:
   tag:
-    uses: Gerrrt/dotfiles-core/.github/workflows/auto-tag-call.yml@v2
+    uses: dotgibson/dotfiles-core/.github/workflows/auto-tag-call.yml@v2
