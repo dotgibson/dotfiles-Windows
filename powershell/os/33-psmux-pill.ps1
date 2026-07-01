@@ -33,16 +33,15 @@
 
 # --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
 # provides: psmux-pill-now, psmux-pill-enable, psmux-pill-disable, psmux-pill-status
-# requires: Test-Cmd, Write-DotErr, Write-DotHost, Write-DotOk
+# requires: Test-Cmd, Test-InMux, Write-DotErr, Write-DotHost, Write-DotOk
 
 if (-not (Test-Cmd psmux)) { return }
 
 $script:PillCache  = Join-Path $env:LOCALAPPDATA 'dotfiles\psmux-netinfo.pill'
 $script:PillSource = 'PsmuxPillRefresh'   # Register-ObjectEvent SourceIdentifier
 
-# Inside a psmux pane? psmux exports TMUX + PSMUX_SESSION into pane shells
-# (verified in psmux src/pane.rs). Either marker means "the bar is showing".
-function script:Test-InMux { [bool]($env:TMUX -or $env:PSMUX_SESSION) }
+# Pane detection (Test-InMux — "is the bar showing?") is shared from
+# core/05-lib.ps1 now, so it can't drift from the psmux auto-attach guard's copy.
 
 function script:Get-PillScript {
     $p = if ($global:DOTFILES) { Join-Path $global:DOTFILES 'psmux\scripts\psmux-netinfo.ps1' } else { $null }

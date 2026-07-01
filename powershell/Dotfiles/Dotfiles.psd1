@@ -41,6 +41,7 @@
         'Get-DotToolNudge'
         'Test-DotNonInteractiveArg'
         'Test-InteractiveShell'
+        'Test-InMux'
         'Get-DotfilesLinkPlan'
         'ConvertTo-WslPath'
         # doctor: result model, aggregation + pure logic (host probes stay in the fragment)

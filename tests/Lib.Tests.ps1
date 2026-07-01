@@ -58,6 +58,24 @@ Describe 'Test-DotNonInteractiveArg' {
     }
 }
 
+Describe 'Test-InMux' {
+    BeforeAll {
+        $script:savedTmux = $env:TMUX
+        $script:savedSess = $env:PSMUX_SESSION
+    }
+    AfterAll {
+        if ($null -eq $script:savedTmux) { Remove-Item Env:TMUX -ErrorAction SilentlyContinue } else { $env:TMUX = $script:savedTmux }
+        if ($null -eq $script:savedSess) { Remove-Item Env:PSMUX_SESSION -ErrorAction SilentlyContinue } else { $env:PSMUX_SESSION = $script:savedSess }
+    }
+    BeforeEach {
+        Remove-Item Env:TMUX -ErrorAction SilentlyContinue
+        Remove-Item Env:PSMUX_SESSION -ErrorAction SilentlyContinue
+    }
+    It 'is $false outside a pane (no markers)' { Test-InMux | Should -BeFalse }
+    It 'is $true when TMUX is set'             { $env:TMUX = 'default,1,0'; Test-InMux | Should -BeTrue }
+    It 'is $true when PSMUX_SESSION is set'    { $env:PSMUX_SESSION = 'main'; Test-InMux | Should -BeTrue }
+}
+
 Describe 'Test-DotColor' {
     It 'enables colour by default'        { Test-DotColor -NoColor '' -Term 'xterm' | Should -BeTrue }
     It 'disables colour when NO_COLOR set' { Test-DotColor -NoColor '1' -Term 'xterm' | Should -BeFalse }
