@@ -43,6 +43,7 @@ Describe 'Dotfiles module exports' {
             'Test-DotGum', 'Test-DotEmailish',
             'Get-DotSpinnerFrame', 'Format-DotSpinnerLine', 'Invoke-DotSpinner', 'Test-SensitiveHistoryLine',
             'Get-DotStringSha256', 'Get-DotToolNudge', 'Get-DotfilesLinkPlan',
+            'Test-DotNonInteractiveArg', 'Test-InteractiveShell',
             'ConvertTo-WslPath',
             'New-DoctorResult', 'Get-DoctorSummary', 'Get-DoctorGroup',
             'Get-FragmentHealthResult', 'Get-DotRepoVersionDetail',

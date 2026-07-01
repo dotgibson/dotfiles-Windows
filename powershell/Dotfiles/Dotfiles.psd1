@@ -39,6 +39,8 @@
         'Test-SensitiveHistoryLine'
         'Get-DotStringSha256'
         'Get-DotToolNudge'
+        'Test-DotNonInteractiveArg'
+        'Test-InteractiveShell'
         'Get-DotfilesLinkPlan'
         'ConvertTo-WslPath'
         # doctor: result model, aggregation + pure logic (host probes stay in the fragment)

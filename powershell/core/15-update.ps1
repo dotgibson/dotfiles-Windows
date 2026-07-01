@@ -16,7 +16,7 @@
 
 # --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
 # provides: update-check, up
-# requires: Get-DotGlyph, Write-DotBanner, Write-DotHost, Write-DotOk, Write-DotWarn
+# requires: Get-DotGlyph, Test-InteractiveShell, Write-DotBanner, Write-DotHost, Write-DotOk, Write-DotWarn
 
 $script:PkgUpCache          = Join-Path $env:LOCALAPPDATA 'dotfiles\pkg-updates'
 $script:UpdateCheckInterval = 86400   # seconds between background checks
@@ -89,7 +89,15 @@ $script:PkgUpCountSb = {
 # --- startup hook: throttle + background the check, then show cached nudge ----
 # FAST_START suppresses the startup nudge and background spawn (but `up` /
 # `update-check` are still defined below, so a fast shell can apply on demand).
+#
+# INTERACTIVE-ONLY: the profile is dot-sourced for `pwsh -Command`/`-File` too
+# (VS Code tasks, git hooks, scheduled scripts). Those should never spawn a daily
+# scoop/winget network probe or print a nudge — Test-InteractiveShell (05-lib)
+# keeps this to real ConsoleHost sessions, the same guard the psmux auto-attach
+# uses. A quick psmux split IS interactive, so it's unaffected here; the once/day
+# throttle below already makes splits free regardless.
 if ($env:FAST_START -ne '1' -and
+    (Test-InteractiveShell) -and
     $env:DOTFILES_UPDATE_CHECK -eq '1' -and
     ((Get-Command scoop -ErrorAction SilentlyContinue) -or
      (Get-Command winget -ErrorAction SilentlyContinue))) {

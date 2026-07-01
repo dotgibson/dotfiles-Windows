@@ -11,7 +11,25 @@
 # need to pass default flags.
 
 # --- helper: define a function-backed alias only if the tool exists -----------
-function Test-Cmd { param([string]$Name) [bool](Get-Command $Name -ErrorAction SilentlyContinue) }
+# MEMOIZED. Get-Command does a PATH scan for an external tool; the fleet checks the
+# same handful of tools (rg, fzf, eza, psmux…) from MANY fragments, and psmux alone
+# is probed at top level from three os/ files. Caching the first result per name
+# collapses those repeated scans to one lookup each — the single biggest cheap win
+# on the cold-start/psmux-split path, and it speeds every guard in every fragment
+# that calls Test-Cmd (they all share this definition, dot-sourced at profile scope).
+# The cache is a session global reset on every `reload` (this fragment re-runs top
+# to bottom), so a tool installed mid-session is picked up after `reload`.
+$global:DotfilesCmdCache = @{}
+function Test-Cmd {
+    param([string]$Name)
+    $hit = $global:DotfilesCmdCache[$Name]
+    # Distinguish a cached $false from a cache MISS: an absent key returns $null,
+    # a cached negative returns [bool]$false. Only a real miss re-scans PATH.
+    if ($null -ne $hit) { return $hit }
+    $found = [bool](Get-Command $Name -ErrorAction SilentlyContinue)
+    $global:DotfilesCmdCache[$Name] = $found
+    return $found
+}
 
 # --- helper: does a command RESOLVE *and* actually launch? ---------------------
 # Test-Cmd only proves a NAME resolves (Get-Command). A dead/dangling shim — e.g.
