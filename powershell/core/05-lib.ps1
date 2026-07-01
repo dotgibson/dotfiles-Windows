@@ -17,7 +17,7 @@
 # ============================================================================
 
 # --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
-# provides: Test-SensitiveHistoryLine, Get-DotConfirmAnswer, Test-DotGum, Read-DotConfirm, Get-DotStringSha256, Get-DotSpinnerFrame, Invoke-DotSpinner, Test-DotEmailish, Get-DotToolNudge, Get-DotfilesLinkPlan, Test-DotColor, Test-DotUnicode, Get-DotGlyph, Write-DotHost, Write-DotBanner, Get-DotConsoleWidth, Format-DotWrap, Write-DotRule, Write-DotErr, Write-DotOk, Write-DotWarn
+# provides: Test-SensitiveHistoryLine, Get-DotConfirmAnswer, Test-DotGum, Read-DotConfirm, Get-DotStringSha256, Get-DotSpinnerFrame, Invoke-DotSpinner, Test-DotEmailish, Get-DotToolNudge, Test-DotNonInteractiveArg, Test-InteractiveShell, Get-DotfilesLinkPlan, Test-DotColor, Test-DotUnicode, Get-DotGlyph, Write-DotHost, Write-DotBanner, Get-DotConsoleWidth, Format-DotWrap, Write-DotRule, Write-DotErr, Write-DotOk, Write-DotWarn
 # requires: (none)
 
 # --- Test-SensitiveHistoryLine ------------------------------------------------
@@ -312,6 +312,49 @@ function Get-DotToolNudge {
     if (-not $m.Count) { return '' }
     $s = if ($m.Count -ne 1) { 's' } else { '' }
     return ("{0} core tool{1} missing ({2}) — run dotfiles-doctor" -f $m.Count, $s, ($m -join ', '))
+}
+
+# --- Test-DotNonInteractiveArg / Test-InteractiveShell ------------------------
+# Should a profile that's being loaded auto-run INTERACTIVE-ONLY work — the psmux
+# auto-attach (os/30-windows.ps1) and the daily background update probe
+# (core/15-update.ps1)? The profile is ALSO dot-sourced for `pwsh -Command ...` /
+# `pwsh -File ...` (VS Code tasks, git hooks, scheduled scripts) unless they pass
+# -NoProfile, and dropping a multiplexer or firing a scoop/winget network check
+# there is wrong. Split so the ARGUMENT classification is pure + unit-tested; the
+# ambient wrapper just feeds it the live host and process args.
+#
+# PowerShell accepts any unambiguous PREFIX of a parameter name, so match by
+# prefix, not exact spelling. We must NOT treat -NoExit/-NoLogo/-NoProfile as
+# non-interactive (all begin 'no' and DO appear on interactive launches — e.g.
+# Windows Terminal's `pwsh.exe -NoLogo`), so -NonInteractive only counts once the
+# token is long enough to be unambiguous ('noni'+).
+function Test-DotNonInteractiveArg {
+    [OutputType([bool])]
+    param([string[]]$ArgList)
+    $nonInteractive = @('command', 'file', 'encodedcommand', 'noninteractive')
+    foreach ($a in $ArgList) {
+        if ($a -notmatch '^-') { continue }
+        $name = $a.TrimStart('-').ToLowerInvariant()
+        if (-not $name) { continue }
+        foreach ($flag in $nonInteractive) {
+            if ($flag.StartsWith($name)) {
+                if ($flag -eq 'noninteractive' -and $name.Length -lt 4) { continue }
+                return $true
+            }
+        }
+    }
+    return $false
+}
+
+# Ambient wrapper: a real interactive shell is the ConsoleHost launched without any
+# non-interactive flag. ISE / the VS Code editor host / remoting are not ConsoleHost,
+# so they're excluded up front. Reads $Host + the process command line — the only two
+# ambient bits — and defers the actual decision to the pure helper above.
+function Test-InteractiveShell {
+    [OutputType([bool])]
+    param()
+    if ($Host.Name -ne 'ConsoleHost') { return $false }
+    return -not (Test-DotNonInteractiveArg ([Environment]::GetCommandLineArgs()))
 }
 
 # --- Get-DotfilesLinkPlan -----------------------------------------------------

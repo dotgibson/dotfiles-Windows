@@ -31,6 +31,33 @@ Describe 'Test-SensitiveHistoryLine' {
     }
 }
 
+Describe 'Test-DotNonInteractiveArg' {
+    Context 'interactive launches (must be $false)' {
+        It 'no args'            { Test-DotNonInteractiveArg @()            | Should -BeFalse }
+        It '-NoLogo (WT profile)' { Test-DotNonInteractiveArg @('-NoLogo')  | Should -BeFalse }
+        It '-NoExit'            { Test-DotNonInteractiveArg @('-NoExit')    | Should -BeFalse }
+        It '-NoProfile'         { Test-DotNonInteractiveArg @('-NoProfile') | Should -BeFalse }
+        It 'a bare positional'  { Test-DotNonInteractiveArg @('script.ps1') | Should -BeFalse }
+        It '-non (too short to disambiguate from -NoExit/-NoLogo)' {
+            Test-DotNonInteractiveArg @('-non') | Should -BeFalse
+        }
+    }
+    Context 'non-interactive launches (must be $true)' {
+        It '-Command'          { Test-DotNonInteractiveArg @('-Command', 'exit') | Should -BeTrue }
+        It '-c (prefix of -Command)' { Test-DotNonInteractiveArg @('-c', 'exit')  | Should -BeTrue }
+        It '-File'             { Test-DotNonInteractiveArg @('-File', 'x.ps1')   | Should -BeTrue }
+        It '-f (prefix of -File)' { Test-DotNonInteractiveArg @('-f', 'x.ps1')   | Should -BeTrue }
+        It '-EncodedCommand'   { Test-DotNonInteractiveArg @('-EncodedCommand', 'ZXhpdA==') | Should -BeTrue }
+        It '-NonInteractive'   { Test-DotNonInteractiveArg @('-NonInteractive')  | Should -BeTrue }
+        It '-noni (shortest unambiguous -NonInteractive)' {
+            Test-DotNonInteractiveArg @('-noni') | Should -BeTrue
+        }
+        It 'finds the flag among other args' {
+            Test-DotNonInteractiveArg @('-NoLogo', '-File', 'x.ps1') | Should -BeTrue
+        }
+    }
+}
+
 Describe 'Test-DotColor' {
     It 'enables colour by default'        { Test-DotColor -NoColor '' -Term 'xterm' | Should -BeTrue }
     It 'disables colour when NO_COLOR set' { Test-DotColor -NoColor '1' -Term 'xterm' | Should -BeFalse }

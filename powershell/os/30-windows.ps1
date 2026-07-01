@@ -4,7 +4,7 @@
 
 # --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
 # provides: scu, scs, sci, scl, sccl, wgu, wgs, wgi, update-host, path, open, admin, setenv, getenv, modules-localize
-# requires: Get-DotModulePrunePlan, Test-Cmd, up, Write-DotErr, Write-DotHost, Write-DotWarn
+# requires: Get-DotModulePrunePlan, Test-Cmd, Test-InteractiveShell, up, Write-DotErr, Write-DotHost, Write-DotWarn
 
 # --- scoop (your primary CLI package manager on the host) ---------------------
 if (Test-Cmd scoop) {
@@ -136,40 +136,22 @@ function modules-localize {
 }
 
 # --- Start psmux session (top-level interactive shell only) -------------------
-# $inMux must list every marker psmux sets inside a pane. Confirm with:
-#   Get-ChildItem env: | Where-Object Name -match 'mux'
-# and add whatever you find. The sentinel is a fallback in case psmux
-# doesn't export a marker into pane shells.
-$InMux = $env:TMUX -or $env:TMUX_PANE -or $env:PSMUX -or $env:PSMUX_PANE
+# $InMux must list every marker psmux sets inside a pane, or a shell that IS in a
+# pane won't be recognised and we'd auto-launch a NESTED session. The authoritative
+# pair — verified against psmux src/pane.rs and used by os/33-psmux-pill.ps1's
+# Test-InMux — is TMUX + PSMUX_SESSION. (The old list checked PSMUX / PSMUX_PANE,
+# which psmux does NOT export, and omitted PSMUX_SESSION; it only worked because
+# TMUX happens to be set.) Keep TMUX_PANE too as a harmless belt-and-braces marker.
+$InMux = $env:TMUX -or $env:PSMUX_SESSION -or $env:TMUX_PANE
 
 # Only auto-launch for a *top-level interactive* shell. The profile is ALSO
 # loaded for `pwsh -Command ...` / `pwsh -File ...` (VS Code tasks, git hooks,
 # scheduled scripts, other tooling) unless they pass -NoProfile — and attaching
-# a multiplexer there would hang or hijack the scripted call. Inspect the actual
-# process command line: anything that ran a command/file/encoded-block, or asked
-# for a non-interactive host, is NOT a shell we should drop into psmux for.
-function script:Test-InteractiveShell {
-    if ($Host.Name -ne 'ConsoleHost') { return $false }      # ISE/VSCode-host/remoting
-    # PowerShell accepts any unambiguous prefix of a parameter name, so match by
-    # prefix rather than exact spelling. We must NOT match -NoExit/-NoLogo/
-    # -NoProfile (all begin 'no' and DO appear on interactive launches, e.g. the
-    # Windows Terminal profile's `pwsh.exe -NoLogo`), so -NonInteractive only
-    # counts once the token is long enough to be unambiguous ('noni'+).
-    $nonInteractive = @('command', 'file', 'encodedcommand', 'noninteractive')
-    foreach ($a in [Environment]::GetCommandLineArgs()) {
-        if ($a -notmatch '^-') { continue }
-        $name = $a.TrimStart('-').ToLowerInvariant()
-        if (-not $name) { continue }
-        foreach ($flag in $nonInteractive) {
-            if ($flag.StartsWith($name)) {
-                if ($flag -eq 'noninteractive' -and $name.Length -lt 4) { continue }
-                return $false
-            }
-        }
-    }
-    return $true
-}
-
+# a multiplexer there would hang or hijack the scripted call. Test-InteractiveShell
+# (core/05-lib.ps1) inspects the actual process command line and host; it's shared
+# with core/15-update.ps1's daily-check guard so the "is this a real interactive
+# session?" rule lives in ONE place instead of drifting between two copies.
+#
 # Escape hatch: set PSMUX_NO_AUTOLAUNCH=1 to suppress the auto-attach and stay in
 # a bare pwsh shell (parity with FAST_START / DOTFILES_UPDATE_CHECK). Read from the
 # ENVIRONMENT, so it must be set before pwsh starts — for a one-off lean shell:
