@@ -4,7 +4,7 @@
 
 # --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
 # provides: scu, scs, sci, scl, sccl, wgu, wgs, wgi, update-host, path, open, admin, setenv, getenv, modules-localize
-# requires: Get-DotModulePrunePlan, Test-Cmd, Test-InteractiveShell, up, Write-DotErr, Write-DotHost, Write-DotWarn
+# requires: Get-DotModulePrunePlan, Test-Cmd, Test-InMux, Test-InteractiveShell, up, Write-DotErr, Write-DotHost, Write-DotWarn
 
 # --- scoop (your primary CLI package manager on the host) ---------------------
 if (Test-Cmd scoop) {
@@ -136,13 +136,11 @@ function modules-localize {
 }
 
 # --- Start psmux session (top-level interactive shell only) -------------------
-# $InMux must list every marker psmux sets inside a pane, or a shell that IS in a
-# pane won't be recognised and we'd auto-launch a NESTED session. The authoritative
-# pair — verified against psmux src/pane.rs and used by os/33-psmux-pill.ps1's
-# Test-InMux — is TMUX + PSMUX_SESSION. (The old list checked PSMUX / PSMUX_PANE,
-# which psmux does NOT export, and omitted PSMUX_SESSION; it only worked because
-# TMUX happens to be set.) Keep TMUX_PANE too as a harmless belt-and-braces marker.
-$InMux = $env:TMUX -or $env:PSMUX_SESSION -or $env:TMUX_PANE
+# Pane detection is Test-InMux (core/05-lib.ps1) — the single source of truth,
+# shared with os/33-psmux-pill.ps1. If a shell that IS in a pane weren't
+# recognised we'd auto-launch a NESTED session, so the marker set (TMUX +
+# PSMUX_SESSION, verified against psmux src/pane.rs) lives in exactly one place.
+$InMux = Test-InMux
 
 # Only auto-launch for a *top-level interactive* shell. The profile is ALSO
 # loaded for `pwsh -Command ...` / `pwsh -File ...` (VS Code tasks, git hooks,

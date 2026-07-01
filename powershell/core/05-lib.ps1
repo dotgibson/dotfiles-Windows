@@ -17,7 +17,7 @@
 # ============================================================================
 
 # --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
-# provides: Test-SensitiveHistoryLine, Get-DotConfirmAnswer, Test-DotGum, Read-DotConfirm, Get-DotStringSha256, Get-DotSpinnerFrame, Invoke-DotSpinner, Test-DotEmailish, Get-DotToolNudge, Test-DotNonInteractiveArg, Test-InteractiveShell, Get-DotfilesLinkPlan, Test-DotColor, Test-DotUnicode, Get-DotGlyph, Write-DotHost, Write-DotBanner, Get-DotConsoleWidth, Format-DotWrap, Write-DotRule, Write-DotErr, Write-DotOk, Write-DotWarn
+# provides: Test-SensitiveHistoryLine, Get-DotConfirmAnswer, Test-DotGum, Read-DotConfirm, Get-DotStringSha256, Get-DotSpinnerFrame, Invoke-DotSpinner, Test-DotEmailish, Get-DotToolNudge, Test-DotNonInteractiveArg, Test-InteractiveShell, Test-InMux, Get-DotfilesLinkPlan, Test-DotColor, Test-DotUnicode, Get-DotGlyph, Write-DotHost, Write-DotBanner, Get-DotConsoleWidth, Format-DotWrap, Write-DotRule, Write-DotErr, Write-DotOk, Write-DotWarn
 # requires: (none)
 
 # --- Test-SensitiveHistoryLine ------------------------------------------------
@@ -355,6 +355,19 @@ function Test-InteractiveShell {
     param()
     if ($Host.Name -ne 'ConsoleHost') { return $false }
     return -not (Test-DotNonInteractiveArg ([Environment]::GetCommandLineArgs()))
+}
+
+# --- Test-InMux ---------------------------------------------------------------
+# Are we running inside a psmux/tmux pane (i.e. the status bar is showing)? psmux
+# exports TMUX + PSMUX_SESSION into pane shells (verified against psmux src/pane.rs);
+# either marker means "in a pane". THE single source of truth for pane detection —
+# shared by the psmux auto-attach guard (os/30-windows.ps1, so it never nests a
+# session inside an existing pane) and the pill's auto-arm/status (os/33-psmux-pill.ps1),
+# which previously each hand-maintained their own marker list and had already drifted.
+function Test-InMux {
+    [OutputType([bool])]
+    param()
+    [bool]($env:TMUX -or $env:PSMUX_SESSION)
 }
 
 # --- Get-DotfilesLinkPlan -----------------------------------------------------
