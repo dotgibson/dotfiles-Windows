@@ -47,10 +47,20 @@ if ($env:PSModulePath -notlike "*$LocalModules*") {
 # goes. Must be an env var (read before the profile runs); a lean way to check:
 #   $env:DOTFILES_PROFILE_TRACE='1'; pwsh -NoLogo   # child inherits it, prints the table
 $global:DotfilesTraceOn = ($env:DOTFILES_PROFILE_TRACE -eq '1')
-$global:DotfilesTrace   = if ($global:DotfilesTraceOn) { [System.Collections.Generic.List[object]]::new() } else { $null }
+# NB: assign the List directly, NOT via `$x = if (...) { [List]::new() }`. An `if`
+# used as an expression emits its value through the pipeline, which enumerates the
+# (empty) List to zero items and leaves $global:DotfilesTrace as $null — which would
+# silently disable every Add-DotfilesTrace call and suppress the trace table.
+if ($global:DotfilesTraceOn) {
+    $global:DotfilesTrace = [System.Collections.Generic.List[object]]::new()
+} else {
+    $global:DotfilesTrace = $null
+}
 function global:Add-DotfilesTrace {
     param([string]$Step, [double]$Ms)
-    if ($global:DotfilesTrace) { $global:DotfilesTrace.Add([pscustomobject]@{ Step = $Step; ms = [int]$Ms }) }
+    # Explicit null check: an EMPTY List is falsy in PowerShell, so `if ($global:DotfilesTrace)`
+    # would suppress the very first .Add() and the list would stay empty forever.
+    if ($null -ne $global:DotfilesTrace) { $global:DotfilesTrace.Add([pscustomobject]@{ Step = $Step; ms = [int]$Ms }) }
 }
 
 # --- Layer loader -------------------------------------------------------------
