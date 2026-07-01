@@ -1,7 +1,7 @@
 # CLAUDE.md — dotfiles-Windows
 
 Project memory for Claude Code, auto-loaded every session. The shared Core rules
-live in [dotfiles-core](https://github.com/Gerrrt/dotfiles-core).
+live in [dotfiles-core](https://github.com/dotgibson/dotfiles-core).
 
 ## What this repo is
 

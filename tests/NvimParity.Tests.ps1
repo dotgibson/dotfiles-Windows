@@ -16,7 +16,7 @@ Describe 'Get-CoreRefField' {
     BeforeAll {
         $script:Ref = @(
             '# comment line',
-            'source = https://github.com/Gerrrt/dotfiles-core.git',
+            'source = https://github.com/dotgibson/dotfiles-core.git',
             'branch = main',
             'commit = abc123def456',
             'tag    = v2.0.0',
@@ -52,12 +52,12 @@ Describe 'Test-DotGitSha' {
 
 Describe 'Resolve-CoreRemote' {
     BeforeAll {
-        $script:Allow = @('https://github.com/Gerrrt/dotfiles-core.git')
-        $script:Fallback = 'https://github.com/Gerrrt/dotfiles-core.git'
+        $script:Allow = @('https://github.com/dotgibson/dotfiles-core.git')
+        $script:Fallback = 'https://github.com/dotgibson/dotfiles-core.git'
     }
     It 'uses the source when it is allowlisted' {
-        Resolve-CoreRemote -Source 'https://github.com/Gerrrt/dotfiles-core.git' -Allowed $script:Allow -Fallback 'FB' |
-            Should -Be 'https://github.com/Gerrrt/dotfiles-core.git'
+        Resolve-CoreRemote -Source 'https://github.com/dotgibson/dotfiles-core.git' -Allowed $script:Allow -Fallback 'FB' |
+            Should -Be 'https://github.com/dotgibson/dotfiles-core.git'
     }
     It 'falls back for a non-allowlisted (content-controlled) source' {
         Resolve-CoreRemote -Source 'https://evil.example/x.git' -Allowed $script:Allow -Fallback 'FB' | Should -Be 'FB'

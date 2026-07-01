@@ -12,7 +12,7 @@ AfterAll { Remove-Item Env:DOTFILES_BOOTSTRAP_LIBONLY -ErrorAction SilentlyConti
 
 Describe 'Get-BootstrapRepoUrl' {
     It 'defaults to the canonical repo when DOTFILES_REPO is unset' {
-        Get-BootstrapRepoUrl -Repo '' | Should -Be 'https://github.com/Gerrrt/dotfiles-Windows.git'
+        Get-BootstrapRepoUrl -Repo '' | Should -Be 'https://github.com/dotgibson/dotfiles-Windows.git'
     }
     It 'honours an explicit repo URL' {
         Get-BootstrapRepoUrl -Repo 'git@host:me/df.git' | Should -Be 'git@host:me/df.git'

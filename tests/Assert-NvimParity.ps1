@@ -20,7 +20,7 @@
 #  Pure helpers are exposed for unit tests via DOTFILES_NVIMPARITY_LIBONLY=1.
 # ============================================================================
 [CmdletBinding()]
-param([string]$CoreRemoteFallback = 'https://github.com/Gerrrt/dotfiles-core.git')
+param([string]$CoreRemoteFallback = 'https://github.com/dotgibson/dotfiles-core.git')
 
 $DefaultExclude = @('.core-ref')
 
@@ -119,8 +119,8 @@ if (-not (Test-DotGitSha $commit)) {
     exit 2
 }
 $AllowedRemotes = @(
-    'https://github.com/Gerrrt/dotfiles-core.git'
-    'git@github.com:Gerrrt/dotfiles-core.git'
+    'https://github.com/dotgibson/dotfiles-core.git'
+    'git@github.com:dotgibson/dotfiles-core.git'
 )
 $remote = Resolve-CoreRemote -Source $source -Allowed $AllowedRemotes -Fallback $CoreRemoteFallback
 if ($source -and ($AllowedRemotes -notcontains $source)) {
