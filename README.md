@@ -160,7 +160,7 @@ dotfiles-Windows/
 ├── powershell/
 │   ├── profile.ps1              loader (core→os→local)
 │   ├── core/                    aliases, shared lib, tool inits, functions, completions, help
-│   │     00-aliases  05-lib  10-tools  15-update  20-functions  25-television
+│   │     00-aliases  05-lib  08-git-safety  10-tools  15-update  20-functions  25-television
 │   │     40-op  45-crypto  50-completions  55-help  57-health-nudge
 │   ├── os/                      windows helpers + wsl bridge + psmux + maint + doctor
 │   │     30-windows  31-wsl-bridge  32-psmux  33-psmux-pill  40-maint  45-doctor

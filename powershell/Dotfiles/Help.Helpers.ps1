@@ -59,6 +59,7 @@ function Get-DotfilesHelpData {
         @{ Command = 'maint-run / maint-log / maint-status'; Desc = 'run / tail / next-run' }
         @{ Command = 'shell-bench / prof-trace'; Desc = 'measure cold-start / trace load' }
         @{ Command = 'dotfiles-doctor [-Fix]'; Desc = 'health-check this setup (and auto-remediate)' }
+        @{ Command = 'git-reap'; Desc = 'kill orphaned/stuck git processes so git can be updated' }
     )
     $g['Packages'] = @(
         @{ Command = 'scs / sci / scl / scu'; Desc = 'scoop search / install / list / update' }
