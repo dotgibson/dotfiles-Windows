@@ -29,7 +29,7 @@
 
 # --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
 # provides: Reset-StuckGit
-# requires: Write-DotHost, Write-DotOk
+# requires: Write-DotHost, Write-DotOk, Write-DotWarn
 
 if ($env:DOTFILES_GIT_ALLOW_PROMPT -ne '1') {
     if (-not $env:GIT_TERMINAL_PROMPT) { $env:GIT_TERMINAL_PROMPT = '0' }
@@ -41,7 +41,7 @@ if ($env:DOTFILES_GIT_ALLOW_PROMPT -ne '1') {
 # is the manual cleanup for a pile that already happened; the env vars above stop
 # new ones forming. -WhatIf previews without killing.
 function Reset-StuckGit {
-    [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium')]
+    [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Medium')]
     param()
 
     $procs = @(Get-Process -Name git, git-remote-https, git-credential-manager -ErrorAction SilentlyContinue)
@@ -49,11 +49,21 @@ function Reset-StuckGit {
 
     Write-DotHost ("found {0} git-related process(es) still running." -f $procs.Count) -Color Yellow
     $killed = 0
+    $failed = [System.Collections.Generic.List[string]]::new()
     foreach ($p in $procs) {
         if ($PSCmdlet.ShouldProcess("$($p.ProcessName) (PID $($p.Id))", 'Stop-Process')) {
-            try { Stop-Process -Id $p.Id -Force -ErrorAction Stop; $killed++ } catch { }
+            # DON'T swallow the failure: Stop-Process throws on access-denied (a git.exe
+            # owned by another user / an elevated session an un-elevated shell can't
+            # touch), and a silent skip would report "reaped N of M" with no hint WHY
+            # the rest survived. Collect the reason and surface it below.
+            try { Stop-Process -Id $p.Id -Force -ErrorAction Stop; $killed++ }
+            catch { $failed.Add("$($p.ProcessName) (PID $($p.Id)): $($_.Exception.Message)") }
         }
     }
     Write-DotOk ("reaped {0} of {1}. now: scoop update git   (or winget upgrade Git.Git)" -f $killed, $procs.Count)
+    if ($failed.Count) {
+        Write-DotWarn ("could not kill {0} process(es) — likely owned by another or elevated session (retry from an elevated shell):" -f $failed.Count)
+        $failed | ForEach-Object { Write-DotHost "  $_" -Color DarkGray }
+    }
 }
 Set-Alias git-reap Reset-StuckGit -Scope Global
