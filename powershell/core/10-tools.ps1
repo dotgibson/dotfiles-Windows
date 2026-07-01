@@ -315,11 +315,23 @@ if ((Test-Cmd fzf) -and (Get-Module -ListAvailable PSFzf) -and -not $global:Dotf
     # One-shot loader: import PSFzf, hand Ctrl+T + Ctrl+R to PSFzf's OWN handlers
     # (Set-PsFzfOption overwrites the stubs below, so every later press skips this),
     # then fire the requested handler for THIS press so the first keystroke isn't
-    # swallowed. Handler names verified against PSFzf 2.7.10 (Invoke-FzfPsReadlineHandler*).
+    # swallowed. The Invoke-FzfPsReadlineHandler* names are present from the pinned
+    # baseline PSFzf 2.4.0 (packages/modules.ps1) through the current 2.7.10 —
+    # verified against both — so the very first press is safe on a fresh box. Setup
+    # is wrapped so a broken/removed PSFzf surfaces as a friendly warning instead of
+    # a raw error at the prompt (mirrors the starship/atuin/CompletionPredictor guards);
+    # the stub stays bound on failure, so a later press simply retries.
     function global:Invoke-DotLoadPSFzf {
         param([ValidateSet('Provider','History')][string]$Action)
-        Import-Module PSFzf
-        Set-PsFzfOption -PSReadlineChordProvider 'Ctrl+t' -PSReadlineChordReverseHistory 'Ctrl+r'
+        try {
+            Import-Module PSFzf -ErrorAction Stop
+            Set-PsFzfOption -PSReadlineChordProvider 'Ctrl+t' -PSReadlineChordReverseHistory 'Ctrl+r'
+        } catch {
+            Write-DotWarn "PSFzf lazy init failed: $_" 'reinstall: Install-Module PSFzf -Scope CurrentUser -Force'
+            return
+        }
+        # Handler runs OUTSIDE the try so its own runtime (e.g. an Esc-cancelled fzf)
+        # isn't misreported as an init failure.
         switch ($Action) {
             'Provider' { Invoke-FzfPsReadlineHandlerProvider }
             'History'  { Invoke-FzfPsReadlineHandlerHistory }
