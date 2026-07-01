@@ -8,6 +8,22 @@ so entries are grouped by theme rather than strict semver releases.
 
 ### Fixed
 
+- **Runaway `git.exe` processes that blocked updating git.** git gets spawned all
+  the time without you asking — starship's `git_*` prompt modules on every render,
+  the background `scoop update` bucket pulls in `core/15-update.ps1`, the daily
+  maint job. Any of those can wedge on an INTERACTIVE credential prompt (git's own
+  terminal prompt, or a Git Credential Manager dialog) in a context with nobody to
+  answer, so the `git.exe` waits forever and the next spawn stacks another —
+  hundreds of orphans that hold the git binary busy so `scoop update git` /
+  `winget upgrade Git.Git` can't replace it. Fix: a new early fragment
+  `core/08-git-safety.ps1` exports `GIT_TERMINAL_PROMPT=0` + `GCM_INTERACTIVE=Never`
+  (before `15-update` and the prompt tools load) so shell-spawned git FAILS FAST
+  instead of blocking on auth; escape hatch `DOTFILES_GIT_ALLOW_PROMPT=1`, and an
+  already-set value is honoured. Adds a `git-reap` (`Reset-StuckGit`) verb to kill
+  a pile that already formed. Paired with Core pinning starship `command_timeout`
+  (reaps read-only prompt-git that wedges on a slow FS), synced into
+  `starship/starship.toml` here (`.core-ref` bumped).
+
 - **Large multi-line pastes no longer switch modes / reorder text / run vim
   commands.** Root cause: `core/10-tools.ps1` sets `EditMode Vi`, and PSReadLine
   versions before 2.2.0 have no bracketed-paste support, so a pasted block is

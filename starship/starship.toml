@@ -1,5 +1,24 @@
 "$schema" = 'https://starship.rs/config-schema.json'
 
+# command_timeout: the ceiling (ms) starship waits for ANY external command it
+# runs to render a segment — the git_* modules (git_status/branch/commit/state)
+# and every [custom] command — before it abandons the call AND kills the child.
+# starship's built-in default is 500ms; we pin it EXPLICITLY (and a touch higher)
+# for two reasons:
+#   • Correctness: a `git status` on a big or cold repo can legitimately take
+#     >500ms, and the default would blank the git segment mid-work. 1300ms clears
+#     that on real repos without feeling laggy.
+#   • Reaping: the timeout is also the SAFETY VALVE. When a git call wedges — a
+#     stale .git/index.lock, a repo on a slow \\wsl$ / network path, a hung
+#     credential probe — starship stops waiting and terminates the child at this
+#     bound instead of leaving it running. On Windows especially, an un-reaped
+#     git child orphans, and one per prompt render piles up into hundreds of
+#     stuck git.exe (enough that scoop/winget then can't replace the in-use
+#     git binary to update it). Bounding + killing here is what stops the pile.
+# The OS layer complements this: the Windows host also makes shell-spawned git
+# fail fast instead of block on an auth prompt (see dotfiles-Windows pwsh core).
+command_timeout = 1300
+
 # dotfiles-* :: starship prompt  (tokyonight-storm, low-glare revision)
 # ──────────────────────────────────────────────────────────────────────────────
 # WHAT CHANGED & WHY:
