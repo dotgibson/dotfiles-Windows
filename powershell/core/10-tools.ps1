@@ -138,17 +138,6 @@ function global:Get-InitCache {
         [Parameter(Mandatory)][string]$Name,
         [Parameter(Mandatory)][scriptblock]$Generate
     )
-    # --- TEMP debug instrumentation (DOTFILES_INITCACHE_DEBUG=1) ---------------
-    # Hidden by default. When the env var is set, every call prints a per-tool
-    # breakdown (via Write-DotWarn) on a cache MISS or a THROW, splitting the cost
-    # into the Get-Command exe-path lookup (resolving e.g. starship.exe along PATH,
-    # the suspected AV-scanned stat storm) vs. the mtime Get-Item reads, and naming
-    # WHY the cache was treated as stale. Diagnostic scaffolding for the "every tool
-    # costs ~200ms" investigation — delete this block once the cause is confirmed.
-    #   one shell:  $env:DOTFILES_INITCACHE_DEBUG='1'; pwsh
-    $dbg = $env:DOTFILES_INITCACHE_DEBUG -eq '1'
-    $t   = if ($dbg) { [System.Diagnostics.Stopwatch]::StartNew() } else { $null }
-
     $cacheFile = Join-Path $global:DotfilesInitCacheDir "$Name.ps1"
 
     # --- psmux fast-path: trust the cache, skip ALL validation -----------------
@@ -161,13 +150,9 @@ function global:Get-InitCache {
     # we're chasing. So in a pane, if the cache file already exists, return it
     # unvalidated and let the caller dot-source it immediately. Pane detection is
     # Test-InMux (core/05-lib.ps1) — the single source of truth for "in a pane".
-    if ((Test-InMux) -and (Test-Path $cacheFile)) {
-        if ($dbg) { Write-DotWarn ("initcache[$Name] psmux fast-path: served cache unvalidated in {0}ms" -f [math]::Round($t.Elapsed.TotalMilliseconds,1)) }
-        return $cacheFile
-    }
+    if ((Test-InMux) -and (Test-Path $cacheFile)) { return $cacheFile }
 
     $src = (Get-Command $Name -ErrorAction SilentlyContinue).Source
-    $srcMs = if ($dbg) { $t.Elapsed.TotalMilliseconds } else { 0 }
 
     # The cache key has TWO inputs, so a hit means BOTH the tool and the recipe are
     # unchanged:
@@ -185,44 +170,25 @@ function global:Get-InitCache {
     $marker = "# initcache-hash: $genHash"
 
     $stale = $true
-    $mtimeMs = 0.0
     if ((Test-Path $cacheFile) -and $src -and (Test-Path $src)) {
-        $mStart = if ($dbg) { $t.Elapsed.TotalMilliseconds } else { 0 }
         $mtimeOk = (Get-Item $cacheFile).LastWriteTimeUtc -ge (Get-Item $src).LastWriteTimeUtc
         # First line carries the generator hash; reuse only when it still matches.
         # When hashing is unavailable (05-lib didn't load), fall back to mtime only.
         $hashOk = if ($null -eq $genHash) { $true }
                   else { (Get-Content $cacheFile -TotalCount 1 -ErrorAction SilentlyContinue) -eq $marker }
         $stale = -not ($mtimeOk -and $hashOk)
-        if ($dbg) { $mtimeMs = $t.Elapsed.TotalMilliseconds - $mStart }
     }
-
-    if ($dbg -and $stale) {
-        $why = if (-not (Test-Path $cacheFile)) { 'no cache file yet' }
-               elseif (-not $src) { 'tool not on PATH (Get-Command found no Source)' }
-               elseif (-not (Test-Path $src)) { "tool source path missing: $src" }
-               else { "invalidated (mtimeOk=$mtimeOk hashOk=$hashOk)" }
-        Write-DotWarn ("initcache[$Name] MISS — {0}; regenerating. timings: Get-Command={1}ms mtime-reads={2}ms (src={3})" -f `
-            $why, [math]::Round($srcMs,1), [math]::Round($mtimeMs,1), $src)
-    }
-
     if ($stale) {
         try {
             if (-not (Test-Path $global:DotfilesInitCacheDir)) {
                 New-Item -ItemType Directory -Force -Path $global:DotfilesInitCacheDir | Out-Null
             }
             $out = (& $Generate | Out-String)
-            if ([string]::IsNullOrWhiteSpace($out)) {
-                if ($dbg) { Write-DotWarn "initcache[$Name] generator produced empty output — returning `$null (caller falls back to Invoke-Expression)" }
-                return $null
-            }
+            if ([string]::IsNullOrWhiteSpace($out)) { return $null }
             # Prepend the marker (a PowerShell comment, so dot-sourcing ignores it).
             $payload = if ($genHash) { $marker + "`n" + $out } else { $out }
             Set-Content -Path $cacheFile -Value $payload -Encoding utf8
-        } catch {
-            if ($dbg) { Write-DotWarn "initcache[$Name] THREW while regenerating: $_" }
-            return $null
-        }
+        } catch { return $null }
     }
     return $cacheFile
 }
