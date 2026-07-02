@@ -5,7 +5,7 @@
 
 # --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
 # provides: Get-InitCache, Clear-InitCache, shell-bench, prof-trace, Invoke-DotfilesSessionizer, Invoke-DotLoadPSFzf
-# requires: Get-DotStringSha256, Test-Cmd, Test-SensitiveHistoryLine, Write-DotErr, Write-DotHost, Write-DotWarn
+# requires: Get-DotStringSha256, Test-Cmd, Test-InMux, Test-SensitiveHistoryLine, Write-DotErr, Write-DotHost, Write-DotWarn
 
 # --- FAST_START escape hatch --------------------------------------------------
 # Skips ALL the heavy prompt/history/completion init in this fragment. The cheap
@@ -138,11 +138,10 @@ function global:Get-InitCache {
         [Parameter(Mandatory)][string]$Name,
         [Parameter(Mandatory)][scriptblock]$Generate
     )
-    $src = (Get-Command $Name -ErrorAction SilentlyContinue).Source
     $cacheFile = Join-Path $global:DotfilesInitCacheDir "$Name.ps1"
 
-    # The cache key has TWO inputs, so a hit means BOTH the tool and the recipe are
-    # unchanged:
+    # The cache key has TWO inputs, so a full hit means BOTH the tool and the recipe
+    # are unchanged:
     #   • binary mtime  — a scoop/winget upgrade rewrites the exe and bumps its
     #                     mtime, so a new tool version regenerates (version drift).
     #   • generator hash — a SHA-256 of THIS call's scriptblock text, stored as a
@@ -151,18 +150,38 @@ function global:Get-InitCache {
     #                     the hash, so the stale cache self-busts on the next shell
     #                     instead of silently serving the old init until someone
     #                     remembers `init-cache-clear` (B2).
+    # genHash is computed up front because the psmux fast-path below also needs it.
+    # It's cheap (a SHA over a short string) and touches neither PATH nor the exe.
     $genHash = if (Get-Command Get-DotStringSha256 -ErrorAction SilentlyContinue) {
         Get-DotStringSha256 $Generate.ToString()
     } else { $null }
     $marker = "# initcache-hash: $genHash"
+    $hashOk = if ($null -eq $genHash) { $true }
+              else { (Get-Content $cacheFile -TotalCount 1 -ErrorAction SilentlyContinue) -eq $marker }
+
+    # --- psmux fast-path: skip the EXPENSIVE half of validation --------------------
+    # A psmux split inherits its parent shell's env, so re-resolving the tool exe on
+    # PATH (Get-Command — an on-access-AV-scanned stat storm on Windows) and stat-ing
+    # it for mtime, on EVERY split, just re-confirms the binary hasn't moved — the
+    # ~60ms/tool we're chasing. Skip THAT in a pane. But still honour the cheap
+    # generator-hash marker (one first-line read, already done above): editing a
+    # tool's init flags here must self-bust the cache even in a split (the B2
+    # invariant) — and because DotfilesInitCacheDir lives in LOCALAPPDATA and, with
+    # warm/persistent psmux sessions, can outlive many profile edits, trusting it
+    # blindly would serve a stale init after a flag change. Pane detection is
+    # Test-InMux (core/05-lib.ps1). NOT caught by the fast-path: a tool BINARY upgrade
+    # mid-session (only the skipped mtime check sees that) — it self-heals on the next
+    # top-level shell / fresh psmux server, or force it now with `init-cache-clear`.
+    if ((Test-InMux) -and (Test-Path $cacheFile) -and $hashOk) { return $cacheFile }
+
+    $src = (Get-Command $Name -ErrorAction SilentlyContinue).Source
 
     $stale = $true
     if ((Test-Path $cacheFile) -and $src -and (Test-Path $src)) {
         $mtimeOk = (Get-Item $cacheFile).LastWriteTimeUtc -ge (Get-Item $src).LastWriteTimeUtc
-        # First line carries the generator hash; reuse only when it still matches.
-        # When hashing is unavailable (05-lib didn't load), fall back to mtime only.
-        $hashOk = if ($null -eq $genHash) { $true }
-                  else { (Get-Content $cacheFile -TotalCount 1 -ErrorAction SilentlyContinue) -eq $marker }
+        # hashOk (generator marker on the first line) was computed above; a full hit
+        # needs both it and the mtime. When hashing is unavailable (05-lib didn't
+        # load) hashOk defaulted true, so this falls back to mtime only.
         $stale = -not ($mtimeOk -and $hashOk)
     }
     if ($stale) {
@@ -360,9 +379,19 @@ __lap 'fzf/PSFzf'
 # loads too late to gate this) to use shims-only mode — a 90-char PATH prepend, no
 # prompt hook. Tool versions still resolve via the shims; you just lose mise's per-cd
 # env auto-injection (direnv, wired separately, still covers .envrc env).
+#
+# PSMUX SPLITS ALSO USE SHIMS. Dot-sourcing the full hook-env init is the single most
+# expensive step in a pane's cold start — ~195ms of first-run JIT, measured, vs ~12ms
+# for the shims init (8.3KB of per-prompt hook code vs a 90-char PATH prepend). A split
+# is a fresh pwsh that INHERITS the parent shell's already-resolved env (PATH + the
+# [env] mise injected for the starting dir), so shims give correct tool versions with
+# no re-activation cost; the only thing traded away is per-cd [env] re-injection WITHIN
+# that split (direnv still covers .envrc). Net ~180ms off every split. Pane detection
+# is Test-InMux (core/05-lib.ps1). Distinct cache names ('mise' vs 'mise-shims') keep a
+# split and a top-level shell from busting each other's cache on the shared mise.ps1.
 if ((Test-Cmd mise) -and -not $global:DotfilesInit.Mise) {
-    if ($env:DOTFILES_MISE_SHIMS -eq '1') {
-        $cf = Get-InitCache -Name mise -Generate { mise activate pwsh --shims }
+    if (($env:DOTFILES_MISE_SHIMS -eq '1') -or (Test-InMux)) {
+        $cf = Get-InitCache -Name mise-shims -Generate { mise activate pwsh --shims }
         if ($cf) { . $cf } else { Invoke-Expression (& { (mise activate pwsh --shims | Out-String) }) }
     } else {
         $cf = Get-InitCache -Name mise -Generate { mise activate pwsh }
