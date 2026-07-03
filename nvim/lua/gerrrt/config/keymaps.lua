@@ -11,6 +11,20 @@
 -- Quick config editing
 vim.keymap.set("n", "<leader>rc", "<Cmd>e ~/.config/nvim/init.lua<CR>", { desc = "Edit config" })
 
+-- Cheatsheet — the full-panel counterpart to which-key. which-key answers "I pressed <leader>,
+-- now what?"; this lays out EVERY curated binding at once so you can rediscover what the config
+-- actually gives you. `<leader>?` shadows which-key's old buffer-local-keys binding on purpose:
+-- the whole map is the more useful thing to have on the mnemonic key. Also exposed as
+-- :Cheatsheet / :Cheat. `require` is deferred so it costs nothing at startup — the module only
+-- loads on first open. One opener shared by all three entry points so behaviour can never drift
+-- between them (and a future option/arg is a single edit).
+local function open_cheatsheet()
+	require("gerrrt.cheatsheet").open()
+end
+vim.keymap.set("n", "<leader>?", open_cheatsheet, { desc = "Cheatsheet (all keybindings)" })
+vim.api.nvim_create_user_command("Cheatsheet", open_cheatsheet, { desc = "Open the keybinding cheatsheet" })
+vim.api.nvim_create_user_command("Cheat", open_cheatsheet, { desc = "Open the keybinding cheatsheet" })
+
 -- Wrap-aware vertical motion
 vim.keymap.set("n", "j", function()
 	return vim.v.count == 0 and "gj" or "j"
