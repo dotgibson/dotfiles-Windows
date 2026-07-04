@@ -32,5 +32,10 @@ starship.toml is cross-shell) — sync those rather than hand-editing drift.
 - `psmux/` — native tmux-alike
 - `nvim/` — Neovim config mirrored from dotfiles-core via `nvim-sync.ps1`
 - `starship/` — cross-shell prompt config mirrored from dotfiles-core via `starship-sync.ps1`
+- `git/` — `.gitconfig` / `.gitignore_global`
+- `maint/Maintenance.ps1` — the daily maintenance runner (control surface: `os/40-maint.ps1`)
+- `ssh/config` — SSH client config
+- `docs/` — `TOOLS.md`, `PORTING-NOTES.md`, `ARCHITECTURE-AUDIT.md`
+- `tests/` — Pester test suite
 - `install.ps1`, `bootstrap.ps1`, `uninstall.ps1` — entry points
 - `wsl/` — the WSL bridge

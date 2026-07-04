@@ -176,6 +176,37 @@ interactive shortcuts; not all profile functions are listed here.
 | `tbranch` | Fuzzy git branch switcher |
 | `tenv` | Fuzzy environment variable picker |
 
+## psmux Pill (`33-psmux-pill.ps1`)
+
+The operator/VPN status pill shown in the psmux status bar. File-backed and
+refreshed by an in-session timer (no scheduled task, no elevation needed).
+
+| Function | Purpose |
+|----------|----------|
+| `psmux-pill-now [-AllNetworks]` | Refresh the cache file once, synchronously |
+| `psmux-pill-enable [-AllNetworks]` | Turn the pill on — persists (new panes auto-start it) and arms the refresher now; `-AllNetworks` also shows the plain-LAN IP when no tunnel is up |
+| `psmux-pill-disable` | Stop the refresher, drop the opt-in, blank the segment |
+| `psmux-pill-status` | Show refresher state (enabled / armed this session / inside mux) + the current cached pill |
+
+## Maintenance (`40-maint.ps1`)
+
+Windows analog of Core's `zsh/maint.zsh` — the control surface for the daily
+maintenance job, backed by a Task Scheduler task instead of systemd/launchd/cron.
+
+| Function | Purpose |
+|----------|----------|
+| `maint-install [HH:MM]` | Register + enable the daily task (default `13:00`); `StartWhenAvailable` catches up if the machine was off at that time |
+| `maint-run` | Run the maintenance script now, in the foreground |
+| `maint-log [N|-f]` | Show the last N log lines (default 50), or follow with `-f` |
+| `maint-status` | When it next runs / last result |
+| `maint-uninstall` | Remove the scheduled task |
+
+## Doctor (`45-doctor.ps1`)
+
+| Function | Purpose |
+|----------|----------|
+| `dotfiles-doctor [-Quiet] [-PassThru] [-Fix] [-Json]` | Audit whether the host is wired up correctly (registry, execution policy, symlinks, PATH); every check reports ok/warn/fail with a fix hint. `-Quiet` prints just the summary; `-PassThru` emits result objects for scripting/tests |
+
 ## Set-Alias Declarations
 
 | Alias | Points To |

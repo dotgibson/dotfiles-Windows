@@ -6,6 +6,15 @@ so entries are grouped by theme rather than strict semver releases.
 
 ## [Unreleased]
 
+### Documentation
+
+- **`aliases.md` was missing three whole sections.** `os/33-psmux-pill.ps1`
+  (`psmux-pill-now`/`-enable`/`-disable`/`-status`), `os/40-maint.ps1`
+  (`maint-install`/`-run`/`-log`/`-status`/`-uninstall`), and `os/45-doctor.ps1`
+  (`dotfiles-doctor`) had zero cheat-sheet coverage. Added sections for all
+  three, and filled in the corresponding `CLAUDE.md` "Where things are" gaps
+  (`git/`, `maint/`, `ssh/`, `docs/`, `tests/`).
+
 ### Fixed
 
 - **Runaway `git.exe` processes that blocked updating git.** git gets spawned all
