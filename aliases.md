@@ -115,7 +115,7 @@ interactive shortcuts; not all profile functions are listed here.
 
 ## Encryption / File Transfer (`45-crypto.ps1`)
 
-Both sections are no-ops if the backing tool (`age` / `croc`) isn't installed.
+Each function is only defined if its backing tool (`age` / `croc`) is installed — on a box without it, the command doesn't exist rather than running as a no-op.
 
 | Function | Purpose |
 |----------|----------|
@@ -131,7 +131,7 @@ Both sections are no-ops if the backing tool (`age` / `croc`) isn't installed.
 
 | Chord | Purpose |
 |-------|----------|
-| `Ctrl+g` | Sessionizer — fuzzy-pick a project dir (zoxide frecency + project roots) and attach-or-create a psmux session for it (cross-shell parity with zsh's sesh-on-Ctrl+G, see `PARITY.md`) |
+| `Ctrl+g` | Sessionizer — fuzzy-pick a project dir (zoxide frecency + project roots) and attach-or-create a psmux session for it (cross-shell parity with zsh's sesh-on-Ctrl+G; see `powershell/core/10-tools.ps1`) |
 | `Alt+z` | zoxide interactive frecency jump (`zi`) |
 | `Ctrl+t` | PSFzf file picker (lazy-loaded on first press) |
 | `Ctrl+r` | PSFzf history search, or plain reverse-search if PSFzf/atuin aren't installed |
