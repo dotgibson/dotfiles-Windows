@@ -5,6 +5,12 @@ sourced from the profile modules. Many tool-backed functions are guarded by
 `Test-Cmd` — missing tools fall back gracefully. This covers the most-used
 interactive shortcuts; not all profile functions are listed here.
 
+## Help (`55-help.ps1`)
+
+| Function | Purpose |
+|----------|----------|
+| `dothelp [filter]` | Grouped, in-shell index of every custom command in this profile (the README cheatsheet, one word away). `dothelp git` filters to rows matching "git". `-Interactive` fuzzy-picks via fzf and places the command at the prompt (falls back to clipboard) |
+
 ## File Listing (`00-aliases.ps1` — eza / lsd / Get-ChildItem fallback)
 
 > **Note:** Equivalents shown are the `eza` variants. When `eza` is absent, `lsd`
@@ -98,6 +104,38 @@ interactive shortcuts; not all profile functions are listed here.
 | `fif <pattern>` | Find in files (rg + fzf) |
 | `fbr` | Fuzzy git branch checkout |
 | `gaf / grf / grsf` | Fuzzy git add / restore / restore --staged |
+| `tools` | Render the host tool docs (`docs/TOOLS.md`) — glow, falling back to bat, then nvim, then a plain dump |
+
+## Diagnostics (`10-tools.ps1`)
+
+| Function | Purpose |
+|----------|----------|
+| `shell-bench [N]` | Time N cold `pwsh` starts (default 5) and report min/avg/max — measure profile startup cost instead of guessing |
+| `prof-trace` | Load the full profile in a clean child process with tracing on, and print the slowest-first fragment breakdown |
+
+## Encryption / File Transfer (`45-crypto.ps1`)
+
+Each function is only defined if its backing tool (`age` / `croc`) is installed — on a box without it, the command doesn't exist rather than running as a no-op.
+
+| Function | Purpose |
+|----------|----------|
+| `age-setup` | Generate a new `age` key at `~/.age/key.txt` (idempotent — prints the existing public key if one is already there) |
+| `age-pubkey` | Show the public key for the default `age` key |
+| `age-enc <file> [output]` | Encrypt a file to yourself with your public key (defaults to `<file>.age`) |
+| `age-dec <file.age> [output]` | Decrypt a file encrypted with your key (defaults to stripping the `.age` suffix) |
+| `age-enc-pw <file> [output]` | Password-based encryption, no key file needed — for sharing with someone without your public key |
+| `send <file...>` | Shorthand for `croc send` — accepts files, dirs, or multiple targets |
+| `recv <code>` | Receive a `croc` transfer by the code the sender printed |
+
+## Keybindings
+
+| Chord | Purpose |
+|-------|----------|
+| `Ctrl+g` | Sessionizer — fuzzy-pick a project dir (zoxide frecency + project roots) and attach-or-create a psmux session for it (cross-shell parity with zsh's sesh-on-Ctrl+G; see `powershell/core/10-tools.ps1`) |
+| `Alt+z` | zoxide interactive frecency jump (`zi`) |
+| `Ctrl+t` | PSFzf file picker (lazy-loaded on first press) |
+| `Ctrl+r` | PSFzf history search, or plain reverse-search if PSFzf/atuin aren't installed |
+| `Ctrl+e` | Atuin interactive history search (present when atuin is installed) |
 
 ## Package Management (`30-windows.ps1`)
 
@@ -119,7 +157,7 @@ interactive shortcuts; not all profile functions are listed here.
 | `wgu` | `winget upgrade --all --include-unknown` |
 | `wgs` | `winget search` |
 
-### Updates
+### Updates (`up` / `update-check` are in `15-update.ps1`)
 
 | Function | Purpose |
 |----------|----------|
