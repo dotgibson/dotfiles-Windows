@@ -46,7 +46,7 @@
   <ol>
     <li><a href="#about-the-project">About The Project</a></li>
     <li><a href="#getting-started">Getting Started</a></li>
-    <li><a href="#whats-in-this-layer">What's In This Layer</a></li>
+    <li><a href="#layout">Layout</a></li>
     <li><a href="#contributing">Contributing</a></li>
     <li><a href="#license">License</a></li>
     <li><a href="#contact">Contact</a></li>
@@ -111,23 +111,43 @@ cd dotfiles-Windows
 Then open a **new** PowerShell window, set your name/email in `~/.gitconfig.local`,
 and review `~/.wslconfig` + `wsl --shutdown` to apply mirrored networking.
 
+<!-- bootstrap.ps1 SHA-256 (LF-normalized): 7d6855b163c8e9179e1b137c410416bfa0b41c95f94b768732cf2bf22e6292c6 -->
+
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-<!-- WHAT'S IN THIS LAYER -->
-## What's In This Layer
+<!-- LAYOUT -->
+## Layout
 
-The Windows host, top to bottom:
+```text
+dotfiles-Windows/
+├── install.ps1                  bootstrap (env var, packages, symlinks)
+├── uninstall.ps1                remove repo symlinks (optionally restore backups)
+├── .githooks/pre-commit         runs tests/Invoke-Validation.ps1 before commits
+├── powershell/
+│   ├── profile.ps1              loader (core→os→local)
+│   ├── core/                    aliases, shared lib, tool inits, functions, completions, help
+│   │     00-aliases  05-lib  08-git-safety  10-tools  15-update  20-functions  25-television
+│   │     40-op  45-crypto  50-completions  55-help  57-health-nudge
+│   ├── os/                      windows helpers + wsl bridge + psmux + maint + doctor
+│   │     30-windows  31-wsl-bridge  32-psmux  33-psmux-pill  40-maint  45-doctor
+│   └── local.ps1.example        copy to local.ps1 (gitignored)
+├── maint/Maintenance.ps1        unattended daily maint runner (Task Scheduler)
+├── windows-terminal/settings.json
+├── starship/starship.toml       same prompt as the fleet (tokyonight-storm)
+├── git/ (.gitconfig, .gitignore_global)
+├── ssh/config                   hardened (no ControlMaster on Win OpenSSH)
+├── psmux/psmux.conf             native host tmux (psmux), symlinked to ~/.config/psmux/
+│       psmux.reset.conf  scripts/   (keybinds split out + popup helper scripts)
+├── nvim/                        symlinked to %LOCALAPPDATA%\nvim (mirrors Core)
+├── wsl/windows.wslconfig.example  canonical host WSL2 config (mirrored net)
+├── packages/ (scoopfile.json, winget.json, Install-Packages.ps1)
+└── docs/ (TOOLS.md, PORTING-NOTES.md)
+```
 
-- `powershell/` — the pwsh profile loader (`core/` → `os/` → `local.ps1`) plus
-  its fragments; `core/` here is native pwsh config, **not** a vendored subtree
-- `packages/` — the scoop/winget manifests (+ `Install-Packages.ps1`)
-- `windows-terminal/`, `psmux/` — Terminal settings and the native multiplexer
-- `nvim/`, `starship/` — mirrored from `dotfiles-core` (via the sync scripts)
-- `maint/`, `wsl/` — the daily maintenance runner and the WSL2 bridge
-
-The things worth knowing — the fragment loader and coverage gate, the
-supply-chain-gated bootstrap, and how the host bridges into WSL — are written up
-on the hub, alongside the **[Windows architecture audit][audit]**:
+`powershell/core/` is native pwsh config (**not** a vendored subtree); `nvim/` and
+`starship/` are the two assets mirrored from `dotfiles-core`. The deep detail — the
+fragment loader and coverage gate, the supply-chain-gated bootstrap, and the WSL
+bridge — is written up on the hub, alongside the **[Windows architecture audit][audit]**:
 
 > **[→ dotfiles-Windows on the documentation hub][repo-docs]**
 
