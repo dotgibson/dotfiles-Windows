@@ -1,236 +1,194 @@
-# 🪟 dotfiles-Windows
+<!-- Back to top link -->
+<a id="readme-top"></a>
 
-**A first-class terminal on Windows.** The native Windows host — PowerShell,
-Windows Terminal, scoop/winget, and the WSL2 bridge.
+<!-- Project Shields -->
+<div align="center"><nobr>
 
-`pwsh` · `terminal` · `psmux` · `wsl2`
+[![dotgibson][dotgibson-shield]][dotgibson-url]<!--
+-->[![CI][ci-shield]][ci-url]<!--
+-->![Last Commit][lastcommit-shield]<!--
+-->[![Contributors][contributors-shield]][contributors-url]<!--
+-->[![Forks][forks-shield]][forks-url]<!--
+-->[![Stargazers][stars-shield]][stars-url]<!--
+-->[![Issues][issues-shield]][issues-url]<!--
+-->[![Showcase][showcase-shield]][showcase-url]<!--
+-->[![MIT License][license-shield]][license-url]<!--
+-->[![LinkedIn][linkedin-shield]][linkedin-url]
 
-[![showcase](https://img.shields.io/badge/showcase-live-7aa2f7?style=flat-square)](https://dotgibson.github.io/dotfiles-web/) ![Windows](https://img.shields.io/badge/Windows-ready-7dcfff?style=flat-square)
+</nobr></div>
 
----
+<!-- PROJECT LOGO -->
+<br />
+<div align="center">
+  <a href="https://github.com/dotgibson/">
+    <img src="https://raw.githubusercontent.com/dotgibson/.github/main/profile/logo.png" alt="Logo" width="80" height="80">
+  </a>
 
-The **native-host layer** of my multi-OS dotfiles fleet. This repo owns the
-Windows host: PowerShell as the daily-driver shell, Windows Terminal, the
-scoop/winget package layer, and the bridge to my Linux distros running under
-WSL2.
+  <h3 align="center">🪟 dotfiles-Windows</h3>
 
-It deliberately does **not** configure WSL distros. Core and Kali
-configure themselves from their own repos _inside_ WSL. This repo's job is to
-make the host excellent and then get out of the way.
+  <p align="center">
+    The native Windows host — PowerShell, Windows Terminal, scoop/winget, and the WSL2 bridge.
+    <br />
+    <a href="https://dotgibson.github.io/dotfiles-web/docs/repos/dotfiles-Windows"><strong>Explore the docs »</strong></a>
+    <br />
+    <br />
+    <a href="https://dotgibson.github.io/dotfiles-web/playground/">View Demo</a>
+    &middot;
+    <a href="https://github.com/dotgibson/dotfiles-Windows/issues/new?labels=bug">Report Bug</a>
+    &middot;
+    <a href="https://github.com/dotgibson/dotfiles-Windows/issues/new?labels=enhancement">Request Feature</a>
+  </p>
+</div>
 
-```
-                ┌─--────────────────────────────────────────┐
-   this repo →  │  Windows host: pwsh + Terminal + scoop    │
-                │  + psmux (native tmux) + WSL bridge       │
-                └───────────────────┬───────────────────────┘
-                                    │  wsl
-                ┌───────────────────▼──────────────────────--─┐
-   other repos →│  WSL2: Core / Kali (zsh/tmux/...)           │
-                └─────────────────────────────────────────────┘
-```
+<!-- TABLE OF CONTENTS -->
+<details>
+  <summary>Table of Contents</summary>
+  <ol>
+    <li><a href="#about-the-project">About The Project</a></li>
+    <li><a href="#getting-started">Getting Started</a></li>
+    <li><a href="#whats-in-this-layer">What's In This Layer</a></li>
+    <li><a href="#contributing">Contributing</a></li>
+    <li><a href="#license">License</a></li>
+    <li><a href="#contact">Contact</a></li>
+  </ol>
+</details>
 
-## Layer model (mirrors the zsh loader on the Linux/Mac repos)
+<!-- ABOUT THE PROJECT -->
+## About The Project
 
-`powershell/profile.ps1` is symlinked to `$PROFILE` and dot-sources fragments
-in order:
+**`dotfiles-Windows` is the native-host layer** — one node in a cross-platform
+dotfiles system. It owns the Windows host: PowerShell 7 as the daily-driver
+shell, Windows Terminal, the scoop/winget package layer, `psmux` (native tmux),
+and the bridge into Linux distros running under WSL2.
 
-1. **core/** — cross-fleet aliases, prompt (starship), history (PSReadLine),
-   fuzzy nav (fzf/zoxide), update nudge, 1Password helpers, general helpers.
-   Same feel as zsh everywhere.
-2. **os/** — Windows-native: scoop/winget helpers, clipboard, the WSL bridge,
-   psmux multiplexer helper, scheduled maintenance.
-3. **local.ps1** — machine-specific, gitignored. Secrets and per-host overrides.
+Unlike every OS repo, **Windows does _not_ vendor Core as a `git subtree`.** The
+shared config is replicated natively in PowerShell — the `powershell/core/`
+fragments mirror the feel of the zsh loader — so only two cross-shell assets are
+synced from [`dotfiles-core`](https://github.com/dotgibson/dotfiles-core):
+`nvim/` (via `nvim-sync.ps1`) and `starship/starship.toml` (via
+`starship-sync.ps1`). It also deliberately does **not** configure WSL distros —
+Core and Kali configure themselves from their own repos _inside_ WSL. This repo
+makes the host excellent, then gets out of the way. Full docs live on the
+[documentation site][docs].
 
-There is intentionally **no offensive layer** here. The offensive role is unique
-to the Kali station, same as everywhere else in the fleet — this repo is a
-productivity/host repo only.
+The system is three layers; Windows is a host that **replicates** Core rather
+than vendoring it:
 
-New fragments load automatically — the loader globs each layer directory in
-name order, so dropping a `core/NN-name.ps1` or `os/NN-name.ps1` in is all it
-takes (no `install.ps1` change needed).
+| Layer | Lives in | Owns |
+| --- | --- | --- |
+| **Core** | [`dotfiles-core`](https://github.com/dotgibson/dotfiles-core) → vendored into every OS repo's `core/` (Windows replicates it in pwsh instead) | zsh, tmux, nvim, git, starship — identical everywhere |
+| **OS-native** | `dotfiles-{MacBook,Windows,Fedora,Arch,openSUSE,Alpine,Gentoo}` (Windows is the native host) | package manager, clipboard, paths |
+| **Role** | `dotfiles-Kali`, `dotfiles-Defense` | offensive / defensive tooling (Windows bridges to Kali under WSL) |
 
-## Install
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-Requires **PowerShell 7** (`pwsh`) and **Developer Mode** enabled (or run
-elevated) so symlinks work.
+<!-- GETTING STARTED -->
+## Getting Started
 
-### One-liner (bootstrap)
+### Prerequisites
 
-From a fresh box, `bootstrap.ps1` clones the repo and runs the installer for you
-(it needs `git` and `pwsh` 7+):
+**PowerShell 7** (`pwsh`) and **Developer Mode** enabled (or run elevated) so
+symlinks work. The bootstrap needs `git` and `pwsh` 7+.
+
+### Installation
 
 ```powershell
 irm https://raw.githubusercontent.com/dotgibson/dotfiles-Windows/main/bootstrap.ps1 | iex
 ```
 
-Knobs (all optional env vars): `DOTFILES_DIR` (clone location), `DOTFILES_REF`
-(pin a commit/tag for a reproducible setup), `DOTFILES_REPO` (your fork's URL),
-`DOTFILES_BOOTSTRAP_ARGS` (extra `install.ps1` args, e.g. `'-SkipPackages'`).
-
-**Integrity-gated** — verify the script against the pinned hash before running it
-(piping straight to `iex` trusts whatever the URL serves):
+The one-liner is **integrity-gated** — verify the script against its pinned
+SHA-256 before piping to `iex` (the docs show the hash-checked form). Or clone and
+run the installer manually:
 
 ```powershell
-$b = irm https://raw.githubusercontent.com/dotgibson/dotfiles-Windows/main/bootstrap.ps1
-$h = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData(
-        [Text.Encoding]::UTF8.GetBytes(($b -replace "`r`n","`n")))).ToLower()
-if ($h -eq '7d6855b163c8e9179e1b137c410416bfa0b41c95f94b768732cf2bf22e6292c6') { $b | iex }
-else { Write-Error "bootstrap.ps1 hash mismatch: $h" }
-```
-
-bootstrap.ps1 never pipes a further network script into `iex` itself: it clones
-over git (pin `DOTFILES_REF` for an exact, content-addressed checkout) and hands
-off to `install.ps1`, where scoop's installer stays behind the existing
-`DOTFILES_SCOOP_SHA256` gate. <!-- bootstrap.ps1 SHA-256 (LF-normalized): 7d6855b163c8e9179e1b137c410416bfa0b41c95f94b768732cf2bf22e6292c6 -->
-
-### Manual
-
-```powershell
-git clone <your-remote>/dotfiles-Windows.git
+git clone https://github.com/dotgibson/dotfiles-Windows.git
 cd dotfiles-Windows
-.\install.ps1                # packages + symlinks
-# or, to only re-wire links:
-.\install.ps1 -SkipPackages
-# preview every change without touching anything:
-.\install.ps1 -DryRun
-# unattended (CI / no prompts):
-.\install.ps1 -NonInteractive
-.\install.ps1 -Help          # full option list
+.\install.ps1                # packages + symlinks (idempotent)
+.\install.ps1 -SkipPackages  # just re-wire links
+.\install.ps1 -DryRun        # preview; -Help for the full option list
 ```
 
-The installer is idempotent (re-running only fixes what drifted), prompts before
-backing up a real file it's about to replace, and on the first run asks for your
-git name/email. To reverse it:
+Then open a **new** PowerShell window, set your name/email in `~/.gitconfig.local`,
+and review `~/.wslconfig` + `wsl --shutdown` to apply mirrored networking.
 
-```powershell
-.\uninstall.ps1              # remove only the symlinks that point into this repo
-.\uninstall.ps1 -RestoreBackups   # also restore the newest *.bak per link
-.\uninstall.ps1 -DryRun
-```
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-Then:
+<!-- WHAT'S IN THIS LAYER -->
+## What's In This Layer
 
-1. Open a **new** PowerShell window to load the profile.
-2. Set your name/email in `~/.gitconfig.local`.
-3. Review `~/.wslconfig` and run `wsl --shutdown` to apply mirrored networking.
-4. (Optional) `maint-install` to register the daily maintenance task.
-5. (Optional) `mux` to drop into a persistent psmux session.
+The Windows host, top to bottom:
 
-## First-run troubleshooting
+- `powershell/` — the pwsh profile loader (`core/` → `os/` → `local.ps1`) plus
+  its fragments; `core/` here is native pwsh config, **not** a vendored subtree
+- `packages/` — the scoop/winget manifests (+ `Install-Packages.ps1`)
+- `windows-terminal/`, `psmux/` — Terminal settings and the native multiplexer
+- `nvim/`, `starship/` — mirrored from `dotfiles-core` (via the sync scripts)
+- `maint/`, `wsl/` — the daily maintenance runner and the WSL2 bridge
 
-- **"cannot be loaded ... not digitally signed"** — execution policy. `install.ps1`
-  now sets `RemoteSigned` for your user and unblocks the repo files automatically,
-  but if you hit this _before_ the script can even start, do it once by hand:
-  `Set-ExecutionPolicy RemoteSigned -Scope CurrentUser`, then
-  `Get-ChildItem -Recurse -File | Unblock-File`. If `Get-ExecutionPolicy -List`
-  shows `MachinePolicy`/`UserPolicy` set, that's Group Policy (managed/gov
-  machines) and you can't override it yourself.
-- **Prefer `git clone` over downloading an archive.** Cloned files don't carry
-  the "Mark of the Web," so the unblock step never comes up.
-- **Pinning the bootstrap's third-party fetches (supply chain).** The scoop
-  installer can be integrity-gated: set `DOTFILES_SCOOP_SHA256` to the expected
-  hash and the installer aborts on mismatch. The psmux `ppm` plugin clone can be
-  pinned to an exact commit/tag with `DOTFILES_PPM_REF`; otherwise it tracks the
-  default branch, and the installer verifies the expected `ppm\` folder is present
-  before copying it.
-- **Use PowerShell 7 (`pwsh`), not Windows PowerShell 5.1.** The bootstrap
-  tolerates 5.1 and warns you, but the profile targets the pwsh path — do daily
-  work in pwsh.
-- **A package fails to install?** The installer logs it and keeps going, then
-  prints a `skipped:` summary. Re-run `.\install.ps1` to retry (installed apps
-  are skipped). Some scoop packages with `persist` blocks (e.g. `btop-lhm`) can
-  trip on a leftover config from an interrupted run — `scoop uninstall <name>`
-  then reinstall, or drop it from `packages\scoopfile.json`.
-- **Garbled glyphs or unwanted colour?** Output honours
-  [`NO_COLOR`](https://no-color.org) (set it to strip all colour) and
-  `DOTFILES_ASCII=1` (swap the `✓ ✗ → •` glyphs for ASCII on a legacy codepage
-  console). Both also apply to `install.ps1`, `dotfiles-doctor`, and `dothelp`.
-- **Something half-loaded?** Run `dotfiles-doctor` — the _Profile fragments_
-  check reports any fragment that failed to load, and `dotfiles-doctor -Fix`
-  auto-remediates the common issues (execution policy, missing links, modules on
-  OneDrive).
+The things worth knowing — the fragment loader and coverage gate, the
+supply-chain-gated bootstrap, and how the host bridges into WSL — are written up
+on the hub, alongside the **[Windows architecture audit][audit]**:
 
-## Layout
+> **[→ dotfiles-Windows on the documentation hub][repo-docs]**
 
-```
-dotfiles-Windows/
-├── install.ps1                  bootstrap (env var, packages, symlinks)
-├── uninstall.ps1                remove repo symlinks (optionally restore backups)
-├── .githooks/pre-commit         runs tests/Invoke-Validation.ps1 before commits
-├── powershell/
-│   ├── profile.ps1              loader (core→os→local)
-│   ├── core/                    aliases, shared lib, tool inits, functions, completions, help
-│   │     00-aliases  05-lib  08-git-safety  10-tools  15-update  20-functions  25-television
-│   │     40-op  45-crypto  50-completions  55-help  57-health-nudge
-│   ├── os/                      windows helpers + wsl bridge + psmux + maint + doctor
-│   │     30-windows  31-wsl-bridge  32-psmux  33-psmux-pill  40-maint  45-doctor
-│   └── local.ps1.example        copy to local.ps1 (gitignored)
-├── maint/Maintenance.ps1        unattended daily maint runner (Task Scheduler)
-├── windows-terminal/settings.json
-├── starship/starship.toml       same prompt as the fleet (tokyonight-storm)
-├── git/ (.gitconfig, .gitignore_global)
-├── ssh/config                   hardened (no ControlMaster on Win OpenSSH)
-├── psmux/psmux.conf             native host tmux (psmux), symlinked to ~/.config/psmux/
-│       psmux.reset.conf  scripts/   (keybinds split out + popup helper scripts)
-├── nvim/                        symlinked to %LOCALAPPDATA%\nvim (vendor Core)
-├── wsl/windows.wslconfig.example  canonical host WSL2 config (mirrored net)
-├── packages/ (scoopfile.json, winget.json, Install-Packages.ps1)
-└── docs/ (TOOLS.md, PORTING-NOTES.md)
-```
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-## Daily-driver cheatsheet
+<!-- CONTRIBUTING -->
+## Contributing
 
-| Command                                       | Does                                                                          |
-| --------------------------------------------- | ----------------------------------------------------------------------------- |
-| `ll` / `la` / `lt`                            | eza listings (long / all / tree)                                              |
-| `cat` / `catp`                                | bat (no-pager / paged)                                                        |
-| `z foo`                                       | zoxide jump; `cd` is rebound to `z`                                           |
-| `Ctrl+t` / `Ctrl+r`                           | fzf file picker / history search                                              |
-| `http` / `dns` / `gmd`                        | xh / doggo / glow (guarded if installed; `gmd` renders markdown)              |
-| `lg`                                          | lazygit                                                                       |
-| `serve [port] [-Local]`                       | HTTP server in the CWD; prints the host LAN URL (`-Local` binds localhost only) |
-| `fif <term>` / `fbr`                          | find-in-files / fuzzy git-branch checkout                                     |
-| `tmux` / `psmux` / `pmux`                     | native host multiplexer (psmux; reads `~/.config/psmux/psmux.conf`)           |
-| `mux [session]`                               | attach-or-create a psmux session (defaults to `main`)                         |
-| `psmux-pill-enable` / `psmux-pill-disable`    | enable/disable the file-backed operator/VPN status pill (off the render path) |
-| `up` / `up -y` / `up -n`                      | apply scoop+winget updates (`-y` auto-confirms winget; `-n`/`-Preview` lists only) |
-| `update-check`                                | force the "updates available" check now                                       |
-| `maint-install [HH:MM]`                       | register the daily maintenance task                                           |
-| `maint-run` / `maint-log -f` / `maint-status` | run now / follow log / next-run                                               |
-| `opsecret` / `optoken` / `openv` / `opssh`    | 1Password CLI helpers                                                         |
-| `kali` / `cdwsl`                              | jump into Kali / into Kali at the current dir                                 |
-| `wsls` / `hostip`                             | WSL distro status / host LAN IP                                               |
-| `tools`                                       | open the host tool docs                                                       |
-| `dothelp [filter]` / `dothelp -i`             | in-shell command index (`-i` = fzf picker, copies the pick)                   |
-| `dotfiles-doctor [-Fix]`                      | health-check the setup, and optionally auto-remediate                         |
+This repo owns the Windows host directly, so its contribution rules differ from
+the vendored-Core OS repos:
 
-## Scope note
+1. **Host config lives here — edit it here.** There is no vendored `core/` to
+   avoid; `powershell/core/` is native pwsh config authored in this repo.
+2. **Don't hand-edit the mirrored assets.** `nvim/` and `starship/starship.toml`
+   are synced from `dotfiles-core` (`nvim-sync.ps1` / `starship-sync.ps1`) — fix
+   drift **upstream**, then re-sync, so the parity gate stays green.
+3. **Green the gate.** `tests/Invoke-Validation.ps1` is the fast, dependency-free
+   check; `Invoke-Pester -Path tests` is the full suite. `.githooks/pre-commit`
+   and CI mirror both.
 
-This repo is the **host/productivity layer only** — no offensive tooling is
-installed or configured here. That role lives on the **Kali station** (its own
-repo, inside WSL). The bridge functions (`kali`, `cdwsl`) are just how you get
-there from the host shell. psmux gives you tmux-style multiplexing _on the host_;
-the genuine tmux for Linux work still lives in WSL.
+Bugs and ideas: open an
+[issue](https://github.com/dotgibson/dotfiles-Windows/issues).
 
-## Development
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-```powershell
-# one-time: provision the same test toolchain CI uses (Pester + PSScriptAnalyzer,
-# pinned to the CI versions; idempotent). A test gates these against ci.yml drift.
-pwsh -NoProfile -File tests/Install-DevDeps.ps1
+<!-- LICENSE -->
+## License
 
-# fast, dependency-free gate (syntax + JSON/manifests + module pins + editorconfig):
-pwsh -NoProfile -File tests/Invoke-Validation.ps1
-# ^ also runs PSScriptAnalyzer automatically IF it's installed (errors gate the
-#   run); it's skipped cleanly when absent, so the gate stays Gallery-free offline.
+Distributed under the MIT License. See [`LICENSE`](LICENSE) for more information.
 
-# full behavioral suite (needs Pester 5):
-Invoke-Pester -Path tests
-```
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-`install.ps1` wires `core.hooksPath = .githooks`, so the validator runs on every
-commit (bypass a single one with `git commit --no-verify`). CI mirrors this: a
-fast Linux gate, then PSScriptAnalyzer + Pester (with a coverage gate) on Windows
-— heavy jobs are skipped for docs-only changes. Actions are pinned to commit
-SHAs and kept current by Dependabot. See [CHANGELOG.md](CHANGELOG.md) for the
-DX/UX overhaul history.
+<!-- CONTACT -->
+## Contact
+
+Garrett Allen - [@gerrrrt](https://x.com/gerrrrt) - <garrettallen2@gmail.com>
+
+Project Link: [dotgibson](https://github.com/dotgibson/)
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+<!-- Markdown Links & Images -->
+[repo-docs]: https://dotgibson.github.io/dotfiles-web/docs/repos/dotfiles-Windows
+[audit]: https://dotgibson.github.io/dotfiles-web/docs/reference/windows-architecture-audit
+[dotgibson-shield]: https://img.shields.io/github/v/release/dotgibson/dotfiles-Windows?style=flat-square&label=dotgibson&labelColor=181717&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAIAAAD8GO2jAAAF1klEQVR4nLSWbUxT7RnHr9PT09MXSltaoC9QXkqR16Iwhb0Iw8VYYE7jPri5aBaZzpmFZbpolpn4QeMyM%2BM%2B7MVt0Q9LNJIlxCzqxGWS6aKAig51vBQKIi3QltpCS0%2Fbc879pD1N3%2Bnz4fG5Pl2977v%2F331d131f5%2BZrddWQZAgAgy9uCRlefICzT6GeIsP%2FXF15kahmu9JglGmLRQoRQdIQWgu77BuWGe%2Fo%2BOqym8odApaWomTT1%2Bl2HqirahaTuJ9kQMggkgYhDRGfRiQDZBi9fuf52%2BD7l1b3ZhRcmq%2FMnBHmibuO7fvWoTalVoDjQRwL8RGgEOtzB0MbtBDnkRjGR0AgTK%2BQfNukr1LKXlhXKZpJSxTKGoFSq9vf16tQ8%2FiEh094Vu0L449mLGMup20DRWuFYVCiFm%2BvU36nTbOlMB%2BnCDxIOBzhvv6nFpc3TS0dUKDRHzh1Jk9O8wlPYN326Oa%2FJobnN8shAOxqKjrdXa8WSnGKWPewR%2FuHLG5P8oKUFJHi%2FH19F6UKEQ%2BnbJap27%2B%2BtWR15VAHgLkV%2F%2F0xW6OuQCfNE4PgmyX6f0xZKYbJDuj43lmtoYqHU%2FaZdwNXr4eoUG51zqgw%2B%2FCtrbm0UCeRynBhqVj2YC4RNC%2FuqStbKkydAODzeO7%2B6QYTpnOIYgB729R729RY9DAGafb0wDOHLwAA5vKK1mJNFoCpsxeLLn%2Fy91uU359719%2FfVXL%2BSM35IzU9rcXciCcQujz0imOfbGhOB0jkGo2hFQBW7Quzr0Zzq6vyBT%2FuKY%2BHErfBmQWLK1Lhr6l1OkleCqC0poPb%2FuTwv3OrA8DPDhgkokgLmLX77o86kqcGJmaj5xjr1JWlAAr1Js75MDEGAAI%2B1mvWX%2F1JY29XmYDPS5ZoNsrM24si1xSh3%2FRbGBYlz%2F73g41ztqliqYv1onyVHgDocMjjXASAKycavlqnZBHa2ajcasjv%2B8MbAPhRV9nI5MezB41crIPPHWOW9Gtl9XhDDCMCokIqSwGQ4shvyucFhEQCnqlSdm9k%2BdKt6XM%2FqO7aof7t8YbIIW5SHdpVIhUTAOAP0L8bmM3MHgJwByidQCgnhSmAqOEYnQ8AgRBr%2FuUzKsgggIs3pyVCfkeTCgAmFtaNOgm39C%2F3511r2W8JYvIAJbIaAwQ3vKAEoVgRaTQIBYKxqxgMs6euvdUXiQDgeHd5rV7K1fb2kC2rOgaYghQBMJ5grI3HUGuuhQiNIOWq8sy%2FLTgCKplgT0ZtCyprWw7%2FvKCyNr6yQqYg8cim59a9KQDnwv84R1%2F99UwAzsMya4vxeOYLN7YePGG%2BcAPjxXS%2BoavknFfOlRTAh8nHKNqLa1v2ZwK6dxQZtHk5ahu3%2FcYmLsoh%2B%2FsUgN%2BztDQzEvkYFBurGnan%2FS1%2B1P98L1FbxLIPzh193X%2FtwbmjiGUBYHd5nVFRCABPlxdtfh%2B3LHGKxof%2Bqo90C6yj58yi9Tm1kWjr94ZXsGhTuDuynAx2z0245yY4X06Kf9HWFd0N%2BuPbsUR64%2B3a57Erig2qIoOIlJSUNE69GWTZRFufXvRNL%2Fo2ywyJE1fMP6xWqHBEP5yfvP7%2FbAAAsFufG01mkVCqkGvLyrbNTD2mw9kfDckmE0oudx9rUZfhiF5Zd%2F%2F00QDF0NkBTJhanB3e0riHJIRKhXarqWfdu%2Bx0WnOot1ftuNR90lhQzEO0L7B2YvCm3b%2BWNI%2ByffSLq757%2BPcquYaIvBtgdcXycuzO9MzTFdccd9IwDNMVlDaXbzPXtxsVhQRDEQzl8i6d%2Buf12Y%2BONDVMo6vOfHWJxHLz3l811u8WAEZABCNAAHSI8n8k2HABKRJjLJ8JECxFMAE%2BHXhiGb7yn35vcCNDKVsEcSuv%2BEpn%2B7Etla0CwAQIOBLBhrkt85kAnwm8mX95e%2FTOa9vUZiIxQI43r0Kura9uN5SYNMoyuVDGZ2nK73C65iy28Rezo44152bSKYAvz3ifVA1lDn0WAAD%2F%2F%2FWvXexgMwqgAAAAAElFTkSuQmCC
+[dotgibson-url]: https://github.com/dotgibson/dotfiles-Windows/releases/latest
+[ci-shield]: https://img.shields.io/github/actions/workflow/status/dotgibson/dotfiles-Windows/ci.yml?branch=main&style=flat-square&logo=githubactions&logoColor=white&label=CI
+[ci-url]: https://github.com/dotgibson/dotfiles-Windows/actions/workflows/ci.yml
+[lastcommit-shield]: https://img.shields.io/github/last-commit/dotgibson/dotfiles-Windows?branch=main&style=flat-square&logo=git&logoColor=white
+[contributors-shield]: https://img.shields.io/github/contributors/dotgibson/dotfiles-Windows.svg?style=flat-square&logo=github
+[contributors-url]: https://github.com/dotgibson/dotfiles-Windows/graphs/contributors
+[forks-shield]: https://img.shields.io/github/forks/dotgibson/dotfiles-Windows.svg?style=flat-square&logo=github
+[forks-url]: https://github.com/dotgibson/dotfiles-Windows/network/members
+[stars-shield]: https://img.shields.io/github/stars/dotgibson/dotfiles-Windows.svg?style=flat-square&logo=github
+[stars-url]: https://github.com/dotgibson/dotfiles-Windows/stargazers
+[issues-shield]: https://img.shields.io/github/issues/dotgibson/dotfiles-Windows?style=flat-square&logo=github
+[issues-url]: https://github.com/dotgibson/dotfiles-Windows/issues
+[showcase-shield]: https://img.shields.io/badge/showcase-live-7aa2f7?style=flat-square
+[showcase-url]: https://dotgibson.github.io/dotfiles-web
+[license-shield]: https://img.shields.io/github/license/dotgibson/dotfiles-Windows.svg?style=flat-square
+[license-url]: https://github.com/dotgibson/dotfiles-Windows/blob/main/LICENSE
+[linkedin-shield]: https://img.shields.io/badge/LinkedIn-blue?style=flat-square&logo=linkedin&logoColor=white
+[linkedin-url]: https://linkedin.com/in/garrettallen2
+[docs]: https://dotgibson.github.io/dotfiles-web/
