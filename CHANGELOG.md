@@ -8,6 +8,15 @@ so entries are grouped by theme rather than strict semver releases.
 
 ### Documentation
 
+- **README rebuilt as a lean showcase landing page.** Brought the README up to
+  the `dotfiles-core` exemplar bar — a reference-style shields header, the org
+  logo, a collapsible TOC, then a lean body (lead, three-layer at-a-glance, real
+  Getting Started, a host-specific contribution contract, License/Contact). The
+  lead states plainly that this host **replicates** Core in PowerShell rather than
+  vendoring it. Deep detail (the fragment loader, coverage gate, and WSL bridge)
+  now defers to the documentation hub and the migrated architecture audit. Added
+  a `.markdownlint.jsonc` (mirrored from Core) scoping the showcase HTML via MD033
+  `allowed_elements`.
 - **`aliases.md` was missing three whole sections.** `os/33-psmux-pill.ps1`
   (`psmux-pill-now`/`-enable`/`-disable`/`-status`), `os/40-maint.ps1`
   (`maint-install`/`-run`/`-log`/`-status`/`-uninstall`), and `os/45-doctor.ps1`
