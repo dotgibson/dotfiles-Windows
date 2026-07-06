@@ -223,13 +223,13 @@ Project Link: [dotgibson](https://github.com/dotgibson/)
 [license-shield]: https://img.shields.io/github/license/dotgibson/dotfiles-Windows.svg?style=flat-square
 [license-url]: https://github.com/dotgibson/dotfiles-Windows/blob/main/LICENSE
 [docs]: https://dotgibson.github.io/dotfiles-web/docs
-[powershell-shield]: https://img.shields.io/badge/PowerShell-5391FE?style=flat-square&logo=powershell&logoColor=white
+[powershell-shield]: https://img.shields.io/github/v/release/PowerShell/PowerShell?style=flat-square&logo=powershell&logoColor=white&label=PowerShell&labelColor=5391FE&color=3D59A1
 [powershell-url]: https://github.com/PowerShell/PowerShell
-[wt-shield]: https://img.shields.io/badge/Windows_Terminal-4D4D4D?style=flat-square&logo=windowsterminal&logoColor=white
+[wt-shield]: https://img.shields.io/github/v/release/microsoft/terminal?style=flat-square&logo=windowsterminal&logoColor=white&label=Windows_Terminal&labelColor=4D4D4D&color=3D59A1
 [wt-url]: https://github.com/microsoft/terminal
 [scoop-shield]: https://img.shields.io/badge/Scoop-555555?style=flat-square
 [scoop-url]: https://scoop.sh
-[winget-shield]: https://img.shields.io/badge/WinGet-0078D6?style=flat-square&logo=windows&logoColor=white
+[winget-shield]: https://img.shields.io/github/v/release/microsoft/winget-cli?style=flat-square&logo=gnometerminal&logoColor=24283B&label=WinGet&labelColor=BB9AF7&color=3D59A1
 [winget-url]: https://github.com/microsoft/winget-cli
 [psmux-shield]: https://img.shields.io/badge/psmux-1BB91F?style=flat-square
-[psmux-url]: https://github.com/dotgibson/dotfiles-Windows/tree/main/psmux
+[psmux-url]: https://github.com/psmux
