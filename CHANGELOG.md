@@ -8,6 +8,13 @@ so entries are grouped by theme rather than strict semver releases.
 
 ### Documentation
 
+- **README second-pass polish.** The `dotgibson` shield now tracks the
+  `dotfiles-core` release version (the system's version); dropped the showcase
+  and LinkedIn shields for a one-line header (LinkedIn moved to Contact);
+  "Explore the docs »" and the `[docs]` link now point at the documentation hub
+  root (`/docs`); and About gained `Languages` (PowerShell) + `Tools` (Windows
+  Terminal, Scoop, WinGet, psmux) subsections. The machine-checked Layout box and
+  bootstrap SHA marker are unchanged.
 - **README rebuilt as a lean showcase landing page.** Brought the README up to
   the `dotfiles-core` exemplar bar — a reference-style shields header, the org
   logo, a collapsible TOC, then a lean body (lead, three-layer at-a-glance, real
