@@ -225,7 +225,7 @@ Project Link: [dotgibson](https://github.com/dotgibson/)
 [docs]: https://dotgibson.github.io/dotfiles-web/docs
 [powershell-shield]: https://img.shields.io/github/v/release/PowerShell/PowerShell?style=flat-square&logo=powershell&logoColor=white&label=PowerShell&labelColor=5391FE&color=3D59A1
 [powershell-url]: https://github.com/PowerShell/PowerShell
-[wt-shield]: https://img.shields.io/github/v/release/microsoft/terminal?style=flat-square&logo=windowsterminal&logoColor=white&label=Windows_Terminal&labelColor=4D4D4D&color=3D59A1
+[wt-shield]: https://img.shields.io/github/v/release/microsoft/terminal?style=flat-square&logo=windowsterminal&logoColor=white&label=Windows%20Terminal&labelColor=4D4D4D&color=3D59A1
 [wt-url]: https://github.com/microsoft/terminal
 [scoop-shield]: https://img.shields.io/badge/Scoop-555555?style=flat-square
 [scoop-url]: https://scoop.sh
