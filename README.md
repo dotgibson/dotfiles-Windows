@@ -231,5 +231,5 @@ Project Link: [dotgibson](https://github.com/dotgibson/)
 [scoop-url]: https://scoop.sh
 [winget-shield]: https://img.shields.io/github/v/release/microsoft/winget-cli?style=flat-square&logo=gnometerminal&logoColor=24283B&label=WinGet&labelColor=BB9AF7&color=3D59A1
 [winget-url]: https://github.com/microsoft/winget-cli
-[psmux-shield]: https://img.shields.io/badge/psmux-1BB91F?style=flat-square
+[psmux-shield]: https://img.shields.io/github/v/release/psmux/psmux?style=flat-square&logo=gnometerminal&logoColor=24283B&label=psmux&labelColor=BB9AF7&color=3D59A1
 [psmux-url]: https://github.com/psmux
