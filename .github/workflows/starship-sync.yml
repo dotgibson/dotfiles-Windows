@@ -23,6 +23,9 @@ concurrency:
 
 jobs:
   sync:
+    # Fork guard (G9): the scheduled mirror runs only on the canonical repo — a fork has
+    # nothing to sync and shouldn't attempt the branch push.
+    if: github.repository_owner == 'dotgibson'
     # starship-sync.ps1 copies a single file with Copy-Item (portable, unlike nvim's
     # robocopy /MIR), so the cheaper Linux runner is fine — pwsh ships on ubuntu-latest.
     runs-on: ubuntu-latest
