@@ -22,6 +22,9 @@ concurrency:
 
 jobs:
   sync:
+    # Fork guard (G9): the scheduled mirror runs only on the canonical repo — a fork has
+    # nothing to sync and shouldn't attempt the branch push.
+    if: github.repository_owner == 'dotgibson'
     runs-on: windows-latest # nvim-sync.ps1 uses robocopy /MIR — Windows-only
     timeout-minutes: 15
     permissions:

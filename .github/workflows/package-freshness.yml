@@ -21,6 +21,9 @@ concurrency:
 
 jobs:
   check:
+    # Fork guard (G9): the scheduled freshness check runs only on the canonical repo — a
+    # fork has no reason to file package-update issues.
+    if: github.repository_owner == 'dotgibson'
     runs-on: windows-latest
     timeout-minutes: 30
     permissions:
