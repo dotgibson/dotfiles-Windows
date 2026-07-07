@@ -35,4 +35,4 @@ jobs:
     # Fork guard (G9): only the canonical owner tags/releases. A fork pushing to its own
     # main must not attempt to cut a tag or a GitHub Release.
     if: github.repository_owner == 'dotgibson'
-    uses: dotgibson/dotfiles-core/.github/workflows/auto-tag-call.yml@v2
+    uses: dotgibson/dotfiles-core/.github/workflows/auto-tag-call.yml@v3
