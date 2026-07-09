@@ -6,6 +6,20 @@ so entries are grouped by theme rather than strict semver releases.
 
 ## [Unreleased]
 
+### Added
+
+- **`/release-readiness` + `/release-notes` routines** (`.claude/commands/` +
+  `.github/workflows/claude-routines.yml`). The Windows twin of Core's release
+  routines: `release-readiness` reads the Conventional Commits + CHANGELOG since the
+  last **deliberate** release and files a **go/no-go verdict with the recommended next
+  version** — purpose-built for Windows' quirk that `auto-tag` patch-bumps on
+  nvim/starship mirror-syncs, so meaningful `feat`/`perf` work drifts under patch tags
+  (the tag line has run ahead of the CHANGELOG headings); `release-notes` drafts the
+  CHANGELOG entry from those commits. Both report-first (file a deduped issue, change
+  nothing). `release-notes` is dispatch-only; `release-readiness` also runs a monthly
+  nudge. **Inert by default** — dormant until a `CLAUDE_CODE_OAUTH_TOKEN` repo secret
+  is added. Run via **Actions → claude-routines → Run workflow → routine**.
+
 ### Documentation
 
 - **README second-pass polish.** The `dotgibson` shield now tracks the

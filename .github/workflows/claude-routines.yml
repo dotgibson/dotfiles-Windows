@@ -1,0 +1,138 @@
+name: claude-routines
+
+# On-demand + light-cron "judgment-work" bots for the Windows host repo
+# (.claude/commands), run HEADLESS and filed as deduplicated GitHub issues — so the
+# release chores that need judgment happen without waiting for a human. The mirror of
+# dotfiles-core / dotfiles-Defense / htpx's claude-routines.yml. Two routines:
+#   • release-readiness — is a DELIBERATE release due, and at what version? (Windows'
+#                         auto-tag only PATCH-bumps on nvim/starship mirror-syncs, so
+#                         meaningful feat/perf work silently accumulates under patch
+#                         tags — this catches when it deserves a proper minor/major.)
+#   • release-notes     — draft the CHANGELOG entry from Conventional Commits.
+#
+# First-party only: the Claude Code CLI is installed from npm at a PINNED version — NO
+# third-party marketplace action to trust. Auth is the CLAUDE_CODE_OAUTH_TOKEN repo
+# secret (a Claude subscription token minted with `claude setup-token`). Windows vendors
+# no core/, so the CLI version is pinned here directly.
+#
+# INERT BY DEFAULT: with no CLAUDE_CODE_OAUTH_TOKEN secret the jobs no-op with a warning
+# (so a fork — or this repo before you opt in — never gets a red X). Add the secret to enable.
+#
+# Runs on ubuntu-latest (the routines only read git history + files — no Windows-host
+# dependency), so they cost nothing on the Pester/windows-latest lane.
+
+on:
+  schedule:
+    # Monthly nudge (1st, 08:00 UTC) — release-readiness only. Deliberately off the rest
+    # of the fleet's crons (core Tue, Defense Wed, htpx Thu, Kali Fri). Low cadence: this
+    # host repo releases rarely, but its auto-patch tags drift ahead of the CHANGELOG, so
+    # a monthly "is a real release due?" check keeps that from going unnoticed.
+    - cron: "0 8 1 * *"
+  workflow_dispatch:
+    inputs:
+      routine:
+        description: "which routine to run"
+        type: choice
+        default: release-readiness
+        options: [release-readiness, release-notes]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: claude-routines-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Keep in step with dotfiles-core's scripts/tool-versions.env CLAUDE_CODE_VERSION.
+  CLAUDE_CODE_VERSION: "2.1.185"
+
+jobs:
+  # Gate: is the auth token configured? Secrets can't be read in a job-level `if`, so a
+  # tiny job exposes presence as an output the real jobs depend on. Absent → warn and skip.
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      has_key: ${{ steps.k.outputs.has_key }}
+    steps:
+      - id: k
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          if [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
+            echo "has_key=true" >>"$GITHUB_OUTPUT"
+          else
+            echo "has_key=false" >>"$GITHUB_OUTPUT"
+            echo "::warning::CLAUDE_CODE_OAUTH_TOKEN secret not set — the Claude routines are scaffolded but inactive. Add the secret to enable them."
+          fi
+
+  # Monthly (or on-demand): is a deliberate minor/major release due, and at what version?
+  # fetch-depth: 0 — it runs `git log <last-tag>..HEAD` / `git describe`, which a shallow
+  # clone can't.
+  release-readiness:
+    needs: preflight
+    if: >-
+      needs.preflight.outputs.has_key == 'true' &&
+      (github.event.schedule == '0 8 1 * *' ||
+       github.event.inputs.routine == 'release-readiness')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write
+    env:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      ISSUE_TITLE: "release-readiness: go/no-go for the next dotfiles-Windows release"
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+      - name: Install Claude Code CLI (pinned)
+        # Fail fast if the pin is empty — never silently fall back to a floating `latest`.
+        run: npm install -g "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION:?not set}"
+      - name: Run /release-readiness
+        run: |
+          claude -p "/release-readiness" \
+            --model opus \
+            --permission-mode acceptEdits \
+            --allowedTools "Read,Grep,Glob,Bash(git log:*),Bash(git describe:*)" \
+            --output-format text | tee "$RUNNER_TEMP/release-readiness.md"
+      - name: File the report as an issue
+        # GH_TOKEN scoped to just this step (least privilege).
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash .github/workflows/file-routine-issue.sh "$ISSUE_TITLE" "$RUNNER_TEMP/release-readiness.md"
+
+  # On-demand (dispatch-only): draft the next release's CHANGELOG entry from Conventional
+  # Commits. fetch-depth: 0 for the same git-log range reason.
+  release-notes:
+    needs: preflight
+    if: >-
+      needs.preflight.outputs.has_key == 'true' &&
+      github.event.inputs.routine == 'release-notes'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write
+    env:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      ISSUE_TITLE: "release-notes: draft for the next dotfiles-Windows release"
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+      - name: Install Claude Code CLI (pinned)
+        run: npm install -g "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION:?not set}"
+      - name: Run /release-notes
+        run: |
+          claude -p "/release-notes" \
+            --model opus \
+            --permission-mode acceptEdits \
+            --allowedTools "Read,Grep,Glob,Bash(git log:*),Bash(git describe:*)" \
+            --output-format text | tee "$RUNNER_TEMP/release-notes.md"
+      - name: File the report as an issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash .github/workflows/file-routine-issue.sh "$ISSUE_TITLE" "$RUNNER_TEMP/release-notes.md"
