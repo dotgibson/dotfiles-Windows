@@ -3,7 +3,11 @@
 # Machine-local layers — never commit
 powershell/local.ps1
 .gitconfig.local
-.claude/
+# Local Claude Code state (settings.local.json, session history) stays out of the repo,
+# but the committed routine command definitions under .claude/commands/ ARE tracked —
+# the claude-routines.yml workflow runs them headless.
+.claude/*
+!.claude/commands/
 
 # Secrets
 *.pem
