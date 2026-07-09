@@ -95,7 +95,7 @@ jobs:
         run: |
           claude -p "/release-readiness" \
             --model opus \
-            --permission-mode acceptEdits \
+            --permission-mode default \
             --allowedTools "Read,Grep,Glob,Bash(git log:*),Bash(git describe:*)" \
             --output-format text | tee "$RUNNER_TEMP/release-readiness.md"
       - name: File the report as an issue
@@ -129,7 +129,7 @@ jobs:
         run: |
           claude -p "/release-notes" \
             --model opus \
-            --permission-mode acceptEdits \
+            --permission-mode default \
             --allowedTools "Read,Grep,Glob,Bash(git log:*),Bash(git describe:*)" \
             --output-format text | tee "$RUNNER_TEMP/release-notes.md"
       - name: File the report as an issue
