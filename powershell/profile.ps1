@@ -36,8 +36,14 @@ try {
 # first. Populate it once with `modules-localize` (os/30-windows.ps1); the
 # installer and maintenance runner keep managed modules here going forward.
 $LocalModules = Join-Path $env:LOCALAPPDATA 'PowerShell\Modules'
-if ($env:PSModulePath -notlike "*$LocalModules*") {
-    $env:PSModulePath = $LocalModules + [System.IO.Path]::PathSeparator + $env:PSModulePath
+$pathSep = [System.IO.Path]::PathSeparator
+# Compare LITERALLY, and null-safely. `-notlike "*$LocalModules*"` treats the path as a
+# WILDCARD pattern, so a %LOCALAPPDATA% containing `[` or `]` (a username like user[1], or a
+# redirected profile) would make the guard mis-fire. Use the `-split` OPERATOR (not the
+# .Split() METHOD, which THROWS when PSModulePath is unset) so a minimal env with no
+# PSModulePath still loads the profile. Path compare is case-insensitive.
+if (($env:PSModulePath -split [regex]::Escape($pathSep)) -notcontains $LocalModules) {
+    $env:PSModulePath = $LocalModules + $pathSep + $env:PSModulePath
 }
 
 # --- Optional load tracer -----------------------------------------------------
