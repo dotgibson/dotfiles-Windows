@@ -266,9 +266,12 @@ function global:dotfiles-doctor {
         # Header mirrors Core's `core doctor` on Unix (dotfiles-core zsh/functions.zsh):
         # "<repo> <ver> — core-doctor (<glyph legend>)", cyan repo+version + dim legend,
         # so `core doctor` reads the same on both shells. Legend maps the row glyphs.
+        # Reuse the doctor's already-resolved $root ($global:DOTFILES or
+        # $env:DOTFILES_WIN, line ~105) + the same .git guard as the Repo version
+        # probe, so the header version can't disagree with the report.
         $ver = 'dev'
-        if ($env:DOTFILES_WIN -and (Test-Cmd git)) {
-            $s = (& git -C $env:DOTFILES_WIN rev-parse --short HEAD 2>$null)
+        if ($root -and (Test-Path (Join-Path $root '.git')) -and (Test-Cmd git)) {
+            $s = (& git -C $root rev-parse --short HEAD 2>$null)
             if ($s) { $ver = $s }
         }
         $sep    = if (Test-DotUnicode) { '·' } else { '|' }

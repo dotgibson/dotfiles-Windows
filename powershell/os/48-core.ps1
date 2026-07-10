@@ -30,7 +30,7 @@ function global:core-version {
     # Windows has no core.version file (it replicates Core rather than vendoring
     # it), so the "version" of this layer is the repo revision — same detail the
     # doctor's "Repo version" row shows, via the shared pure helper.
-    $root   = $env:DOTFILES_WIN
+    $root   = if ($global:DOTFILES) { $global:DOTFILES } else { $env:DOTFILES_WIN }
     $detail = 'unknown (no git metadata)'
     if ($root -and (Test-Path (Join-Path $root '.git')) -and (Test-Cmd git)) {
         $sha   = (& git -C $root rev-parse --short HEAD 2>$null)
