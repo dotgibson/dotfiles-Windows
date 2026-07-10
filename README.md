@@ -144,7 +144,7 @@ dotfiles-Windows/
 │   │     00-aliases  05-lib  08-git-safety  10-tools  15-update  20-functions  25-television
 │   │     40-op  45-crypto  50-completions  55-help  57-health-nudge
 │   ├── os/                      windows helpers + wsl bridge + psmux + maint + doctor
-│   │     30-windows  31-wsl-bridge  32-psmux  33-psmux-pill  40-maint  45-doctor
+│   │     30-windows  31-wsl-bridge  32-psmux  33-psmux-pill  40-maint  45-doctor  48-core
 │   └── local.ps1.example        copy to local.ps1 (gitignored)
 ├── maint/Maintenance.ps1        unattended daily maint runner (Task Scheduler)
 ├── windows-terminal/settings.json

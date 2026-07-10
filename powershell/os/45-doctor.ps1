@@ -17,7 +17,7 @@
 
 # --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
 # provides: dotfiles-doctor
-# requires: Format-DotWrap, Get-DoctorFixPlan, Get-DoctorGroup, Get-DoctorSummary, Get-DotConsoleWidth, Get-DotfilesLinkPlan, Get-DotGlyph, Get-DotRepoVersionDetail, Get-FragmentHealthResult, Get-NvimVendorDetail, modules-localize, New-DoctorResult, Test-Cmd, Test-CmdRuns, Test-DotUnicode, Write-DotBanner, Write-DotErr, Write-DotHost, Write-DotWarn
+# requires: Format-DotWrap, Get-DoctorFixPlan, Get-DoctorGroup, Get-DoctorSummary, Get-DotConsoleWidth, Get-DotfilesLinkPlan, Get-DotGlyph, Get-DotRepoVersionDetail, Get-FragmentHealthResult, Get-NvimVendorDetail, modules-localize, New-DoctorResult, Test-Cmd, Test-CmdRuns, Test-DotUnicode, Write-DotErr, Write-DotHost, Write-DotWarn
 
 # --- render one result line ---------------------------------------------------
 # Glyphs/colour route through the shared helpers (core/05-lib.ps1) so the report
@@ -263,15 +263,30 @@ function global:dotfiles-doctor {
     }
 
     if (-not $Quiet) {
+        # Header mirrors Core's `core doctor` on Unix (dotfiles-core zsh/functions.zsh):
+        # "<repo> <ver> — core-doctor (<glyph legend>)", cyan repo+version + dim legend,
+        # so `core doctor` reads the same on both shells. Legend maps the row glyphs.
+        # Reuse the doctor's already-resolved $root ($global:DOTFILES or
+        # $env:DOTFILES_WIN, line ~105) + the same .git guard as the Repo version
+        # probe, so the header version can't disagree with the report.
+        $ver = 'dev'
+        if ($root -and (Test-Path (Join-Path $root '.git')) -and (Test-Cmd git)) {
+            $s = (& git -C $root rev-parse --short HEAD 2>$null)
+            if ($s) { $ver = $s }
+        }
+        $sep    = if (Test-DotUnicode) { '·' } else { '|' }
+        $dash   = if (Test-DotUnicode) { '—' } else { '-' }
+        $legend = ('{0} ok {3} {1} warn {3} {2} fail' -f (Get-DotGlyph ok), (Get-DotGlyph warn), (Get-DotGlyph fail), $sep)
         Write-Host ''
-        Write-DotBanner 'dotfiles-doctor'
+        Write-DotHost ('dotfiles-Windows {0} ' -f $ver) -Color Cyan -NoNewline
+        Write-DotHost ('{0} core-doctor ({1})' -f $dash, $legend) -Color DarkGray
         Write-Host ''
         # Grouped, in a fixed section order, so the report scans top-to-bottom
         # instead of as one undifferentiated list (U4). Get-DoctorGroup is pure.
         foreach ($group in 'Shell & environment', 'Repo & links', 'Health & toolchain', 'Other') {
             $rows = @($results | Where-Object { (Get-DoctorGroup $_.Name) -eq $group })
             if (-not $rows.Count) { continue }
-            Write-DotHost "  $group" -Color Yellow
+            Write-DotHost "  $group" -Color Cyan
             foreach ($res in $rows) { Write-DoctorLine $res }
             Write-Host ''
         }
