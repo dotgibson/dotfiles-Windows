@@ -5,6 +5,22 @@ sourced from the profile modules. Many tool-backed functions are guarded by
 `Test-Cmd` — missing tools fall back gracefully. This covers the most-used
 interactive shortcuts; not all profile functions are listed here.
 
+## Core front door (`48-core.ps1`)
+
+The umbrella `core` verb, mirroring `dotfiles-core` on macOS/Linux so the same
+command works across the fleet. Thin dispatchers over the host's native verbs
+(`dothelp` / `dotfiles-doctor` / `up`), which stay canonical; the old names
+still work. Kept aligned by dotfiles-core's `PARITY.md` + `parity-check.sh`.
+
+| Function | Purpose |
+|----------|----------|
+| `core` | Bare `core` prints the command index (`dothelp`); an unknown verb suggests the nearest |
+| `core doctor [...]` | Health-check the setup — same as `dotfiles-doctor` (args pass through) |
+| `core help [filter]` | The in-shell command index — same as `dothelp` |
+| `core version` | Print `dotfiles-Windows <rev>` (this layer's revision) |
+| `core update [-y]` | Apply scoop + winget updates — same as `up` |
+| `core-doctor` / `core-help` / `core-version` | Standalone twins of the verbs above (match Core's `core-*` names) |
+
 ## Help (`55-help.ps1`)
 
 | Function | Purpose |

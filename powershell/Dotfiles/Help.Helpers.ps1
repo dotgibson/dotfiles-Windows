@@ -81,6 +81,7 @@ function Get-DotfilesHelpData {
         @{ Command = 'psmux-pill-enable / -disable'; Desc = 'operator/VPN status pill' }
     )
     $g['Shell'] = @(
+        @{ Command = 'core <verb>';  Desc = 'fleet front door: core doctor / help / version / update (matches Core on Unix)' }
         @{ Command = 'reload';       Desc = 'reload the PowerShell profile' }
         @{ Command = 'which <name>'; Desc = 'resolve a command (source / kind)' }
         @{ Command = 'tools';        Desc = 'open the host tool docs (docs/TOOLS.md)' }
