@@ -47,6 +47,11 @@ so entries are grouped by theme rather than strict semver releases.
 
 ### Fixed
 
+- **`fix(profile)`: the local-modules `PSModulePath` dedup guard compares literally.**
+  `profile.ps1` used `-notlike "*$LocalModules*"`, which treats the path as a **wildcard**
+  pattern — a `%LOCALAPPDATA%` containing `[` or `]` (e.g. a `user[1]` name or a redirected
+  profile) could mis-fire the guard and re-prepend `PSModulePath` on every shell start. It now
+  splits on the path separator and uses `-notcontains` (a literal, case-insensitive compare).
 - **Runaway `git.exe` processes that blocked updating git.** git gets spawned all
   the time without you asking — starship's `git_*` prompt modules on every render,
   the background `scoop update` bucket pulls in `core/15-update.ps1`, the daily
