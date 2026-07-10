@@ -8,6 +8,10 @@ so entries are grouped by theme rather than strict semver releases.
 
 ### Added
 
+- **`duf` added to the scoop manifest.** The one modern-CLI tool `core-doctor`
+  probes for that was missing from the Windows package set (macOS's Brewfile and
+  the Linux lists lacked it too) — now installed from scoop `main` and pinned in
+  `packages.lock.json`, closing the last doctor-tool gap on Windows.
 - **`/release-readiness` + `/release-notes` routines** (`.claude/commands/` +
   `.github/workflows/claude-routines.yml`). The Windows twin of Core's release
   routines: `release-readiness` reads the Conventional Commits + CHANGELOG since the
