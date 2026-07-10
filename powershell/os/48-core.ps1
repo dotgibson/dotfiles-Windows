@@ -47,7 +47,7 @@ function global:core-version {
 function global:core {
     $verbs = @('help', 'doctor', 'version', 'update')
     $sub   = if ($args.Count) { [string]$args[0] } else { '' }
-    $rest  = if ($args.Count -gt 1) { @($args[1..($args.Count - 1)]) } else { @() }
+    $rest  = @($args | Select-Object -Skip 1)
     switch -Regex ($sub) {
         '^(|-h|--help|help)$'      { core-help @rest; return }
         '^doctor$'                 { core-doctor @rest; return }

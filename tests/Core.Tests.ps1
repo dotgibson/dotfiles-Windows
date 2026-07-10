@@ -16,8 +16,13 @@
 BeforeAll {
     $RepoRoot = Split-Path -Parent $PSScriptRoot
     # Module provides the pure helpers the fragment calls (Get-DotLevenshtein,
-    # Get-DotRepoVersionDetail, Test-Cmd, Write-DotErr, Write-DotHost).
+    # Get-DotRepoVersionDetail, Write-DotErr, Write-DotHost).
     $script:Module = Import-Module (Join-Path $RepoRoot 'powershell/Dotfiles/Dotfiles.psd1') -Force -DisableNameChecking -PassThru
+
+    # Test-Cmd is a load-time FRAGMENT function (core/05-lib.ps1), not a module
+    # export, so it's absent in this unit context — stub it with equivalent
+    # behaviour so core-version's git-metadata guard resolves.
+    function global:Test-Cmd { param([string]$Name) [bool](Get-Command $Name -ErrorAction Ignore) }
 
     # Point the layer root at this checkout so core-version exercises its real
     # git-revision branch (the repo IS a git checkout in CI).
@@ -39,6 +44,7 @@ AfterAll {
     Remove-Variable -Name DotCoreCalls -Scope Global -ErrorAction SilentlyContinue
     Remove-Item function:core, function:core-doctor, function:core-help, function:core-version -ErrorAction SilentlyContinue
     Remove-Item function:dotfiles-doctor, function:dothelp, function:up -ErrorAction SilentlyContinue
+    Remove-Item function:Test-Cmd -ErrorAction SilentlyContinue
     if ($script:Module) { Remove-Module $script:Module -Force -ErrorAction SilentlyContinue }
 }
 
