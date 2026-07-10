@@ -52,6 +52,7 @@
     { "Name": "win32yank", "Source": "main" },
     { "Name": "mise", "Source": "main" },
     { "Name": "dust", "Source": "main" },
+    { "Name": "duf", "Source": "main" },
     { "Name": "procs", "Source": "main" },
     { "Name": "ouch", "Source": "main" },
     { "Name": "viddy", "Source": "extras" },
