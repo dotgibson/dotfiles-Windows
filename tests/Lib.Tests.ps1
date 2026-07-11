@@ -5,6 +5,11 @@
 
 BeforeAll {
     $RepoRoot = Split-Path -Parent $PSScriptRoot
+    # Load AND exercise the pure helpers under the same StrictMode the Dotfiles
+    # module runs them under (it sets StrictMode before dot-sourcing too), so a
+    # latent unbound-var / missing-property / bad-index bug fails the suite here
+    # instead of silently returning $null in a real session.
+    Set-StrictMode -Version Latest
     . (Join-Path $RepoRoot 'powershell/core/05-lib.ps1')
 }
 

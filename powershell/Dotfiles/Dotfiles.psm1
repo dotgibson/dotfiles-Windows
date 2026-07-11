@@ -18,6 +18,13 @@
 #  declared in Dotfiles.psd1 (FunctionsToExport), the single source of truth.
 # ============================================================================
 
+# Run the module surface under StrictMode so an unbound variable, a missing
+# property, or a bad array index surfaces as an error instead of a silent $null.
+# Scoped to the MODULE: even under `Import-Module -Global` (how profile.ps1 loads
+# it) this does NOT touch the interactive session, which stays lenient. The pure
+# helpers dot-sourced below inherit it because they execute in this module's scope.
+Set-StrictMode -Version Latest
+
 . (Join-Path $PSScriptRoot '../core/05-lib.ps1')
 . (Join-Path $PSScriptRoot 'Wsl.Helpers.ps1')
 . (Join-Path $PSScriptRoot 'Doctor.Helpers.ps1')
