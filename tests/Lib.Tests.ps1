@@ -6,6 +6,10 @@
 BeforeAll {
     $RepoRoot = Split-Path -Parent $PSScriptRoot
     . (Join-Path $RepoRoot 'powershell/core/05-lib.ps1')
+    # Exercise the pure helpers under the same StrictMode the Dotfiles module runs
+    # them under, so a latent unbound-var / missing-property / bad-index bug fails
+    # the suite here instead of silently returning $null in a real session.
+    Set-StrictMode -Version Latest
 }
 
 Describe 'Test-SensitiveHistoryLine' {

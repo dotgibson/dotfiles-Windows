@@ -51,6 +51,15 @@ so entries are grouped by theme rather than strict semver releases.
 
 ### Fixed
 
+- **`fix(module)`: the `Dotfiles` module surface runs under `Set-StrictMode -Version Latest`.**
+  The non-interactive helper surface (`Dotfiles.psm1` → `core/05-lib.ps1` + the
+  `*.Helpers.ps1`) had no strict-mode guard, so a typo'd variable, a missing property, or a
+  bad array index silently returned `$null` instead of erroring. StrictMode is now set inside
+  the module — **scoped to the module**, so even under `Import-Module -Global` the interactive
+  session stays lenient (a blanket StrictMode on the dot-sourced interactive layer would change
+  everyday shell behaviour, which is why it stays off there). The `Serve`/`Doctor`/`Help`/`WslBridge`
+  suites already exercise the surface via `Import-Module`, and `Lib.Tests.ps1` now sets StrictMode
+  too, so CI validates the helpers under strict mode.
 - **`fix(profile)`: the local-modules `PSModulePath` dedup guard compares literally.**
   `profile.ps1` used `-notlike "*$LocalModules*"`, which treats the path as a **wildcard**
   pattern — a `%LOCALAPPDATA%` containing `[` or `]` (e.g. a `user[1]` name or a redirected
