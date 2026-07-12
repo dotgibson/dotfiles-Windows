@@ -15,7 +15,7 @@ It ships three things: a **tiling window manager** (GlazeWM), a **top bar**
 | Path | What | Symlinked to |
 | --- | --- | --- |
 | `glazewm/config.yaml` | GlazeWM tiling-WM config (Tokyo Night, vim-key focus) | `~/.glzr/glazewm/config.yaml` |
-| `zebar/vanilla-clear/` | Zebar top-bar widget (clock, GlazeWM workspaces, net/cpu/mem/battery) | `~/.glzr/zebar/vanilla-clear` |
+| `zebar/vanilla-clear/` | Zebar top-bar widget (clock, GlazeWM workspaces, net/cpu/mem/battery/weather) | `~/.glzr/zebar/vanilla-clear` |
 
 The symlinks are wired by `install.ps1` from the shared link plan
 (`Get-DotfilesLinkPlan`), so `dotfiles-doctor` verifies them and `uninstall.ps1`
@@ -66,6 +66,7 @@ drops the `Alt+<arrow>` window binds and drives the WM with **vim keys** instead
 | `Alt+A` / `Alt+S` / `Alt+D` | prev / next / most-recent workspace |
 | `Alt+Enter` | launch Windows Terminal (`wt`) |
 | `Alt+T` / `Alt+Shift+Space` / `Alt+F` | toggle tiling / floating / fullscreen |
+| `Alt+M` | minimize the focused window |
 | `Alt+V` | toggle split direction |
 | `Alt+R` | enter resize mode (then H/J/K/L or arrows; `Esc` exits) |
 | `Alt+Shift+P` | pause mode (suspend binds; `Alt+Shift+P` again to resume) |
@@ -76,5 +77,8 @@ drops the `Alt+<arrow>` window binds and drives the WM with **vim keys** instead
 
 `glazewm/config.yaml` is the source of truth — edit it here, and (once symlinked)
 `Alt+Shift+R` reloads it live. The Zebar widget is buildless React
-(`vanilla-clear.html`) with a bundled `normalize.css`, so it's self-contained
-under the symlinked directory; edit and Zebar hot-reloads.
+(`vanilla-clear.html`); every file it needs lives under the symlinked directory
+(a bundled `normalize.css`, no zebar-root dependency), so it drops in cleanly and
+Zebar hot-reloads on edit. Like any buildless Zebar widget it still pulls React,
+the Zebar client, and the Nerd Font icon CSS from CDNs at runtime, so first paint
+needs a network round-trip — it is self-contained on disk, not offline-only.
