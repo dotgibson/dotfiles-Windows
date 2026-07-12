@@ -27,11 +27,16 @@
     <script type="text/babel" data-type="module">
       import React, { useState, useEffect } from "https://esm.sh/react@18";
       import { createRoot } from "https://esm.sh/react-dom@18/client";
-      import * as zebar from "https://esm.sh/zebar@2";
+      // Client pinned to the same major as the Zebar app (3.x, packages.lock.json)
+      // so the media provider + shellExec used below are present and the provider
+      // output shapes match.
+      import * as zebar from "https://esm.sh/zebar@3";
 
       const providers = zebar.createProviderGroup({
         // GlazeWM: workspaces + binding modes, so the bar pairs with the WM.
         glazewm: { type: "glazewm" },
+        // Now-playing session for the media widget (title/artist + transport).
+        media: { type: "media" },
         network: { type: "network" },
         cpu: { type: "cpu" },
         date: { type: "date", formatting: "EEE d MMM t" },
@@ -41,6 +46,172 @@
       });
 
       createRoot(document.getElementById("root")).render(<App />);
+
+      // --- Pomodoro (ported from the YASB config) -----------------------------
+      // Self-contained 25/5 work-break timer. Click the time to start/pause;
+      // right-click to reset. No Zebar provider — pure client-side state.
+      const POMODORO_WORK = 25 * 60;
+      const POMODORO_BREAK = 5 * 60;
+
+      function Pomodoro() {
+        const [mode, setMode] = useState("work"); // 'work' | 'break'
+        const [remaining, setRemaining] = useState(POMODORO_WORK);
+        const [running, setRunning] = useState(false);
+
+        // Tick down once per second while running.
+        useEffect(() => {
+          if (!running) return undefined;
+          const id = setInterval(
+            () => setRemaining((r) => (r > 0 ? r - 1 : 0)),
+            1000,
+          );
+          return () => clearInterval(id);
+        }, [running]);
+
+        // When a session hits zero, flip work<->break and load its duration.
+        useEffect(() => {
+          if (remaining !== 0 || !running) return;
+          const next = mode === "work" ? "break" : "work";
+          setMode(next);
+          setRemaining(next === "work" ? POMODORO_WORK : POMODORO_BREAK);
+        }, [remaining, running, mode]);
+
+        function reset() {
+          setRunning(false);
+          setMode("work");
+          setRemaining(POMODORO_WORK);
+        }
+
+        const mm = String(Math.floor(remaining / 60)).padStart(2, "0");
+        const ss = String(remaining % 60).padStart(2, "0");
+        const state = running ? mode : "paused";
+
+        return (
+          <div
+            className="pomodoro"
+            title="click: start/pause · right-click: reset"
+          >
+            <i className={`nf nf-md-timer_outline ${state}`}></i>
+            <span
+              className={`label ${state}`}
+              onClick={() => setRunning((v) => !v)}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                reset();
+              }}
+            >
+              {mm}:{ss}
+            </span>
+          </div>
+        );
+      }
+
+      // --- Media (ported from the YASB config) --------------------------------
+      // Now-playing title/artist + prev/play-pause/next, driven by the Zebar
+      // media provider. Controls live on the provider output, not the session.
+      function Media({ media }) {
+        const session = media?.currentSession;
+        if (!session || (!session.title && !session.artist)) return null;
+        const label = [session.title, session.artist].filter(Boolean).join(" — ");
+        return (
+          <div className="media">
+            <button
+              className="media-btn"
+              disabled={!session.isPreviousEnabled}
+              onClick={() => media.previous()}
+              title="previous"
+            >
+              <i className="nf nf-md-skip_previous"></i>
+            </button>
+            <button
+              className="media-btn"
+              onClick={() => media.togglePlayPause()}
+              title="play / pause"
+            >
+              <i
+                className={`nf ${session.isPlaying ? "nf-md-pause" : "nf-md-play"}`}
+              ></i>
+            </button>
+            <button
+              className="media-btn"
+              disabled={!session.isNextEnabled}
+              onClick={() => media.next()}
+              title="next"
+            >
+              <i className="nf nf-md-skip_next"></i>
+            </button>
+            <span className="media-label" title={label}>
+              {label}
+            </span>
+          </div>
+        );
+      }
+
+      // --- Power menu (ported from the YASB config) ---------------------------
+      // A power icon that expands to lock/sleep/restart/shutdown. Each action runs
+      // a shell command via Zebar's shellExec — the `shutdown`/`rundll32` programs
+      // are whitelisted in zpack.json's `privileges.shellCommands`.
+      const POWER_ACTIONS = [
+        {
+          key: "lock",
+          icon: "nf-md-lock",
+          title: "Lock",
+          run: () => zebar.shellExec("rundll32", ["user32.dll,LockWorkStation"]),
+        },
+        {
+          key: "sleep",
+          icon: "nf-md-power_sleep",
+          title: "Sleep",
+          run: () =>
+            zebar.shellExec("rundll32", [
+              "powrprof.dll,SetSuspendState",
+              "0,1,0",
+            ]),
+        },
+        {
+          key: "restart",
+          icon: "nf-md-restart",
+          title: "Restart",
+          run: () => zebar.shellExec("shutdown", ["/r", "/t", "0"]),
+        },
+        {
+          key: "shutdown",
+          icon: "nf-md-power",
+          title: "Shut down",
+          run: () => zebar.shellExec("shutdown", ["/s", "/t", "0"]),
+        },
+      ];
+
+      function PowerMenu() {
+        const [open, setOpen] = useState(false);
+        return (
+          <div className={`power ${open ? "open" : ""}`}>
+            {open &&
+              POWER_ACTIONS.map((a) => (
+                <button
+                  key={a.key}
+                  className={`power-action ${a.key}`}
+                  title={a.title}
+                  onClick={() => {
+                    // Fire-and-forget; swallow rejections so a failed command
+                    // can't surface an unhandled promise rejection in the widget.
+                    Promise.resolve(a.run()).catch(() => {});
+                    setOpen(false);
+                  }}
+                >
+                  <i className={`nf ${a.icon}`}></i>
+                </button>
+              ))}
+            <button
+              className="power-toggle"
+              title="power"
+              onClick={() => setOpen((v) => !v)}
+            >
+              <i className="nf nf-md-power"></i>
+            </button>
+          </div>
+        );
+      }
 
       function App() {
         const [output, setOutput] = useState({ ...providers.outputMap });
@@ -157,11 +328,15 @@
                   {bindingMode.displayName ?? bindingMode.name}
                 </button>
               ))}
+
+              <Pomodoro />
             </div>
 
             <div className="center">{output.date?.formatted}</div>
 
             <div className="right">
+              <Media media={output.media} />
+
               {output.network && (
                 <div className="network">
                   {getNetworkIcon(output.network)}
@@ -204,6 +379,8 @@
                   {Math.round(output.weather.celsiusTemp)}°C
                 </div>
               )}
+
+              <PowerMenu />
             </div>
           </div>
         );

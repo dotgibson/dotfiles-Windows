@@ -116,7 +116,9 @@ via `DOTFILES_PKG_GROUPS`. Config lives in `desktop/` and is symlinked into
   Retuned to Tokyo Night Storm and deliberately **not** bound to `Alt+<arrow>` so
   it doesn't shadow Windows Terminal's pane-focus keys.
 - **Zebar** (`glzr-io.Zebar`) — the top bar. Buildless-React `vanilla-clear` widget
-  showing clock, live GlazeWM workspaces (click to focus), and net/cpu/mem/battery/weather.
+  showing clock, live GlazeWM workspaces (click to focus), net/cpu/mem/battery/weather,
+  plus a pomodoro timer, now-playing media controls, and a lock/sleep/restart/shutdown
+  power menu (ported from `Gerrrt/yasb-glazewm-config`).
 - **PowerToys** (`Microsoft.PowerToys`) — PowerToys Run launcher (`Alt+Space`),
   FancyZones, and the rest of the utility suite.
 - **TranslucentTB** (`CharlesMilette.TranslucentTB`) — translucent taskbar, to match

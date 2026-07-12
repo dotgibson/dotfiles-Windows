@@ -20,7 +20,10 @@
         "rules": []
       },
       "privileges": {
-        "shellCommands": []
+        "shellCommands": [
+          { "program": "shutdown", "argsRegex": ".*" },
+          { "program": "rundll32", "argsRegex": ".*" }
+        ]
       },
       "presets": [
         {

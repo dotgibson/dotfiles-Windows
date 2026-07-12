@@ -10,6 +10,8 @@
   --tn-blue: #7aa2f7;
   --tn-comment: #565f89;
   --tn-red: #f7768e;
+  --tn-green: #9ece6a;
+  --tn-purple: #bb9af7;
 }
 
 body {
@@ -120,4 +122,103 @@ body,
 i {
   color: var(--tn-blue);
   margin-right: 7px;
+}
+
+/* --- Pomodoro (YASB port) --------------------------------------------------- */
+.pomodoro {
+  display: flex;
+  align-items: center;
+  margin-left: 16px;
+}
+
+.pomodoro .label {
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+
+.pomodoro .work,
+.pomodoro i.work {
+  color: var(--tn-green);
+}
+
+.pomodoro .break,
+.pomodoro i.break {
+  color: var(--tn-blue);
+}
+
+.pomodoro .paused,
+.pomodoro i.paused {
+  color: var(--tn-comment);
+}
+
+/* --- Media (YASB port) ------------------------------------------------------ */
+.media {
+  display: flex;
+  align-items: center;
+  margin-right: 20px;
+}
+
+.media-btn {
+  background: transparent;
+  border: none;
+  padding: 0 2px;
+  color: var(--tn-fg-dim);
+  cursor: pointer;
+}
+
+.media-btn:hover {
+  color: var(--tn-blue);
+}
+
+.media-btn:disabled {
+  color: var(--tn-comment);
+  cursor: default;
+}
+
+.media-btn i {
+  margin-right: 0;
+}
+
+.media-label {
+  margin-left: 6px;
+  max-width: 22ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--tn-purple);
+}
+
+/* --- Power menu (YASB port) ------------------------------------------------- */
+.power {
+  display: flex;
+  align-items: center;
+  margin-left: 20px;
+}
+
+.power-toggle,
+.power-action {
+  background: transparent;
+  border: none;
+  padding: 0 4px;
+  color: var(--tn-fg-dim);
+  cursor: pointer;
+}
+
+.power-toggle:hover,
+.power-action:hover {
+  color: var(--tn-blue);
+}
+
+.power-action.shutdown:hover,
+.power-action.restart:hover {
+  color: var(--tn-red);
+}
+
+.power-toggle i,
+.power-action i {
+  margin-right: 0;
+}
+
+.power.open .power-toggle {
+  color: var(--tn-red);
 }
