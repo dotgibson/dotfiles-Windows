@@ -48,6 +48,18 @@ Describe 'Get-BootstrapInstallArgs' {
     It 'splits on whitespace into an argv array' {
         Get-BootstrapInstallArgs -Raw '-SkipPackages  -DryRun' | Should -Be @('-SkipPackages', '-DryRun')
     }
+    It 'empty result is $null unwrapped but @() when wrapped (regression: guards the install.ps1 splat)' {
+        # PowerShell unrolls a returned empty array to $null ON ASSIGNMENT, so a bare
+        # `$installArgs = Get-BootstrapInstallArgs` would splat $null into the
+        # switch-only install.ps1 and fail with "A positional parameter cannot be found
+        # that accepts argument '$null'." bootstrap.ps1 guards this by wrapping the
+        # result in @() (and calling install.ps1 with no args when the array is empty).
+        $bare = Get-BootstrapInstallArgs -Raw ''        # assignment triggers the unroll
+        ($null -eq $bare) | Should -BeTrue
+
+        $wrappedCount = (@(Get-BootstrapInstallArgs -Raw '')).Count
+        $wrappedCount | Should -Be 0
+    }
 }
 
 Describe 'bootstrap.ps1 integrity pin (B10)' {

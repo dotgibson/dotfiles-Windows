@@ -9,7 +9,7 @@
 #      window navigation is vim-style alt+h/j/k/l instead.
 #    • alt+enter launches Windows Terminal (`wt`), the host's daily-driver terminal
 #
-#  GlazeWM is installed from winget (glzr-io.GlazeWM) as part of the optional
+#  GlazeWM is installed from winget (glzr-io.glazewm) as part of the optional
 #  `desktop` package group. Reload after edits with alt+shift+r.
 # ============================================================================
 general:

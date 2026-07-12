@@ -30,8 +30,8 @@ deselect `desktop` at the first `Install-Packages.ps1` prompt, or set
 
 | App | winget id | Role |
 | --- | --- | --- |
-| GlazeWM | `glzr-io.GlazeWM` | tiling window manager |
-| Zebar | `glzr-io.Zebar` | top status bar |
+| GlazeWM | `glzr-io.glazewm` | tiling window manager |
+| Zebar | `glzr-io.zebar` | top status bar |
 | PowerToys | `Microsoft.PowerToys` | launcher (PowerToys Run), FancyZones, etc. |
 | TranslucentTB | `CharlesMilette.TranslucentTB` | translucent taskbar |
 
