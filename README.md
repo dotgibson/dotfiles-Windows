@@ -126,7 +126,7 @@ cd dotfiles-Windows
 Then open a **new** PowerShell window, set your name/email in `~/.gitconfig.local`,
 and review `~/.wslconfig` + `wsl --shutdown` to apply mirrored networking.
 
-<!-- bootstrap.ps1 SHA-256 (LF-normalized): 7d6855b163c8e9179e1b137c410416bfa0b41c95f94b768732cf2bf22e6292c6 -->
+<!-- bootstrap.ps1 SHA-256 (LF-normalized): f3d8aca5489c21708f05a1e4555723eb18087ef57ab46b48348bc2821af96258 -->
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 

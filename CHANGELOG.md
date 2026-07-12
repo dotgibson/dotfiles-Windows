@@ -6,6 +6,22 @@ so entries are grouped by theme rather than strict semver releases.
 
 ## [Unreleased]
 
+### Fixed
+
+- **GlazeWM and Zebar failed to install (`winget … NO_APPLICATIONS_FOUND`).** The
+  `desktop` group used the CamelCase winget IDs `glzr-io.GlazeWM` / `glzr-io.Zebar`,
+  but the community manifests publish them **lowercase** (`glzr-io.glazewm` /
+  `glzr-io.zebar`) and `winget install -e` is case-sensitive — so both were skipped
+  while PowerToys/TranslucentTB installed fine. Corrected the IDs in `winget.json`,
+  `packages.lock.json`, and the docs.
+- **`bootstrap.ps1` handoff to `install.ps1` failed with "A positional parameter
+  cannot be found that accepts argument '$null'".** When no `DOTFILES_BOOTSTRAP_ARGS`
+  were set (the common case), `Get-BootstrapInstallArgs` returned `@()`, which
+  PowerShell unrolls to `$null` on assignment; splatting `$null` into the
+  switch-only `install.ps1` passed a literal `$null` positional argument. The call
+  site now wraps the result in `@()` and guards the splat, so a fresh
+  `.\bootstrap.ps1` (or the `irm | iex` one-liner) runs the installer cleanly.
+
 ### Added
 
 - **Zebar bar gains pomodoro, media controls, and a power menu.** Cherry-picked from

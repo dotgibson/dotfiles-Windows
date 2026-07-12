@@ -11,8 +11,8 @@
     { "id": "AgileBits.1Password", "group": "gui" },
     { "id": "AgileBits.1Password.CLI", "group": "gui" },
     "GNU.Wget2",
-    { "id": "glzr-io.GlazeWM", "group": "desktop" },
-    { "id": "glzr-io.Zebar", "group": "desktop" },
+    { "id": "glzr-io.glazewm", "group": "desktop" },
+    { "id": "glzr-io.zebar", "group": "desktop" },
     { "id": "Microsoft.PowerToys", "group": "desktop" },
     { "id": "CharlesMilette.TranslucentTB", "group": "desktop" }
   ]

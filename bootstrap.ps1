@@ -138,8 +138,18 @@ if (-not (Test-Path $installer)) { Write-Error "install.ps1 not found in $dir - 
 # AllSigned/RemoteSigned policy that local script could be blocked. Relax it for
 # THIS process only (best-effort — never persisted), so the one-liner just works.
 try { Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force -ErrorAction Stop } catch { }
-$installArgs = Get-BootstrapInstallArgs
+# @(...) is load-bearing. Get-BootstrapInstallArgs returns @() when no extra args
+# are set, and PowerShell unrolls an empty array on the output stream to $null on
+# assignment — so a bare `$installArgs = Get-BootstrapInstallArgs` yields $null.
+# Splatting $null passes a literal $null POSITIONAL argument, and install.ps1 takes
+# only switches, so it fails with "A positional parameter cannot be found that
+# accepts argument '$null'." Wrapping forces a real (possibly empty) array; the
+# guard below then splats nothing when it's empty (the common no-args case).
+$installArgs = @(Get-BootstrapInstallArgs)
 Write-Host ("Running install.ps1 {0}" -f ($installArgs -join ' ')).TrimEnd() -ForegroundColor Cyan
 Push-Location $dir
-try { & $installer @installArgs }
+try {
+    if ($installArgs.Count) { & $installer @installArgs }
+    else                    { & $installer }
+}
 finally { Pop-Location }

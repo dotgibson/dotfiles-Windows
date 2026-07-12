@@ -111,11 +111,11 @@ via `DOTFILES_PKG_GROUPS`. Config lives in `desktop/` and is symlinked into
 `~/.glzr` by the installer; the full keymap and setup notes are in
 [`desktop/README.md`](../desktop/README.md).
 
-- **GlazeWM** (`glzr-io.GlazeWM`) — i3-style tiling window manager for Windows 11.
+- **GlazeWM** (`glzr-io.glazewm`) — i3-style tiling window manager for Windows 11.
   Vim-key focus/move (`Alt+H/J/K/L`), nine workspaces, resize/pause binding modes.
   Retuned to Tokyo Night Storm and deliberately **not** bound to `Alt+<arrow>` so
   it doesn't shadow Windows Terminal's pane-focus keys.
-- **Zebar** (`glzr-io.Zebar`) — the top bar. Buildless-React `vanilla-clear` widget
+- **Zebar** (`glzr-io.zebar`) — the top bar. Buildless-React `vanilla-clear` widget
   showing clock, live GlazeWM workspaces (click to focus), net/cpu/mem/battery/weather,
   plus a pomodoro timer, now-playing media controls, and a lock/sleep/restart/shutdown
   power menu (ported from `Gerrrt/yasb-glazewm-config`).
