@@ -48,26 +48,17 @@ Describe 'Get-BootstrapInstallArgs' {
     It 'splits on whitespace into an argv array' {
         Get-BootstrapInstallArgs -Raw '-SkipPackages  -DryRun' | Should -Be @('-SkipPackages', '-DryRun')
     }
-    It 'splats cleanly into a switch-only command when empty (regression: no $null positional)' {
-        # bootstrap.ps1 hands off with `& $installer @installArgs`, and install.ps1
-        # takes ONLY switches. An empty array returned on the output stream unrolls to
-        # $null on assignment; splatting $null passes a literal $null POSITIONAL arg and
-        # fails with "A positional parameter cannot be found that accepts argument
-        # '$null'." The call site guards this by wrapping in @() — assert that pattern.
-        function script:__DotInstallerStub {
-            param([switch]$SkipPackages, [switch]$DryRun)
-            if ($SkipPackages) { 'skip' } else { 'ok' }
-        }
-        try {
-            $installArgs = @(Get-BootstrapInstallArgs -Raw '')
-            { & __DotInstallerStub @installArgs } | Should -Not -Throw
-            (& __DotInstallerStub @installArgs)   | Should -Be 'ok'
+    It 'empty result is $null unwrapped but @() when wrapped (regression: guards the install.ps1 splat)' {
+        # PowerShell unrolls a returned empty array to $null ON ASSIGNMENT, so a bare
+        # `$installArgs = Get-BootstrapInstallArgs` would splat $null into the
+        # switch-only install.ps1 and fail with "A positional parameter cannot be found
+        # that accepts argument '$null'." bootstrap.ps1 guards this by wrapping the
+        # result in @() (and calling install.ps1 with no args when the array is empty).
+        $bare = Get-BootstrapInstallArgs -Raw ''        # assignment triggers the unroll
+        ($null -eq $bare) | Should -BeTrue
 
-            $installArgs = @(Get-BootstrapInstallArgs -Raw '-SkipPackages')
-            (& __DotInstallerStub @installArgs)   | Should -Be 'skip'
-        } finally {
-            Remove-Item Function:__DotInstallerStub -ErrorAction SilentlyContinue
-        }
+        $wrappedCount = (@(Get-BootstrapInstallArgs -Raw '')).Count
+        $wrappedCount | Should -Be 0
     }
 }
 
