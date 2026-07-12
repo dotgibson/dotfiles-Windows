@@ -12,7 +12,8 @@ so entries are grouped by theme rather than strict semver releases.
   was a core (always-installed) package; Obsidian and Firefox sat in the optional `gui`
   group. All three are editor/browser/app preferences rather than part of the host
   toolchain, so they're no longer installed by `bootstrap`/`install.ps1`. Removed from
-  `winget.json` and `packages.lock.json` (the `gui` group is now just 1Password). Existing
+  `winget.json` and `packages.lock.json` (the `gui` group is now just 1Password — the app
+  and its CLI). Existing
   installs are untouched — this only stops future auto-installs; add any back by hand
   (`winget install …`) if you want it.
 
