@@ -15,7 +15,7 @@ It ships three things: a **tiling window manager** (GlazeWM), a **top bar**
 | Path | What | Symlinked to |
 | --- | --- | --- |
 | `glazewm/config.yaml` | GlazeWM tiling-WM config (Tokyo Night, vim-key focus) | `~/.glzr/glazewm/config.yaml` |
-| `zebar/vanilla-clear/` | Zebar top-bar widget (clock, GlazeWM workspaces, net/cpu/mem/battery/weather) | `~/.glzr/zebar/vanilla-clear` |
+| `zebar/vanilla-clear/` | Zebar v3 widget pack (`zpack.json`) — clock, GlazeWM workspaces, net/cpu/mem/battery/weather | `~/.glzr/zebar/vanilla-clear` |
 
 The symlinks are wired by `install.ps1` from the shared link plan
 (`Get-DotfilesLinkPlan`), so `dotfiles-doctor` verifies them and `uninstall.ps1`
@@ -45,9 +45,11 @@ These aren't things a dotfile can do for you:
 1. **Launch on login.** Add GlazeWM to startup (it launches Zebar via
    `startup_commands`). PowerToys and TranslucentTB each have their own
    "run at startup" toggle in-app.
-2. **Enable the Zebar widget.** Open Zebar and enable the `vanilla-clear` widget
-   (disable the bundled sample widgets you don't want). GlazeWM's
-   `startup_commands` runs `zebar`, which opens whatever you've marked as startup.
+2. **Enable the Zebar widget.** The `vanilla-clear` pack is a Zebar **v3 widget
+   pack** (`zpack.json`); Zebar 3.x discovers it under `~/.glzr/zebar/`. Open Zebar,
+   pick the `vanilla-clear` widget, and mark it to start (disable the bundled
+   samples you don't want). GlazeWM's `startup_commands` runs `zebar`, which opens
+   whatever you've marked as startup.
 3. **PowerToys Run** defaults to `Alt+Space`. That does **not** collide with the
    GlazeWM binds here (which are `Alt`/`Alt+Shift` + letters/numbers).
 

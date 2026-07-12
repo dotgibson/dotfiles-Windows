@@ -11,8 +11,9 @@ so entries are grouped by theme rather than strict semver releases.
 - **Opt-in tiling-desktop layer (`desktop/`).** A new optional layer that rices the
   *desktop* on top of the shell host, adapted from `Gerrrt/make-windows-pretty` and
   retuned to the fleet's Tokyo Night Storm palette. Ships **GlazeWM** (i3-style tiling
-  WM), a **Zebar** top bar (the buildless-React `vanilla-clear` widget, now wired to
-  GlazeWM for live, clickable workspaces), and adds **PowerToys** + **TranslucentTB**.
+  WM), a **Zebar** top bar (the buildless-React `vanilla-clear` widget as a native
+  Zebar **v3 widget pack** (`zpack.json`), wired to GlazeWM for live, clickable
+  workspaces), and adds **PowerToys** + **TranslucentTB**.
   All four install via the new `desktop` **optional package group** in `winget.json`
   (opt out at the picker or with `DOTFILES_PKG_GROUPS`), pinned in `packages.lock.json`.
   `desktop/glazewm/config.yaml` and the Zebar widget are symlinked into `~/.glzr` by the
