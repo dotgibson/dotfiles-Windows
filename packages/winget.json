@@ -2,12 +2,9 @@
   "packages": [
     "Microsoft.WindowsTerminal",
     "Microsoft.PowerShell",
-    "Microsoft.VisualStudioCode",
     "Microsoft.WSL",
     "Git.Git",
-    { "id": "Mozilla.Firefox", "group": "gui" },
     "WiresharkFoundation.Wireshark",
-    { "id": "Obsidian.Obsidian", "group": "gui" },
     { "id": "AgileBits.1Password", "group": "gui" },
     { "id": "AgileBits.1Password.CLI", "group": "gui" },
     "GNU.Wget2",
