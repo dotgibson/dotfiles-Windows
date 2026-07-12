@@ -92,7 +92,8 @@
             title="click: start/pause · right-click: reset"
           >
             <i className={`nf nf-md-timer_outline ${state}`}></i>
-            <span
+            <button
+              type="button"
               className={`label ${state}`}
               onClick={() => setRunning((v) => !v)}
               onContextMenu={(e) => {
@@ -101,7 +102,7 @@
               }}
             >
               {mm}:{ss}
-            </span>
+            </button>
           </div>
         );
       }

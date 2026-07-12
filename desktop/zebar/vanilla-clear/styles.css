@@ -134,6 +134,13 @@ i {
 .pomodoro .label {
   cursor: pointer;
   font-variant-numeric: tabular-nums;
+  /* Rendered as a <button> for keyboard focus/semantics — strip the native
+     chrome so it looks like the plain label it replaced. */
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
 }
 
 .pomodoro .work,
