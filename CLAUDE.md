@@ -30,6 +30,7 @@ starship.toml is cross-shell) — sync those rather than hand-editing drift.
 - `windows-terminal/` — Terminal settings
 - `packages/` — scoop/winget manifests
 - `psmux/` — native tmux-alike
+- `desktop/` — **opt-in** tiling-desktop layer: GlazeWM config + Zebar bar (symlinked into `~/.glzr`), plus the `desktop` winget group (GlazeWM/Zebar/PowerToys/TranslucentTB). Off the critical path — the host is shell-first; this is for ricing the desktop too. See `desktop/README.md`.
 - `nvim/` — Neovim config mirrored from dotfiles-core via `nvim-sync.ps1`
 - `starship/` — cross-shell prompt config mirrored from dotfiles-core via `starship-sync.ps1`
 - `git/` — `.gitconfig` / `.gitignore_global`

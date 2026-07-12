@@ -34,8 +34,9 @@
 # package groups to install and writes its answer here as DOTFILES_PKG_GROUPS — a
 # space-separated list, or 'none'. Later runs reuse it without prompting; edit or
 # delete the line to be asked again. Available groups: 'gui' (Firefox, Obsidian,
-# 1Password). Non-interactive/CI runs ignore this and install every group.
-#   $env:DOTFILES_PKG_GROUPS = 'gui'
+# 1Password) and 'desktop' (GlazeWM, Zebar, PowerToys, TranslucentTB — the opt-in
+# tiling-desktop layer). Non-interactive/CI runs ignore this and install every group.
+#   $env:DOTFILES_PKG_GROUPS = 'gui desktop'
 
 # Example: per-host proxy
 # $env:HTTP_PROXY  = 'http://127.0.0.1:8080'

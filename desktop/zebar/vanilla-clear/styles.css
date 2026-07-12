@@ -1,0 +1,123 @@
+/* vanilla-clear — Tokyo Night Storm top bar for Zebar.
+   Retuned from Gerrrt/make-windows-pretty to match the fleet's palette
+   (starship / nvim / Windows Terminal all run Tokyo Night Storm). */
+@import "https://www.nerdfonts.com/assets/css/webfont.css";
+
+:root {
+  --tn-bg: #24283b;
+  --tn-fg: #c0caf5;
+  --tn-fg-dim: #a9b1d6;
+  --tn-blue: #7aa2f7;
+  --tn-comment: #565f89;
+  --tn-red: #f7768e;
+}
+
+body {
+  color: var(--tn-fg);
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  overflow: hidden;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+#root {
+  background: rgba(26, 27, 38, 65%); /* Tokyo Night bg-dark, translucent */
+}
+
+.app {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  align-items: center;
+  height: 100%;
+  padding: 4px 1.5vw;
+}
+
+.left,
+.center,
+.right {
+  display: flex;
+  align-items: center;
+}
+
+.center {
+  justify-self: center;
+}
+
+.right {
+  justify-self: end;
+}
+
+.logo,
+.binding-mode,
+.tiling-direction,
+.network,
+.memory,
+.cpu,
+.battery {
+  margin-right: 20px;
+}
+
+.workspaces {
+  display: flex;
+  align-items: center;
+}
+
+.workspace {
+  background: rgb(122 162 247 / 8%);
+  margin-right: 4px;
+  padding: 4px 8px;
+  color: var(--tn-fg-dim);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+
+  &.displayed {
+    background: rgb(122 162 247 / 18%);
+  }
+
+  &.focused,
+  &:hover {
+    background: var(--tn-blue);
+    color: var(--tn-bg);
+  }
+}
+
+.binding-mode,
+.tiling-direction {
+  background: rgb(122 162 247 / 18%);
+  color: var(--tn-fg);
+  border-radius: 4px;
+  line-height: 1;
+  padding: 4px 8px;
+  border: 0;
+  cursor: pointer;
+}
+
+.binding-mode {
+  margin-right: 4px;
+}
+
+.cpu .high-usage {
+  color: var(--tn-red);
+}
+
+.battery {
+  position: relative;
+}
+
+.battery .charging-icon {
+  position: absolute;
+  font-size: 7px;
+  left: -8px;
+  top: 3px;
+}
+
+i {
+  color: var(--tn-blue);
+  margin-right: 7px;
+}

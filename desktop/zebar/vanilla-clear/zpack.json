@@ -1,0 +1,45 @@
+{
+  "$schema": "https://github.com/glzr-io/zebar/raw/v3.3.1/resources/zpack-schema.json",
+  "name": "vanilla-clear",
+  "version": "1.0.0",
+  "description": "Tokyo Night Storm top bar — clock, live GlazeWM workspaces, system stats, weather.",
+  "tags": ["glazewm", "tokyo-night", "bar"],
+  "previewImages": [],
+  "widgets": [
+    {
+      "name": "vanilla-clear",
+      "htmlPath": "./vanilla-clear.html",
+      "zOrder": "normal",
+      "shownInTaskbar": false,
+      "focused": false,
+      "resizable": false,
+      "transparent": true,
+      "includeFiles": ["vanilla-clear.html", "styles.css", "normalize.css"],
+      "caching": {
+        "defaultDuration": 604800,
+        "rules": []
+      },
+      "privileges": {
+        "shellCommands": []
+      },
+      "presets": [
+        {
+          "name": "vanilla-clear",
+          "anchor": "top_center",
+          "offsetX": "0px",
+          "offsetY": "0px",
+          "width": "100%",
+          "height": "40px",
+          "monitorSelection": {
+            "type": "all"
+          },
+          "dockToEdge": {
+            "enabled": false,
+            "edge": null,
+            "windowMargin": "0px"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -8,6 +8,19 @@ so entries are grouped by theme rather than strict semver releases.
 
 ### Added
 
+- **Opt-in tiling-desktop layer (`desktop/`).** A new optional layer that rices the
+  *desktop* on top of the shell host, adapted from `Gerrrt/make-windows-pretty` and
+  retuned to the fleet's Tokyo Night Storm palette. Ships **GlazeWM** (i3-style tiling
+  WM), a **Zebar** top bar (the buildless-React `vanilla-clear` widget as a native
+  Zebar **v3 widget pack** (`zpack.json`), wired to GlazeWM for live, clickable
+  workspaces), and adds **PowerToys** + **TranslucentTB**.
+  All four install via the new `desktop` **optional package group** in `winget.json`
+  (opt out at the picker or with `DOTFILES_PKG_GROUPS`), pinned in `packages.lock.json`.
+  `desktop/glazewm/config.yaml` and the Zebar widget are symlinked into `~/.glzr` by the
+  shared link plan, so `dotfiles-doctor` verifies them and `uninstall.ps1` removes them.
+  The GlazeWM keymap is deliberately re-bound off `Alt+<arrow>` (which Windows Terminal
+  uses for pane focus) to **vim keys** (`Alt+H/J/K/L`), and `Alt+Enter` launches `wt`.
+  Setup + full keymap in `desktop/README.md`.
 - **`duf` added to the scoop manifest.** The one modern-CLI tool `core-doctor`
   probes for that was missing from the Windows package set (macOS's Brewfile and
   the Linux lists lacked it too) — now installed from scoop `main` and pinned in
