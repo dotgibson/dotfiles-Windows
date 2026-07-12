@@ -8,12 +8,13 @@ so entries are grouped by theme rather than strict semver releases.
 
 ### Removed
 
-- **Dropped Visual Studio Code and Obsidian from the winget manifest.** VS Code was a
-  core (always-installed) package and Obsidian sat in the optional `gui` group; both are
-  editor/app preferences rather than part of the host toolchain, so they're no longer
-  installed by `bootstrap`/`install.ps1`. Removed from `winget.json` and `packages.lock.json`
-  (the `gui` group is now Firefox + 1Password). Existing installs are untouched — this only
-  stops future auto-installs; add either back by hand (`winget install …`) if you want it.
+- **Dropped Visual Studio Code, Obsidian, and Firefox from the winget manifest.** VS Code
+  was a core (always-installed) package; Obsidian and Firefox sat in the optional `gui`
+  group. All three are editor/browser/app preferences rather than part of the host
+  toolchain, so they're no longer installed by `bootstrap`/`install.ps1`. Removed from
+  `winget.json` and `packages.lock.json` (the `gui` group is now just 1Password). Existing
+  installs are untouched — this only stops future auto-installs; add any back by hand
+  (`winget install …`) if you want it.
 
 ### Fixed
 

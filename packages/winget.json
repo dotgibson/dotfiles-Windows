@@ -4,7 +4,6 @@
     "Microsoft.PowerShell",
     "Microsoft.WSL",
     "Git.Git",
-    { "id": "Mozilla.Firefox", "group": "gui" },
     "WiresharkFoundation.Wireshark",
     { "id": "AgileBits.1Password", "group": "gui" },
     { "id": "AgileBits.1Password.CLI", "group": "gui" },
