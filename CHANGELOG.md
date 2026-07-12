@@ -6,6 +6,15 @@ so entries are grouped by theme rather than strict semver releases.
 
 ## [Unreleased]
 
+### Removed
+
+- **Dropped Visual Studio Code and Obsidian from the winget manifest.** VS Code was a
+  core (always-installed) package and Obsidian sat in the optional `gui` group; both are
+  editor/app preferences rather than part of the host toolchain, so they're no longer
+  installed by `bootstrap`/`install.ps1`. Removed from `winget.json` and `packages.lock.json`
+  (the `gui` group is now Firefox + 1Password). Existing installs are untouched — this only
+  stops future auto-installs; add either back by hand (`winget install …`) if you want it.
+
 ### Fixed
 
 - **GlazeWM and Zebar failed to install (`winget … NO_APPLICATIONS_FOUND`).** The
