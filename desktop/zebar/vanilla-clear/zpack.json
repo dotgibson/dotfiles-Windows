@@ -20,7 +20,13 @@
         "rules": []
       },
       "privileges": {
-        "shellCommands": []
+        "shellCommands": [
+          { "program": "shutdown", "argsRegex": "^(/s|/r|/t|0|\\s)+$" },
+          {
+            "program": "rundll32",
+            "argsRegex": "^(user32\\.dll,LockWorkStation|powrprof\\.dll,SetSuspendState|0,1,0|\\s)+$"
+          }
+        ]
       },
       "presets": [
         {

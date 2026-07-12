@@ -8,6 +8,13 @@ so entries are grouped by theme rather than strict semver releases.
 
 ### Added
 
+- **Zebar bar gains pomodoro, media controls, and a power menu.** Cherry-picked from
+  [`Gerrrt/yasb-glazewm-config`](https://github.com/Gerrrt/yasb-glazewm-config) into the
+  `vanilla-clear` widget: a 25/5 pomodoro (click to start/pause, right-click to reset),
+  now-playing title/artist with prev/play-pause/next (Zebar `media` provider), and a
+  lock/sleep/restart/shutdown power menu (via `shellExec`, with `shutdown`/`rundll32`
+  whitelisted in `zpack.json`'s `privileges.shellCommands`). The `zebar` client import is
+  bumped to the `@3` major to match the pinned app so those providers/APIs are present.
 - **Opt-in tiling-desktop layer (`desktop/`).** A new optional layer that rices the
   *desktop* on top of the shell host, adapted from `Gerrrt/make-windows-pretty` and
   retuned to the fleet's Tokyo Night Storm palette. Ships **GlazeWM** (i3-style tiling
