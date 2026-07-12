@@ -153,6 +153,7 @@ dotfiles-Windows/
 ├── ssh/config                   hardened (no ControlMaster on Win OpenSSH)
 ├── psmux/psmux.conf             native host tmux (psmux), symlinked to ~/.config/psmux/
 │       psmux.reset.conf  scripts/   (keybinds split out + popup helper scripts)
+├── desktop/                     opt-in tiling desktop (GlazeWM + Zebar), symlinked to ~/.glzr
 ├── nvim/                        symlinked to %LOCALAPPDATA%\nvim (mirrors Core)
 ├── wsl/windows.wslconfig.example  canonical host WSL2 config (mirrored net)
 ├── packages/ (scoopfile.json, winget.json, Install-Packages.ps1)

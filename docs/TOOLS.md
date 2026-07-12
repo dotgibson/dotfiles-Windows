@@ -103,6 +103,25 @@ the PowerShell analog of Core's `HISTORY_IGNORE`.
 - **Wireshark** (winget) — packet capture on host interfaces.
 - **win32yank** — clipboard provider so Neovim's `unnamedplus` works on the host.
 
+## Desktop / window management (opt-in)
+
+The `desktop` package group (`packages/winget.json`) adds a tiling-desktop layer
+on top of the shell host — off the critical path, opt out at the install prompt or
+via `DOTFILES_PKG_GROUPS`. Config lives in `desktop/` and is symlinked into
+`~/.glzr` by the installer; the full keymap and setup notes are in
+[`desktop/README.md`](../desktop/README.md).
+
+- **GlazeWM** (`glzr-io.GlazeWM`) — i3-style tiling window manager for Windows 11.
+  Vim-key focus/move (`Alt+H/J/K/L`), nine workspaces, resize/pause binding modes.
+  Retuned to Tokyo Night Storm and deliberately **not** bound to `Alt+<arrow>` so
+  it doesn't shadow Windows Terminal's pane-focus keys.
+- **Zebar** (`glzr-io.Zebar`) — the top bar. Buildless-React `vanilla-clear` widget
+  showing clock, live GlazeWM workspaces (click to focus), and net/cpu/mem/battery.
+- **PowerToys** (`Microsoft.PowerToys`) — PowerToys Run launcher (`Alt+Space`),
+  FancyZones, and the rest of the utility suite.
+- **TranslucentTB** (`CharlesMilette.TranslucentTB`) — translucent taskbar, to match
+  the Terminal's `opacity: 90` glass look.
+
 ## Updates & maintenance
 
 The fleet's "check + nudge, apply on demand" pattern (Core's `update.zsh` /

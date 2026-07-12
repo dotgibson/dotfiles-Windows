@@ -1,0 +1,13 @@
+/* Minimal CSS reset for the Zebar widget. Bundled here (rather than the
+   zebar-root normalize.css the upstream widget assumed) so the widget is
+   self-contained under the symlinked vanilla-clear/ directory. */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}

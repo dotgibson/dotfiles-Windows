@@ -410,6 +410,11 @@ function Get-DotfilesLinkPlan {
         & $row 'psmux.reset.conf'          (& $repo 'psmux\psmux.reset.conf')        (& $join $HomeDir      '.config\psmux\psmux.reset.conf')
         & $row 'psmux scripts'             (& $repo 'psmux\scripts')                 (& $join $HomeDir      '.config\psmux\scripts')
         & $row 'Windows Terminal settings' (& $repo 'windows-terminal\settings.json') (& $join $LocalAppData 'Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json') $true
+        # Opt-in desktop layer (GlazeWM + Zebar). The ~/.glzr parents are created on
+        # demand, so these are plain rows (no ParentMustExist) — linking a config for
+        # an as-yet-uninstalled app is harmless, exactly like the nvim row above.
+        & $row 'GlazeWM config'            (& $repo 'desktop\glazewm\config.yaml')   (& $join $HomeDir      '.glzr\glazewm\config.yaml')
+        & $row 'Zebar vanilla-clear'       (& $repo 'desktop\zebar\vanilla-clear')   (& $join $HomeDir      '.glzr\zebar\vanilla-clear')
     )
 }
 
