@@ -1,6 +1,6 @@
 # ============================================================================
-#  windows/defaults.ps1  -  Windows preferences as code (the pwsh twin of
-#  dotfiles-MacBook/macos/defaults.sh).
+#  windows/defaults.ps1  -  Windows preferences as code (the pwsh twin of the
+#  sibling dotfiles-MacBook repo's macos/defaults.sh — NOT a file in this repo).
 #
 #      pwsh -File windows/defaults.ps1            # apply
 #      pwsh -File windows/defaults.ps1 -DryRun    # print what would change, write nothing

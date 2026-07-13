@@ -13,8 +13,8 @@ so entries are grouped by theme rather than strict semver releases.
   main bucket) added to `scoopfile.json` + `packages.lock.json`. `es` pairs with the
   shell — `es foo | fzf`, or as an `FZF_DEFAULT_COMMAND` source — and needs the
   Everything service running, which is why both are installed together.
-- **`windows/defaults.ps1` — Windows preferences as code** (the pwsh twin of the Mac's
-  `macos/defaults.sh`). A handful of privacy/telemetry + Explorer tweaks (disable the
+- **`windows/defaults.ps1` — Windows preferences as code** (the pwsh twin of the sibling
+  **dotfiles-MacBook** repo's `macos/defaults.sh`). A handful of privacy/telemetry + Explorer tweaks (disable the
   advertising ID, Start-menu suggestions, Bing-in-Start; show file extensions; open to
   This PC) codified as idempotent **HKCU** registry writes — no admin, nothing
   machine-wide. `-DryRun` previews, `-RestartExplorer` applies shell changes now. The
