@@ -117,9 +117,13 @@ function genpw {
     }
     $len = [int]$Length
     $chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'.ToCharArray()
-    $bytes = [byte[]]::new($len)
-    [System.Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
-    -join ($bytes | ForEach-Object { $chars[$_ % $chars.Length] })
+    # GetInt32 draws a uniform index in [0, len) — no modulo bias (unlike byte % 62,
+    # where 256 isn't a multiple of 62 so the low indices would be slightly favoured).
+    $sb = [System.Text.StringBuilder]::new($len)
+    for ($i = 0; $i -lt $len; $i++) {
+        [void]$sb.Append($chars[[System.Security.Cryptography.RandomNumberGenerator]::GetInt32($chars.Length)])
+    }
+    $sb.ToString()
 }
 
 # --- please: re-run the last command elevated (parity with Core's `please`) ----

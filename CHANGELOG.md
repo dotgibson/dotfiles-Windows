@@ -26,8 +26,8 @@ so entries are grouped by theme rather than strict semver releases.
   - *Functions:* `ports` (listening sockets + process), `cdup`, `fcd`, `genpw`
     (crypto RNG), `please` (elevated re-run of the last command), and `pullall`
     (parallel fast-forward of every repo under a dir).
-  - *Tools:* `gping`, `difftastic`, and `jujutsu` added to `scoopfile.json`; the
-    difftastic difftool + `dft` alias added to `git/.gitconfig`.
+  - *Tools:* `gping`, `difftastic`, and `jj` (jujutsu) added to `scoopfile.json`
+    (+ `packages.lock.json`); the difftastic difftool + `dft` alias added to `git/.gitconfig`.
   - *psmux keys:* full-span splits (`\`/`_`), zoom (`m`), kill/swap (`x`/`X`), toggle
     titles (`P`), synchronize-panes (`*`), a floating popup (`F`), window cycling
     (`Alt+Shift+H`/`L`), rename/kill window (`,`/`&`), enriched vi copy-mode

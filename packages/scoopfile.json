@@ -63,6 +63,6 @@
     { "Name": "hexyl", "Source": "main" },
     { "Name": "gping", "Source": "main" },
     { "Name": "difftastic", "Source": "main" },
-    { "Name": "jujutsu", "Source": "main" }
+    { "Name": "jj", "Source": "main" }
   ]
 }
