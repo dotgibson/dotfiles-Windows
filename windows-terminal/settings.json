@@ -77,13 +77,13 @@
       "cursorShape": "filledBox",
       "font": {
         "face": "CaskaydiaCove Nerd Font",
-        "size": 13
+        "size": 16
       },
       "opacity": 90,
       "padding": "0",
       "scrollbarState": "hidden",
       "snapOnInput": true,
-      "useAcrylic": false,
+      "useAcrylic": true,
       "useAtlasEngine": true
     },
     "list": [
@@ -116,7 +116,7 @@
         "commandline": "pwsh.exe -NoLogo",
         "font": {
           "face": "JetBrainsMono Nerd Font",
-          "size": 13
+          "size": 16
         },
         "guid": "{7c3b1e2a-9f4d-4a6b-8c1d-2e3f4a5b6c7d}",
         "hidden": false,

@@ -60,6 +60,9 @@
     { "Name": "tokei", "Source": "main" },
     { "Name": "age", "Source": "main" },
     { "Name": "croc", "Source": "main" },
-    { "Name": "hexyl", "Source": "main" }
+    { "Name": "hexyl", "Source": "main" },
+    { "Name": "gping", "Source": "main" },
+    { "Name": "difftastic", "Source": "main" },
+    { "Name": "jj", "Source": "main" }
   ]
 }

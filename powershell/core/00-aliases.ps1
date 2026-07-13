@@ -3,7 +3,7 @@
 # ============================================================================
 
 # --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
-# provides: Test-Cmd, Test-CmdRuns, ls, l, ll, la, lt, llt, cat, catp, grep, http, https, gmd, dns, du, pss, watch, hex, loc, g, gs, gst, gss, gsb, ga, gaa, gc, gcm, gco, gd, gl, glog, gp, lg, .., ..., ...., ~, mkcd, which, reload, dotfiles
+# provides: Test-Cmd, Test-CmdRuns, ls, l, ll, la, lt, llt, cat, catp, grep, http, https, gmd, dns, du, pss, watch, hex, loc, df, fm, y, top, htop, tree, ping, cdi, notes, g, gs, gst, gss, gsb, ga, gaa, gap, gc, gcm, gca, gcam, gc!, gcn!, gb, gba, gbd, gbm, gco, gcb, gcom, gsw, gswc, gswm, gd, gds, gdw, glog, gloga, glol, glola, gf, gfa, gl, gpr, gp, gpu, gpf, gpf!, gsta, gstaa, gstp, gstl, gstd, grb, grbi, grbm, grbc, grba, grh, grhh, grs, grss, gr, grv, gm, gma, gdft, jjs, jjl, jjd, lg, .., ..., ...., ~, mkcd, which, reload, dotfiles
 # requires: Write-DotHost
 # PowerShell has built-in aliases (ls, cat, cp...) that point at cmdlets.
 # We remove the ones we want to override, then define functions that shadow
@@ -113,25 +113,150 @@ if (Test-Cmd hexyl) { function hex   { hexyl @args } }
 # tokei: lines-of-code counter by language. `loc` for muscle memory.
 if (Test-Cmd tokei) { function loc   { tokei @args } }
 
-# --- git shorthands (parity with Core's zsh/git.zsh) --------------------------
-# Names + semantics track Core so muscle memory carries across the fleet: notably
-# `gl` PULLS (Core's omz convention) and `glog` is the graph log — the old
-# Windows `gl`=log / `gpl`=pull layout was the one place these drifted.
+# --- 2026 batch 3: parity with the rest of Core's aliases.zsh (all guarded) ----
+# duf: modern, mountpoint-aware disk-free (df replacement). `df` isn't a native
+# Windows command, so this adds the verb rather than shadowing one.
+if (Test-Cmd duf)  { function df    { duf @args } }
+
+# yazi: TUI file manager. Same two verbs Core exposes (`fm`/`y`).
+if (Test-Cmd yazi) { function fm    { yazi @args }; function y { yazi @args } }
+
+# btop: process/resource monitor (top/htop replacement). Neither `top` nor `htop`
+# is a native Windows command, so these are additive verbs.
+if (Test-Cmd btop) { function top   { btop @args }; function htop { btop @args } }
+
+# eza --tree: `tree` (Core aliases it too). Shadows cmd.exe's `tree` with the icon
+# tree when eza is present; a bare box keeps the classic `tree`.
+if (Test-Cmd eza)  { function tree  { eza --tree --icons=auto @args } }
+
+# gping: ping with a live latency graph. Core does `ping`→gping when installed;
+# mirror it (the classic `ping.exe` returns on a bare box). gping ships via scoop.
+if (Test-Cmd gping) { function ping { gping @args } }
+
+# zoxide interactive jump verb. `cd` is already zoxide (init --cmd cd, 10-tools);
+# `cdi` is the fzf picker, matching Core's `cdi`→`zi`. `zi` is defined by zoxide's
+# init (loaded in 10-tools) and resolved at call time, so the load order is fine.
+if (Test-Cmd zoxide) { function cdi { zi @args } }
+
+# notes: jump to the notes dir and open it in the editor (Core's `notes` alias).
+# NOTES_DIR mirrors Core's default of ~/Notes; override it in local.ps1.
+function notes { $d = if ($env:NOTES_DIR) { $env:NOTES_DIR } else { Join-Path $HOME 'Notes' }; if (-not (Test-Path $d)) { New-Item -ItemType Directory -Force -Path $d | Out-Null }; Set-Location $d; if (Test-Cmd nvim) { nvim . } }
+
+# --- git shorthands (full parity with Core's zsh/git.zsh) ---------------------
+# The complete OMZ-style set from Core's git.zsh, so the ~55 `g*` verbs carry
+# across the WSL-zsh and Windows-pwsh halves of the fleet. `gl` PULLS (Core's omz
+# convention), `glog` is the graph log, and `gpf` is the SAFE force
+# (--force-with-lease), matching Core exactly.
+#
+# PowerShell ships built-in ALIASES that OUTRANK same-named functions
+# (about_Command_Precedence: Alias > Function), so `function gc {…}` on its own is
+# shadowed by the stock `gc`→Get-Content alias — the same reason `ls`/`cat` above
+# are Remove-Item'd before their functions. Remove the built-in aliases that
+# collide with a git shorthand so the functions below actually win. -Force clears
+# ReadOnly ones; SilentlyContinue no-ops where an edition doesn't define one.
+#   gc→Get-Content  gcm→Get-Command  gp→Get-ItemProperty
+#   gl→Get-Location  gm→Get-Member   gcb→Get-Clipboard
+foreach ($a in 'gc', 'gcm', 'gp', 'gl', 'gm', 'gcb') {
+    Remove-Item "Alias:$a" -Force -ErrorAction SilentlyContinue
+}
+
+# Resolve the repo's trunk (main/master/trunk/…) like Core's git_main_branch(), so
+# gcom/gswm/grbm target the real default branch instead of assuming "main". script:
+# scoped (private to this fragment), mirroring 10-tools' `function script:__lap`.
+function script:Get-DotGitMainBranch {
+    foreach ($ref in @(
+            'refs/heads/main', 'refs/heads/trunk', 'refs/heads/mainline', 'refs/heads/default', 'refs/heads/stable', 'refs/heads/master',
+            'refs/remotes/origin/main', 'refs/remotes/origin/trunk', 'refs/remotes/origin/mainline', 'refs/remotes/origin/default', 'refs/remotes/origin/stable', 'refs/remotes/origin/master',
+            'refs/remotes/upstream/main', 'refs/remotes/upstream/master')) {
+        git show-ref --quiet --verify $ref 2>$null
+        if ($LASTEXITCODE -eq 0) { return ($ref -replace '.*/', '') }
+    }
+    'master'
+}
+
+# git itself + status / inspection
 function g    { git @args }
-function gs   { git status -sb @args }            # Windows-kept extra; identical to gsb
+function gs   { git status -sb @args }            # Windows-kept extra; == gsb
 function gst  { git status @args }
 function gss  { git status --short @args }
 function gsb  { git status --short --branch @args }
+# staging
 function ga   { git add @args }
 function gaa  { git add --all @args }
+function gap  { git add --patch @args }
+# commit
 function gc   { git commit --verbose @args }
-function gcm  { git commit -m @args }
+function gcm  { git commit --message @args }
+function gca  { git commit --verbose --all @args }
+function gcam { git commit --all --message @args }
+function gc!  { git commit --verbose --amend @args }
+function gcn! { git commit --verbose --no-edit --amend @args }
+# branch
+function gb   { git branch @args }
+function gba  { git branch --all @args }
+function gbd  { git branch --delete @args }        # NB: gbD (force) can't coexist — pwsh is case-insensitive; use `gbd -D`
+function gbm  { git branch --move @args }
+# checkout / switch
 function gco  { git checkout @args }
+function gcb  { git checkout -b @args }
+function gcom { git checkout (Get-DotGitMainBranch) @args }
+function gsw  { git switch @args }
+function gswc { git switch --create @args }
+function gswm { git switch (Get-DotGitMainBranch) @args }
+# diff
 function gd   { git diff @args }
+function gds  { git diff --staged @args }
+function gdw  { git diff --word-diff @args }
+# log
+function glog  { git log --oneline --decorate --graph @args }
+function gloga { git log --oneline --decorate --graph --all @args }
+function glol  { git log --graph --pretty='%Cred%h%Creset -%C(auto)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' @args }
+function glola { git log --graph --pretty='%Cred%h%Creset -%C(auto)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --all @args }
+# fetch / pull / push
+function gf   { git fetch @args }
+function gfa  { git fetch --all --prune --tags @args }
 function gl   { git pull @args }
-function glog { git log --oneline --decorate --graph @args }
+function gpr  { git pull --rebase @args }
 function gp   { git push @args }
+function gpu  { git push --set-upstream origin (git branch --show-current) @args }
+function gpf  { git push --force-with-lease @args }   # safe force (upgrade vs OMZ)
+function gpf! { git push --force @args }               # raw force, explicit
+# stash
+function gsta  { git stash push @args }
+function gstaa { git stash push --include-untracked @args }
+function gstp  { git stash pop @args }
+function gstl  { git stash list @args }
+function gstd  { git stash drop @args }
+# rebase
+function grb   { git rebase @args }
+function grbi  { git rebase --interactive @args }
+function grbm  { git rebase (Get-DotGitMainBranch) @args }
+function grbc  { git rebase --continue @args }
+function grba  { git rebase --abort @args }
+# reset / restore
+function grh   { git reset @args }
+function grhh  { git reset --hard @args }
+function grs   { git restore @args }
+function grss  { git restore --staged @args }
+# remote / merge
+function gr    { git remote @args }
+function grv   { git remote --verbose @args }
+function gm    { git merge @args }
+function gma   { git merge --abort @args }
+# lazygit launcher
 if (Test-Cmd lazygit) { function lg { lazygit @args } }
+
+# gdft: difftastic structural diff via git's difftool (Core's `gdft`). Guarded so
+# it only exists when difftastic is installed (git/.gitconfig defines the tool).
+if (Test-Cmd difft) { function gdft { git difftool --tool=difftastic @args } }
+
+# jujutsu (jj) — opt-in, colocated git companion (never shadows git). Core's
+# jjs/jjl/jjd. Guarded on jj, so they simply don't exist on a box without it.
+if (Test-Cmd jj) {
+    function jjs { jj status @args }
+    function jjl { jj log @args }
+    function jjd { jj diff @args }
+}
 
 # --- navigation ---------------------------------------------------------------
 function ..    { Set-Location .. }

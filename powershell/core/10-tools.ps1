@@ -97,7 +97,7 @@ if (Get-Module -ListAvailable PSReadLine) {
       } catch {
           # predictions unavailable in this host - carry on
         }
-    Set-PSReadLineOption -MaximumHistoryCount 50000
+    Set-PSReadLineOption -MaximumHistoryCount 200000   # match Core's zsh HISTSIZE/SAVEHIST
 
     # Never persist obviously sensitive one-liners to the history file. This is
     # the PSReadLine analog of Core's HISTORY_IGNORE (history.zsh): the line is
@@ -121,6 +121,24 @@ if (Get-Module -ListAvailable PSReadLine) {
     # but the richer ListView is one key away when you want several ranked sources at
     # once. try/catch so an older PSReadLine without the function still loads clean.
     try { Set-PSReadLineKeyHandler -Key F2 -Function SwitchPredictionView } catch { }
+
+    # Ctrl+\ toggles predictions on/off — cross-shell parity with zsh's Ctrl-\
+    # autosuggest-toggle (bindings.zsh). PSReadLine has no built-in toggle, so flip
+    # PredictionSource between the configured source and None, tracking state in a
+    # global so a `reload` doesn't wedge it off. try/catch keeps an older PSReadLine
+    # without predictions loading clean.
+    try {
+        Set-PSReadLineKeyHandler -Chord 'Ctrl+\' -BriefDescription 'Toggle predictions' -ScriptBlock {
+            if ($global:DotfilesPredictionsOff) {
+                $view = if ($env:DOTFILES_PSRL_LISTVIEW -eq '1') { 'ListView' } else { 'InlineView' }
+                Set-PSReadLineOption -PredictionSource HistoryAndPlugin -PredictionViewStyle $view
+                $global:DotfilesPredictionsOff = $false
+            } else {
+                Set-PSReadLineOption -PredictionSource None
+                $global:DotfilesPredictionsOff = $true
+            }
+        }
+    } catch { }
 }
 __lap 'PSReadLine'
 

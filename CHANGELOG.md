@@ -8,6 +8,33 @@ so entries are grouped by theme rather than strict semver releases.
 
 ### Added
 
+- **Windows↔Mac terminal parity pass — the PowerShell/psmux/Windows Terminal stack
+  now matches the Core (zsh) baseline the Mac inherits, wherever it's reproducible.**
+  - *Git shorthands:* the **full curated `git.zsh` set** (~55 `g*` verbs) is now on the
+    host — `gap`, the `gca`/`gcam`/`gc!`/`gcn!` commit family, `gb*` branch, `gcb`/`gcom`/
+    `gsw`/`gswc`/`gswm` checkout/switch, `gds`/`gdw`, `gloga`/`glol`/`glola`, `gf`/`gfa`/
+    `gpr`/`gpu`, **`gpf` = `push --force-with-lease`** (the safe force), the `gsta*` stash
+    and `grb*` rebase families, `grh`/`grhh`/`grs`/`grss`, `gr`/`grv`/`gm`/`gma`, plus
+    `gdft` (difftastic) and `jjs`/`jjl`/`jjd` (jujutsu). The built-in PowerShell aliases
+    that shadow a git shorthand (`gc`→Get-Content, `gcm`→Get-Command, `gp`→Get-ItemProperty,
+    `gl`→Get-Location, `gm`→Get-Member, `gcb`→Get-Clipboard) are removed at load so the
+    functions win — which also **fixes `gl`/`gc`/`gcm`/`gp`, previously shadowed** and
+    silently not doing their git thing. `gbD` (force-delete) is dropped: PowerShell is
+    case-insensitive, so it can't coexist with `gbd` (use `gbd -D`).
+  - *Modern-CLI aliases:* `df`→duf, `fm`/`y`→yazi, `top`/`htop`→btop, `tree`→eza,
+    `ping`→gping, `cdi`→zoxide interactive, and `notes`.
+  - *Functions:* `ports` (listening sockets + process), `cdup`, `fcd`, `genpw`
+    (crypto RNG), `please` (elevated re-run of the last command), and `pullall`
+    (parallel fast-forward of every repo under a dir).
+  - *Tools:* `gping`, `difftastic`, and `jj` (jujutsu) added to `scoopfile.json`
+    (+ `packages.lock.json`); the difftastic difftool + `dft` alias added to `git/.gitconfig`.
+  - *psmux keys:* full-span splits (`\`/`_`), zoom (`m`), kill/swap (`x`/`X`), toggle
+    titles (`P`), synchronize-panes (`*`), a floating popup (`F`), window cycling
+    (`Alt+Shift+H`/`L`), rename/kill window (`,`/`&`), enriched vi copy-mode
+    (`Enter`/`v`/`C-v`/`Escape`), `R`/`S`/`d` QoL, double-tap-prefix → last-window, and a
+    new **`prefix + u` URL picker** (`psmux-url.ps1`, host port of tmux-fzf-url). The
+    cheatsheet moved from `prefix + D` to **`prefix + ?`** to match Core's tmux.
+  - *`Ctrl+\`* now toggles PSReadLine predictions, mirroring zsh's `autosuggest-toggle`.
 - **A real `winget import`-compatible manifest and a `winget configure` baseline.**
   `winget.json` is this repo's own shape (`{ packages: [ id | { id, group } ] }`) so
   the installer can carry optional-group tags — which means it is *not* consumable by
@@ -29,6 +56,14 @@ so entries are grouped by theme rather than strict semver releases.
 
 ### Changed
 
+- **Windows Terminal now matches Ghostty's look:** default font size **13 → 16** and
+  **`useAcrylic: true`** (opacity stays 90) so the background is frosted glass like
+  Ghostty's `background-blur`, rather than flat 90% opacity. The JetBrains Mono profile
+  is bumped to 16 too.
+- **PSReadLine history depth raised 50000 → 200000**, matching Core's zsh
+  `HISTSIZE`/`SAVEHIST`.
+- **delta already followed the Tokyo Night `ansi` theme here; Core adopts `ansi` too**
+  (was `TwoDark`) so `git diff` renders identically on both OSes.
 - **Windows Terminal opts into the AtlasEngine renderer explicitly**
   (`useAtlasEngine: true` in `profiles.defaults`) — it's the modern default, but the
   setting documents intent and guards an older WT build.
