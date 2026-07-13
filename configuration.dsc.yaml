@@ -1,0 +1,82 @@
+# yaml-language-server: $schema=https://aka.ms/configuration-dsc-schema/0.2
+#
+# configuration.dsc.yaml — declarative host baseline for `winget configure`.
+#
+#     winget configure -f configuration.dsc.yaml --accept-configuration-agreements
+#
+# Where packages/winget-import.json is just the package SET (restored with
+# `winget import`), this goes one step further: it is idempotent and reconciling,
+# and it also turns on Developer Mode so install.ps1 can create symlinks without an
+# elevated prompt. It carries the CORE, untagged baseline only — the opt-in
+# gui/desktop groups live in winget-import.json / winget.json. Bring a fresh box up
+# with both:
+#     winget configure -f configuration.dsc.yaml     # baseline + Developer Mode
+#     winget import -i packages/winget-import.json    # the full opt-in package set
+properties:
+  configurationVersion: 0.2.0
+  assertions:
+    - resource: Microsoft.Windows.Developer/OsVersion
+      id: os-version
+      directives:
+        description: Windows 11 or newer
+        allowPrerequisites: true
+      settings:
+        MinVersion: '10.0.22000'
+  resources:
+    - resource: Microsoft.Windows.Developer/DeveloperMode
+      id: developer-mode
+      directives:
+        description: Enable Developer Mode (symlink creation without admin)
+        allowPrerequisites: true
+      settings:
+        Ensure: Present
+    - resource: Microsoft.WinGet.DSC/WinGetPackage
+      id: windows-terminal
+      dependsOn:
+        - developer-mode
+      directives:
+        description: Install Windows Terminal
+        allowPrerequisites: true
+      settings:
+        id: Microsoft.WindowsTerminal
+        source: winget
+    - resource: Microsoft.WinGet.DSC/WinGetPackage
+      id: powershell
+      directives:
+        description: Install PowerShell 7
+        allowPrerequisites: true
+      settings:
+        id: Microsoft.PowerShell
+        source: winget
+    - resource: Microsoft.WinGet.DSC/WinGetPackage
+      id: wsl
+      directives:
+        description: Install Windows Subsystem for Linux
+        allowPrerequisites: true
+      settings:
+        id: Microsoft.WSL
+        source: winget
+    - resource: Microsoft.WinGet.DSC/WinGetPackage
+      id: git
+      directives:
+        description: Install Git
+        allowPrerequisites: true
+      settings:
+        id: Git.Git
+        source: winget
+    - resource: Microsoft.WinGet.DSC/WinGetPackage
+      id: wireshark
+      directives:
+        description: Install Wireshark
+        allowPrerequisites: true
+      settings:
+        id: WiresharkFoundation.Wireshark
+        source: winget
+    - resource: Microsoft.WinGet.DSC/WinGetPackage
+      id: wget2
+      directives:
+        description: Install GNU Wget2
+        allowPrerequisites: true
+      settings:
+        id: GNU.Wget2
+        source: winget
