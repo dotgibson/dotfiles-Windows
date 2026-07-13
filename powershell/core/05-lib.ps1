@@ -394,13 +394,15 @@ function Test-InMux {
 function Get-DotfilesLinkPlan {
     param(
         [Parameter(Mandatory)][string]$RepoRoot,
-        [string]$HomeDir      = $HOME,
-        [string]$LocalAppData = $env:LOCALAPPDATA,
-        [string]$Documents    = [Environment]::GetFolderPath('MyDocuments')
+        [string]$HomeDir        = $HOME,
+        [string]$LocalAppData   = $env:LOCALAPPDATA,
+        [string]$RoamingAppData = $env:APPDATA,
+        [string]$Documents      = [Environment]::GetFolderPath('MyDocuments')
     )
     $join = { param($a, $b) [System.IO.Path]::Combine($a, $b) }
-    if (-not $Documents)    { $Documents    = & $join $HomeDir 'Documents' }
-    if (-not $LocalAppData) { $LocalAppData = & $join $HomeDir 'AppData\Local' }
+    if (-not $Documents)      { $Documents      = & $join $HomeDir 'Documents' }
+    if (-not $LocalAppData)   { $LocalAppData   = & $join $HomeDir 'AppData\Local' }
+    if (-not $RoamingAppData) { $RoamingAppData = & $join $HomeDir 'AppData\Roaming' }
     $repo = { param($p) & $join $RepoRoot $p }
     $row  = {
         param($Name, $Target, $Link, $ParentMustExist = $false)
@@ -411,6 +413,10 @@ function Get-DotfilesLinkPlan {
         & $row 'nvim config'               (& $repo 'nvim')                          (& $join $LocalAppData 'nvim')
         & $row '.gitconfig'                (& $repo 'git\.gitconfig')                (& $join $HomeDir      '.gitconfig')
         & $row '.gitignore_global'         (& $repo 'git\.gitignore_global')         (& $join $HomeDir      '.gitignore_global')
+        # jj (jujutsu) — git companion; jj reads %APPDATA%\jj\config.toml on Windows.
+        # Plain row (parent created on demand): linking a config for an as-yet-uninstalled
+        # tool is harmless, exactly like the nvim/GlazeWM rows.
+        & $row 'jj config'                 (& $repo 'jj\config.toml')                (& $join $RoamingAppData 'jj\config.toml')
         & $row 'ssh config'                (& $repo 'ssh\config')                    (& $join $HomeDir      '.ssh\config')
         & $row 'psmux.conf'                (& $repo 'psmux\psmux.conf')              (& $join $HomeDir      '.config\psmux\psmux.conf')
         & $row 'psmux.reset.conf'          (& $repo 'psmux\psmux.reset.conf')        (& $join $HomeDir      '.config\psmux\psmux.reset.conf')

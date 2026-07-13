@@ -1,0 +1,46 @@
+# jj/config.toml — jujutsu (jj) config for the Windows host.
+# ──────────────────────────────────────────────────────────────────────────────
+# The host-side twin of Core's core/jujutsu/config.toml (dotfiles-core), kept in
+# step by hand — Windows vendors no `core/` subtree, so this is a native copy, not
+# a mirror. Symlinked to %APPDATA%\jj\config.toml (jj's native config location on
+# Windows) by Get-DotfilesLinkPlan (powershell/core/05-lib.ps1).
+#
+# OPT-IN, ADDITIVE companion to git — jj NEVER replaces it. It runs colocated on
+# top of a normal `.git` repo, so git keeps doing everything it does (the g* aliases,
+# lazygit, GCM) and jj is just a nicer front-end for the operator who wants one.
+# Nothing here depends on jj being installed; the jj-guarded aliases (jjs/jjl/jjd in
+# powershell/core/00-aliases.ps1) and this file simply do nothing on a box without jj.
+#
+# Identity is intentionally NOT hardcoded (this file is committed). jj does NOT
+# inherit git's user.name/user.email — set it ONCE per machine if you author changes:
+#   jj config set --user user.name  "Your Name"
+#   jj config set --user user.email "you@example.com"
+
+[user]
+# name  = "Your Name"
+# email = "you@example.com"
+
+[ui]
+# Bare `jj` runs `jj log` — the most-reached-for view (mirrors lazygit/starship's
+# log-first ergonomics). Explicit subcommands are unaffected.
+default-command = "log"
+# Honour the terminal palette (Tokyo Night via Windows Terminal) rather than
+# hard-coding colours here.
+color = "auto"
+# Windows-safe deviation from Core: Core uses `less -FRX`, but `less` isn't native
+# to the host, so use jj's built-in pager (no external dependency).
+pager = ":builtin"
+# Use jj's built-in diff/merge editor, like Core.
+diff-editor = ":builtin"
+merge-editor = ":builtin"
+
+[git]
+# Colocated repos: keep jj's view and git's HEAD in step. auto-local-bookmark
+# imports git branches as jj bookmarks on the way in, so an existing git repo's
+# branches show up in `jj log` without a manual import.
+auto-local-bookmark = true
+
+[aliases]
+# A couple of conveniences that read naturally next to the pwsh `jj*` functions.
+l  = ["log"]
+st = ["status"]

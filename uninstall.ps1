@@ -36,14 +36,15 @@ if (Test-Path $LibPath) { . $LibPath }
 # Still pure/testable: the injected roots flow straight through to the plan.
 function Get-DotfilesLinkMap {
     param(
-        [string]$HomeDir      = $HOME,
-        [string]$LocalAppData = $env:LOCALAPPDATA,
-        [string]$Documents    = [Environment]::GetFolderPath('MyDocuments')
+        [string]$HomeDir        = $HOME,
+        [string]$LocalAppData   = $env:LOCALAPPDATA,
+        [string]$RoamingAppData = $env:APPDATA,
+        [string]$Documents      = [Environment]::GetFolderPath('MyDocuments')
     )
     # RepoRoot only feeds the plan's Target (the repo side); the Link paths we
     # return depend solely on the injected user-dir roots, so $RepoRoot is fine.
     (Get-DotfilesLinkPlan -RepoRoot $RepoRoot -HomeDir $HomeDir `
-        -LocalAppData $LocalAppData -Documents $Documents).Link
+        -LocalAppData $LocalAppData -RoamingAppData $RoamingAppData -Documents $Documents).Link
 }
 
 # True when $Link is a symlink whose target resolves inside this repo. Pure-ish

@@ -8,6 +8,12 @@ so entries are grouped by theme rather than strict semver releases.
 
 ### Added
 
+- **jujutsu (`jj`) config on the host.** New `jj/config.toml` — the host-side twin of
+  Core's `core/jujutsu/config.toml` — is symlinked to `%APPDATA%\jj\config.toml` (jj's
+  native Windows config location) via `Get-DotfilesLinkPlan`, so the `jjs`/`jjl`/`jjd`
+  aliases land on the same log-first, colocated-git setup as the Unix fleet. Windows-safe
+  deviation: the pager is jj's built-in (`:builtin`) since Core's `less -FRX` isn't on the
+  host. Identity stays unset (set once per machine with `jj config set --user …`).
 - **Windows↔Mac terminal parity pass — the PowerShell/psmux/Windows Terminal stack
   now matches the Core (zsh) baseline the Mac inherits, wherever it's reproducible.**
   - *Git shorthands:* the **full curated `git.zsh` set** (~55 `g*` verbs) is now on the
