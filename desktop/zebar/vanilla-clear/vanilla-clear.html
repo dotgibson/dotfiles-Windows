@@ -38,6 +38,9 @@
         // Now-playing session for the media widget (title/artist + transport).
         media: { type: "media" },
         network: { type: "network" },
+        // Output volume + free-disk, so the bar mirrors sketchybar's volume + disk widgets.
+        audio: { type: "audio" },
+        disk: { type: "disk" },
         cpu: { type: "cpu" },
         date: { type: "date", formatting: "EEE d MMM t" },
         battery: { type: "battery" },
@@ -46,6 +49,32 @@
       });
 
       createRoot(document.getElementById("root")).render(<App />);
+
+      // --- Shared parity helpers ----------------------------------------------
+      // Semantic load color (green→yellow→red). Returns a utility class defined in
+      // styles.css; thresholds match sketchybar's plugins (see PARITY.md).
+      function sev(value, mid, high) {
+        if (value >= high) return "c-red";
+        if (value >= mid) return "c-yellow";
+        return "c-green";
+      }
+
+      // Compact bytes/sec formatter — mirrors sketchybar network.sh's human().
+      function humanRate(bytes) {
+        const b = bytes || 0;
+        if (b >= 1048576) return `${(b / 1048576).toFixed(1)}M`;
+        if (b >= 1024) return `${Math.round(b / 1024)}K`;
+        return `${Math.round(b)}B`;
+      }
+
+      // Level-scaled speaker glyph class (matches sketchybar volume.sh thresholds).
+      function volumeIconClass(device) {
+        const v = Math.round(device?.volume ?? 0);
+        if (device?.isMuted || v === 0) return "nf-md-volume_off";
+        if (v < 40) return "nf-md-volume_low";
+        if (v < 70) return "nf-md-volume_medium";
+        return "nf-md-volume_high";
+      }
 
       // --- Pomodoro (ported from the YASB config) -----------------------------
       // Self-contained 25/5 work-break timer. Click the time to start/pause;
@@ -226,26 +255,32 @@
           return () => unlisten?.();
         }, []);
 
-        // Get icon to show for current network status.
-        function getNetworkIcon(networkOutput) {
-          switch (networkOutput.defaultInterface?.type) {
-            case "ethernet":
-              return <i className="nf nf-md-ethernet_cable"></i>;
-            case "wifi":
-              if (networkOutput.defaultGateway?.signalStrength >= 80) {
-                return <i className="nf nf-md-wifi_strength_4"></i>;
-              } else if (networkOutput.defaultGateway?.signalStrength >= 65) {
-                return <i className="nf nf-md-wifi_strength_3"></i>;
-              } else if (networkOutput.defaultGateway?.signalStrength >= 40) {
-                return <i className="nf nf-md-wifi_strength_2"></i>;
-              } else if (networkOutput.defaultGateway?.signalStrength >= 25) {
-                return <i className="nf nf-md-wifi_strength_1"></i>;
-              } else {
-                return <i className="nf nf-md-wifi_strength_outline"></i>;
-              }
-            default:
-              return <i className="nf nf-md-wifi_strength_off_outline"></i>;
-          }
+        // Color class for the battery by charge level (matches sketchybar battery.sh):
+        // on the charger → accent blue; else green >40 / yellow 21-40 / red ≤20.
+        function batteryClass(batteryOutput) {
+          if (batteryOutput.isCharging) return "c-blue";
+          if (batteryOutput.chargePercent > 40) return "c-green";
+          if (batteryOutput.chargePercent > 20) return "c-yellow";
+          return "c-red";
+        }
+
+        // Free disk on C: → { free label, color class } (matches sketchybar disk.sh thresholds:
+        // fg <80% used, yellow <90%, red otherwise).
+        function diskInfo(diskOutput) {
+          const disks = diskOutput?.disks ?? [];
+          const disk =
+            disks.find((d) =>
+              (d.mountPoint ?? "").toUpperCase().startsWith("C:"),
+            ) ?? disks[0];
+          if (!disk) return null;
+          const total = disk.totalSpace?.bytes ?? 0;
+          const avail = disk.availableSpace?.bytes ?? 0;
+          const usedPct = total > 0 ? ((total - avail) / total) * 100 : 0;
+          const cls = usedPct >= 90 ? "c-red" : usedPct >= 80 ? "c-yellow" : "c-fg";
+          const free = `${Math.round(disk.availableSpace?.siValue ?? 0)} ${
+            disk.availableSpace?.siUnit ?? ""
+          }`.trim();
+          return { free, cls };
         }
 
         // Get icon to show for how much of the battery is charged.
@@ -294,6 +329,17 @@
         return (
           <div className="app">
             <div className="left">
+              {/* Brand anchor (Windows glyph) — twin of sketchybar's Apple logo; click reloads.
+                  A <button> (not a bare <div>) so it's keyboard-focusable and Enter/Space work. */}
+              <button
+                type="button"
+                className="logo"
+                title="reload bar"
+                onClick={() => window.location.reload()}
+              >
+                <i className="nf nf-fa-windows"></i>
+              </button>
+
               {/* GlazeWM workspaces — click to focus, mirrors alt+<n>. */}
               {output.glazewm && (
                 <div className="workspaces">
@@ -330,41 +376,70 @@
                 </button>
               ))}
 
+              {/* Frontmost window (GlazeWM focused container) — twin of sketchybar front_app. */}
+              {output.glazewm?.focusedContainer?.processName && (
+                <div className="front-app">
+                  {output.glazewm.focusedContainer.processName}
+                </div>
+              )}
+
               <Pomodoro />
             </div>
 
-            <div className="center">{output.date?.formatted}</div>
+            <div className="center">
+              <i className="nf nf-md-clock_outline"></i>
+              {output.date?.formatted}
+            </div>
 
             <div className="right">
               <Media media={output.media} />
 
-              {output.network && (
+              {/* Network throughput ↓/↑ (matches sketchybar network.sh). */}
+              {output.network?.traffic && (
                 <div className="network">
-                  {getNetworkIcon(output.network)}
-                  {output.network.defaultGateway?.ssid}
+                  <i className="nf nf-md-speedometer"></i>↓
+                  {humanRate(output.network.traffic.received?.bytes)} ↑
+                  {humanRate(output.network.traffic.transmitted?.bytes)}
                 </div>
               )}
 
+              {/* Output volume (cyan, level-scaled speaker glyph). */}
+              {output.audio?.defaultPlaybackDevice && (
+                <div className="volume c-cyan">
+                  <i
+                    className={`nf ${volumeIconClass(output.audio.defaultPlaybackDevice)}`}
+                  ></i>
+                  {Math.round(output.audio.defaultPlaybackDevice.volume)}%
+                </div>
+              )}
+
+              {/* Free space on C:, colored when it runs low. */}
+              {(() => {
+                const d = diskInfo(output.disk);
+                return d ? (
+                  <div className={`disk ${d.cls}`}>
+                    <i className="nf nf-md-harddisk"></i>
+                    {d.free}
+                  </div>
+                ) : null;
+              })()}
+
               {output.memory && (
-                <div className="memory">
-                  <i className="nf nf-fae-chip"></i>
+                <div className={`memory ${sev(output.memory.usage, 70, 88)}`}>
+                  <i className="nf nf-md-memory"></i>
                   {Math.round(output.memory.usage)}%
                 </div>
               )}
 
               {output.cpu && (
-                <div className="cpu">
-                  <i className="nf nf-oct-cpu"></i>
-
-                  {/* Change the text color if the CPU usage is high. */}
-                  <span className={output.cpu.usage > 85 ? "high-usage" : ""}>
-                    {Math.round(output.cpu.usage)}%
-                  </span>
+                <div className={`cpu ${sev(output.cpu.usage, 50, 80)}`}>
+                  <i className="nf nf-md-cpu_64_bit"></i>
+                  {Math.round(output.cpu.usage)}%
                 </div>
               )}
 
               {output.battery && (
-                <div className="battery">
+                <div className={`battery ${batteryClass(output.battery)}`}>
                   {/* Show icon for whether battery is charging. */}
                   {output.battery.isCharging && (
                     <i className="nf nf-md-power_plug charging-icon"></i>

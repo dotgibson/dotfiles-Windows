@@ -11,13 +11,17 @@
   --tn-comment: #565f89;
   --tn-red: #f7768e;
   --tn-green: #9ece6a;
+  --tn-yellow: #e0af68;
+  --tn-cyan: #7dcfff;
   --tn-purple: #bb9af7;
 }
 
 body {
   color: var(--tn-fg);
-  font-family: ui-monospace, monospace;
-  font-size: 12px;
+  /* CaskaydiaCove Nerd Font is the fleet's shared bar font (installed on Windows via the
+     CascadiaCode-NF scoop package); it also carries the nf-* glyphs. Matches sketchybar. */
+  font-family: "CaskaydiaCove Nerd Font", ui-monospace, monospace;
+  font-size: 13px;
   overflow: hidden;
 }
 
@@ -28,15 +32,22 @@ body,
 }
 
 #root {
-  background: rgba(26, 27, 38, 65%); /* Tokyo Night bg-dark, translucent */
+  background: transparent; /* the floating pill is painted on .app, not the full window */
 }
 
+/* Floating rounded bar: an inset translucent pill (matches sketchybar's margin=8 corner_radius=9;
+   see PARITY.md geometry). GlazeWM's gaps.outer.top clears it. */
 .app {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   align-items: center;
-  height: 100%;
-  padding: 4px 1.5vw;
+  box-sizing: border-box;
+  height: calc(100% - 16px);
+  margin: 8px;
+  padding: 0 12px;
+  border-radius: 9px;
+  /* #1d202f @ ~93% — shared bar-background token */
+  background: rgba(29, 32, 47, 0.93);
 }
 
 .left,
@@ -57,11 +68,37 @@ body,
 .logo,
 .binding-mode,
 .tiling-direction,
+.front-app,
 .network,
+.volume,
+.disk,
 .memory,
 .cpu,
 .battery {
   margin-right: 20px;
+}
+
+/* Brand anchor (Windows glyph) — the twin of sketchybar's Apple logo. Rendered as a <button> for
+   keyboard focus; strip the native chrome so it reads as the plain glyph. */
+.logo {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+}
+
+/* Frontmost window (GlazeWM focused container) — accent, bold; matches sketchybar front_app. */
+.front-app {
+  color: var(--tn-blue);
+  font-weight: bold;
+  max-width: 22ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .workspaces {
@@ -104,8 +141,37 @@ body,
   margin-right: 4px;
 }
 
-.cpu .high-usage {
+/* Semantic load colors (shared with sketchybar; see PARITY.md thresholds). The class is set on the
+   module container in JS and colors both the glyph and the value. `i` selectors beat the global
+   blue `i` rule below on specificity. */
+.c-green,
+.c-green i {
+  color: var(--tn-green);
+}
+
+.c-yellow,
+.c-yellow i {
+  color: var(--tn-yellow);
+}
+
+.c-red,
+.c-red i {
   color: var(--tn-red);
+}
+
+.c-cyan,
+.c-cyan i {
+  color: var(--tn-cyan);
+}
+
+.c-blue,
+.c-blue i {
+  color: var(--tn-blue);
+}
+
+.c-fg,
+.c-fg i {
+  color: var(--tn-fg);
 }
 
 .battery {
