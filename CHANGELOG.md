@@ -8,6 +8,10 @@ so entries are grouped by theme rather than strict semver releases.
 
 ### Added
 
+- **QuickLook (`QL-Win.QuickLook`) — macOS-style spacebar file preview** added to the
+  optional `gui` winget group (`winget.json` + `packages.lock.json`). Opt-in like the
+  rest of the group; deliberately kept out of the core set. Flow Launcher was considered
+  and left out — it overlaps PowerToys Run, which the `desktop` group already installs.
 - **Everything (voidtools) instant file search + its `es` CLI.** `everything` (the
   MFT-indexed search service, extras bucket) and `everything-cli` (the `es` command,
   main bucket) added to `scoopfile.json` + `packages.lock.json`. `es` pairs with the
