@@ -388,8 +388,9 @@ function Test-InMux {
 # three flavors that each keep settings.json in a different place — the packaged
 # Store/winget build (Packages\...WindowsTerminal_8wekyb3d8bbwe\LocalState), the
 # unpackaged/scoop build (%LOCALAPPDATA%\Microsoft\Windows Terminal), and the
-# Preview package — so all three are planned. On any given box only the installed
-# flavor's parent exists, so only its row links; the others self-skip.
+# Preview package — so all three are planned. Each row links only when ITS build's
+# settings dir already exists, so a box links whichever flavor(s) it has (usually
+# one, but stable + Preview can coexist) and the rest self-skip.
 function Get-DotfilesLinkPlan {
     param(
         [Parameter(Mandatory)][string]$RepoRoot,

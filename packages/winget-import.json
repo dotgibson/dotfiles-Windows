@@ -3,18 +3,42 @@
   "Sources": [
     {
       "Packages": [
-        { "PackageIdentifier": "Microsoft.WindowsTerminal" },
-        { "PackageIdentifier": "Microsoft.PowerShell" },
-        { "PackageIdentifier": "Microsoft.WSL" },
-        { "PackageIdentifier": "Git.Git" },
-        { "PackageIdentifier": "WiresharkFoundation.Wireshark" },
-        { "PackageIdentifier": "AgileBits.1Password" },
-        { "PackageIdentifier": "AgileBits.1Password.CLI" },
-        { "PackageIdentifier": "GNU.Wget2" },
-        { "PackageIdentifier": "glzr-io.glazewm" },
-        { "PackageIdentifier": "glzr-io.zebar" },
-        { "PackageIdentifier": "Microsoft.PowerToys" },
-        { "PackageIdentifier": "CharlesMilette.TranslucentTB" }
+        {
+          "PackageIdentifier": "Microsoft.WindowsTerminal"
+        },
+        {
+          "PackageIdentifier": "Microsoft.PowerShell"
+        },
+        {
+          "PackageIdentifier": "Microsoft.WSL"
+        },
+        {
+          "PackageIdentifier": "Git.Git"
+        },
+        {
+          "PackageIdentifier": "WiresharkFoundation.Wireshark"
+        },
+        {
+          "PackageIdentifier": "AgileBits.1Password"
+        },
+        {
+          "PackageIdentifier": "AgileBits.1Password.CLI"
+        },
+        {
+          "PackageIdentifier": "GNU.Wget2"
+        },
+        {
+          "PackageIdentifier": "glzr-io.glazewm"
+        },
+        {
+          "PackageIdentifier": "glzr-io.zebar"
+        },
+        {
+          "PackageIdentifier": "Microsoft.PowerToys"
+        },
+        {
+          "PackageIdentifier": "CharlesMilette.TranslucentTB"
+        }
       ],
       "SourceDetails": {
         "Argument": "https://cdn.winget.microsoft.com/cache",

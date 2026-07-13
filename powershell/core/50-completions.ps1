@@ -109,9 +109,12 @@ Register-ArgumentCompleter -CommandName dothelp -ParameterName Filter -ScriptBlo
 Register-ArgumentCompleter -Native -CommandName git -ScriptBlock {
     param($wordToComplete, $commandAst, $cursorPosition)
     if (-not (Get-Command git -ErrorAction SilentlyContinue)) { return }
+    # Find the git verb by MEMBERSHIP, not position — so global options that take an
+    # argument (`git -C <path> checkout`, `git -c k=v switch`) still resolve the verb
+    # instead of mistaking the option's value for it.
+    $refVerbs = @('checkout', 'switch', 'merge', 'rebase', 'branch')
     $tokens = @($commandAst.CommandElements | Select-Object -Skip 1 | ForEach-Object { "$_" })
-    $sub = $tokens | Where-Object { $_ -notmatch '^-' } | Select-Object -First 1
-    if ($sub -notin @('checkout', 'switch', 'merge', 'rebase', 'branch')) { return }
+    if (-not ($tokens | Where-Object { $_ -in $refVerbs })) { return }
     $branches = git branch --format='%(refname:short)' 2>$null
     New-DotCompletions -Values $branches -Word $wordToComplete -Tooltip 'git branch'
 }
