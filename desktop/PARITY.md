@@ -46,16 +46,25 @@ Individual items are **chip-less** — plain spaced icon+text directly on the
 translucent bar (no per-item background). The only rounded container is the
 `workspaces` group.
 
-- **sketchybar** floats natively: `--bar height=20 margin=8 corner_radius=9 blur_radius=20`.
-- **Zebar** floats via CSS: the transparent full-width window paints an inset
-  rounded pill (`.app { margin: 8px; border-radius: 9px; background: <token> }`).
-  GlazeWM's existing `gaps.outer.top: 50px` already clears it.
+Sizes/spacing are **per-host tuning knobs**, kept in one place on each side so
+they're easy to iterate: sketchybar's `--bar` / `--default` block at the top of
+`sketchybarrc`, and Zebar's `:root` "tuning knobs" block at the top of `styles.css`
+(`--bar-font-size` / `--bar-height` / `--bar-gap` / `--bar-radius` / `--bar-pad-x` /
+`--item-gap`). They're tuned to *look* the same, not to be pixel-identical.
+
+- **sketchybar** floats natively: `--bar height=36 y_offset=4 margin=8 corner_radius=9 padding=2 blur_radius=20`.
+- **Zebar** floats via CSS: a transparent `zpack.json` window (`height: 52px`)
+  paints an inset rounded pill sized by the `:root` knobs (`.app { height:
+  var(--bar-height); margin: var(--bar-gap) var(--bar-gap) 0; … }`). Keep the zpack
+  window `height` ≥ `--bar-height + 2×--bar-gap` or the pill clips; GlazeWM's
+  `gaps.outer.top: 50px` clears the current pill.
 
 ## Font
 
 **CaskaydiaCove Nerd Font** on both (macOS: Homebrew cask; Windows: the
-`CascadiaCode-NF` scoop package installs this exact family). Sizes are matched
-visually, not pixel-identical across DPI: sketchybar `14.0` pt, Zebar `13px`.
+`CascadiaCode-NF` scoop package installs this exact family). Sizes are tuned per
+host to match visually, not pixel-identical across DPI: sketchybar `17.0` pt, Zebar
+`16px` (`--bar-font-size`) — adjust via each bar's knobs.
 
 The variable-width **front-app** label is capped at ~22 chars on both bars (Zebar:
 `max-width: 22ch` + ellipsis; sketchybar: `label.max_chars=22`) so a long app name

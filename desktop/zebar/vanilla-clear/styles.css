@@ -16,12 +16,28 @@
   --tn-purple: #bb9af7;
 }
 
+/* ── Tuning knobs ────────────────────────────────────────────────────────────
+   The bar's size/spacing, all in one place — the CSS twin of sketchybar's
+   top-of-file --bar/--default knobs (dotfiles-MacBook/sketchybar/sketchybarrc).
+   Nudge these to taste; each is a one-line change.
+   NOTE: the WINDOW envelope lives in zpack.json ("height"). Keep it
+   >= --bar-height + 2*--bar-gap or the pill clips. Seeded to approximate the
+   Mac's current tuned look; px<->pt across DPI isn't exact, so fine-tune live. */
+:root {
+  --bar-font-size: 16px; /* body text/glyph size (sketchybar --default …:17.0) */
+  --bar-height: 36px; /* painted pill height (sketchybar --bar height=36) */
+  --bar-gap: 8px; /* float gap top/sides (sketchybar margin=8 / y_offset) */
+  --bar-radius: 9px; /* pill corner radius (sketchybar corner_radius=9) */
+  --bar-pad-x: 12px; /* pill inner horizontal padding */
+  --item-gap: 20px; /* space between right-group items */
+}
+
 body {
   color: var(--tn-fg);
   /* CaskaydiaCove Nerd Font is the fleet's shared bar font (installed on Windows via the
      CascadiaCode-NF scoop package); it also carries the nf-* glyphs. Matches sketchybar. */
   font-family: "CaskaydiaCove Nerd Font", ui-monospace, monospace;
-  font-size: 13px;
+  font-size: var(--bar-font-size);
   overflow: hidden;
 }
 
@@ -35,17 +51,17 @@ body,
   background: transparent; /* the floating pill is painted on .app, not the full window */
 }
 
-/* Floating rounded bar: an inset translucent pill (matches sketchybar's margin=8 corner_radius=9;
-   see PARITY.md geometry). GlazeWM's gaps.outer.top clears it. */
+/* Floating rounded bar: an inset translucent pill sized by the tuning knobs above
+   (matches sketchybar's margin/corner_radius). GlazeWM's gaps.outer.top clears it. */
 .app {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   align-items: center;
   box-sizing: border-box;
-  height: calc(100% - 16px);
-  margin: 8px;
-  padding: 0 12px;
-  border-radius: 9px;
+  height: var(--bar-height);
+  margin: var(--bar-gap) var(--bar-gap) 0;
+  padding: 0 var(--bar-pad-x);
+  border-radius: var(--bar-radius);
   /* #1d202f @ ~93% — shared bar-background token */
   background: rgba(29, 32, 47, 0.93);
 }
@@ -75,7 +91,7 @@ body,
 .memory,
 .cpu,
 .battery {
-  margin-right: 20px;
+  margin-right: var(--item-gap);
 }
 
 /* Brand anchor (Windows glyph) — the twin of sketchybar's Apple logo. Rendered as a <button> for
