@@ -55,6 +55,13 @@ These aren't things a dotfile can do for you:
 
 ## Keybindings (GlazeWM)
 
+This is the fleet's **shared cross-OS keymap** — kept keystroke-for-keystroke
+identical to the Mac's AeroSpace config
+([`dotfiles-MacBook/aerospace/aerospace.toml`](https://github.com/dotgibson/dotfiles-MacBook/blob/main/aerospace/aerospace.toml)),
+so the same muscle memory drives the tiled desktop on both Windows and macOS. Only
+bindings both window managers can express identically are kept; edit one side and
+mirror the change on the other.
+
 Retuned from upstream to **not** fight Windows Terminal. WT already uses
 `Alt+<arrow>` for pane focus (`windows-terminal/settings.json`), so this config
 drops the `Alt+<arrow>` window binds and drives the WM with **vim keys** instead:
@@ -63,17 +70,22 @@ drops the `Alt+<arrow>` window binds and drives the WM with **vim keys** instead
 | --- | --- |
 | `Alt+H/J/K/L` | focus window left/down/up/right |
 | `Alt+Shift+H/J/K/L` | move window left/down/up/right |
-| `Alt+1..9` | focus workspace *n* |
-| `Alt+Shift+1..9` | send window to workspace *n* and follow |
+| `Alt+1..5` | focus workspace *n* |
+| `Alt+Shift+1..5` | send window to workspace *n* and follow |
 | `Alt+A` / `Alt+S` / `Alt+D` | prev / next / most-recent workspace |
+| `Alt+U/P` / `Alt+O/I` | nudge-resize width −/+ · height +/− |
 | `Alt+Enter` | launch Windows Terminal (`wt`) |
-| `Alt+T` / `Alt+Shift+Space` / `Alt+F` | toggle tiling / floating / fullscreen |
-| `Alt+M` | minimize the focused window |
+| `Alt+Shift+Space` / `Alt+F` | toggle floating / fullscreen |
 | `Alt+V` | toggle split direction |
-| `Alt+R` | enter resize mode (then H/J/K/L or arrows; `Esc` exits) |
-| `Alt+Shift+P` | pause mode (suspend binds; `Alt+Shift+P` again to resume) |
+| `Alt+R` | enter resize mode (then H/J/K/L; `Esc` exits) |
 | `Alt+Shift+Q` | close window |
-| `Alt+Shift+R` / `Alt+Shift+W` / `Alt+Shift+E` | reload config / redraw / exit WM |
+| `Alt+Shift+R` | reload config |
+
+> **Dropped for cross-OS parity** (no identical AeroSpace equivalent): minimize
+> (`Alt+M`), toggle-tiling (`Alt+T`), pause mode (`Alt+Shift+P`), redraw
+> (`Alt+Shift+W`), exit-WM (`Alt+Shift+E`), workspaces 6–9, and the arrow-key
+> duplicates inside resize mode. To quit GlazeWM without the keybind, use its
+> **system-tray icon → Exit** (or re-add a personal `wm-exit` bind locally).
 
 ## Bar widget (Zebar)
 

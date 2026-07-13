@@ -112,7 +112,8 @@ via `DOTFILES_PKG_GROUPS`. Config lives in `desktop/` and is symlinked into
 [`desktop/README.md`](../desktop/README.md).
 
 - **GlazeWM** (`glzr-io.glazewm`) — i3-style tiling window manager for Windows 11.
-  Vim-key focus/move (`Alt+H/J/K/L`), nine workspaces, resize/pause binding modes.
+  Vim-key focus/move (`Alt+H/J/K/L`), five workspaces, and a resize binding mode.
+  Its keymap is kept identical to the Mac's AeroSpace (a single shared cross-OS keymap).
   Retuned to Tokyo Night Storm and deliberately **not** bound to `Alt+<arrow>` so
   it doesn't shadow Windows Terminal's pane-focus keys.
 - **Zebar** (`glzr-io.zebar`) — the top bar. Buildless-React `vanilla-clear` widget
