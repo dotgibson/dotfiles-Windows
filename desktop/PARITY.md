@@ -20,7 +20,7 @@ canonical spec; both implementations follow it.
 | --- | --- |
 | **Left** | `logo` · `workspaces` · *(binding-mode — Windows only)* · `front_app` · `pomodoro` |
 | **Center** | `clock` |
-| **Right** | `media` · `network` · `volume` · `disk` · `memory` · `cpu` · `battery` · `weather` · *(caffeinate — macOS only)* · `power` |
+| **Right** | `network` · `volume` · `disk` · `memory` · `cpu` · `battery` · `weather` · *(caffeinate — macOS only)* · `power` |
 
 Two sanctioned platform exceptions (no cross-platform equivalent):
 
@@ -68,13 +68,13 @@ the centered clock.
 | --- | --- | --- | --- |
 | bg | `#24283b` | `0xff24283b` | item background |
 | fg | `#c0caf5` | `0xffc0caf5` | default text |
-| fg-dim | `#a9b1d6` | — | dimmed text (workspaces, media/power btns) |
+| fg-dim | `#a9b1d6` | — | dimmed text (workspaces, power btns) |
 | blue / accent | `#7aa2f7` | `0xff7aa2f7` | active highlight, logo, workspaces, front_app, network, clock, weather, battery-charging |
 | green | `#9ece6a` | `0xff9ece6a` | load: low |
 | yellow | `#e0af68` | `0xffe0af68` | load: mid |
 | red | `#f7768e` | `0xfff7768e` | load: high |
 | cyan | `#7dcfff` | `0xff7dcfff` | volume |
-| purple | `#bb9af7` | `0xffbb9af7` | media now-playing label |
+| purple | `#bb9af7` | `0xffbb9af7` | reserved (Tokyo Night accent; currently unused) |
 | grey / comment | `#565f89` | `0xff565f89` | inactive / dim |
 
 Shared thresholds (glyph **and** value colored together):
@@ -99,7 +99,6 @@ Nerd Fonts webfont. Same icon on both.
 | logo (Windows) | fa-windows |  | `nf-fa-windows` |
 | pomodoro | md-timer-outline | 󰔛 | `nf-md-timer_outline` |
 | clock | md-clock-outline | 󰅐 | `nf-md-clock_outline` |
-| media prev/play/pause/next | md-skip-previous / play / pause / skip-next | 󰒮 󰐊 󰏤 󰒭 | `nf-md-skip_previous` / `nf-md-play` / `nf-md-pause` / `nf-md-skip_next` |
 | network | md-speedometer | 󰓅 | `nf-md-speedometer` |
 | volume high/med/low/off | md-volume-high / medium / low / off | 󰕾 󰖀 󰕿 󰖁 | `nf-md-volume_high` / `_medium` / `_low` / `_off` |
 | disk | md-harddisk | 󰋊 | `nf-md-harddisk` |
@@ -115,8 +114,6 @@ Nerd Fonts webfont. Same icon on both.
 ## Behaviour parity
 
 - **network** — throughput `↓<down> ↑<up>`, compact units (`B`/`K`/`M` per second).
-- **media** — hidden entirely when no session; label `title — artist` (purple);
-  prev / play-pause / next transport.
 - **pomodoro** — 25/5 work-break timer; left-click start/pause, right-click reset;
   states colored green (work) / blue (break) / grey (paused).
 - **power** — collapsed icon expands to lock · sleep · restart · shutdown.

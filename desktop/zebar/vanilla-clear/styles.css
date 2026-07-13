@@ -224,43 +224,6 @@ i {
   color: var(--tn-comment);
 }
 
-/* --- Media (YASB port) ------------------------------------------------------ */
-.media {
-  display: flex;
-  align-items: center;
-  margin-right: 20px;
-}
-
-.media-btn {
-  background: transparent;
-  border: none;
-  padding: 0 2px;
-  color: var(--tn-fg-dim);
-  cursor: pointer;
-}
-
-.media-btn:hover {
-  color: var(--tn-blue);
-}
-
-.media-btn:disabled {
-  color: var(--tn-comment);
-  cursor: default;
-}
-
-.media-btn i {
-  margin-right: 0;
-}
-
-.media-label {
-  margin-left: 6px;
-  max-width: 22ch;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--tn-purple);
-}
-
 /* --- Power menu (YASB port) ------------------------------------------------- */
 .power {
   display: flex;
