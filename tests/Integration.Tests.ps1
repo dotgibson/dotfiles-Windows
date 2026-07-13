@@ -24,20 +24,21 @@ BeforeAll {
     $script:Repo  = Join-Path $script:World 'repo'
     $script:HomeDir  = Join-Path $script:World 'home'
     $script:Local = Join-Path $script:World 'local'
+    $script:Roaming = Join-Path $script:World 'roaming'
     $script:Docs  = Join-Path $script:World 'docs'
-    foreach ($d in $script:Repo, $script:HomeDir, $script:Local, $script:Docs) {
+    foreach ($d in $script:Repo, $script:HomeDir, $script:Local, $script:Roaming, $script:Docs) {
         New-Item -ItemType Directory -Force -Path $d | Out-Null
     }
 
     $script:Plan = Get-DotfilesLinkPlan -RepoRoot $script:Repo -HomeDir $script:HomeDir `
-        -LocalAppData $script:Local -Documents $script:Docs
+        -LocalAppData $script:Local -RoamingAppData $script:Roaming -Documents $script:Docs
 
     # Materialize each target inside the fake repo so the links have something to
     # point at (a file for file-targets, a dir for the nvim/scripts dir-targets).
     foreach ($row in $script:Plan) {
         $parent = Split-Path -Parent $row.Target
         if ($parent -and -not (Test-Path $parent)) { New-Item -ItemType Directory -Force -Path $parent | Out-Null }
-        if ($row.Target -match '\.(ps1|json|conf|gitconfig|gitignore_global)$' -or (Split-Path -Leaf $row.Target) -eq 'config') {
+        if ($row.Target -match '\.(ps1|json|conf|gitconfig|gitignore_global|toml)$' -or (Split-Path -Leaf $row.Target) -eq 'config') {
             'target' | Set-Content -LiteralPath $row.Target
         } else {
             New-Item -ItemType Directory -Force -Path $row.Target | Out-Null
@@ -75,7 +76,7 @@ Describe 'install -> uninstall round-trip' {
 
     It 'removes exactly the links that point into the repo' {
         $removed = 0
-        foreach ($link in (Get-DotfilesLinkMap -HomeDir $script:HomeDir -LocalAppData $script:Local -Documents $script:Docs)) {
+        foreach ($link in (Get-DotfilesLinkMap -HomeDir $script:HomeDir -LocalAppData $script:Local -RoamingAppData $script:Roaming -Documents $script:Docs)) {
             if (Test-LinkIntoRepo -Link $link -Root $script:Repo) {
                 Remove-Item -LiteralPath $link -Force -Recurse -ErrorAction SilentlyContinue
                 $removed++
