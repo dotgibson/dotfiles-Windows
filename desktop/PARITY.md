@@ -55,7 +55,12 @@ translucent bar (no per-item background). The only rounded container is the
 
 **CaskaydiaCove Nerd Font** on both (macOS: Homebrew cask; Windows: the
 `CascadiaCode-NF` scoop package installs this exact family). Sizes are matched
-visually, not pixel-identical across DPI: sketchybar `18.0` pt, Zebar `13px`.
+visually, not pixel-identical across DPI: sketchybar `14.0` pt, Zebar `13px`.
+
+The two variable-width labels — **front-app** and the **now-playing** title —
+are capped at ~22 chars on both bars (Zebar: `max-width: 22ch` + ellipsis;
+sketchybar: `label.max_chars=22`) so a long app name or song title can't grow into
+the centered clock.
 
 ## Colors — semantic load scheme (Tokyo Night Storm)
 
