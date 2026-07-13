@@ -1,6 +1,6 @@
 <!-- ============================================================================
-     KEEP IN SYNC: an identical copy of this file lives at
-     dotfiles-Windows/desktop/PARITY.md. Edit both together — it is the single
+     KEEP IN SYNC: an identical copy of this file lives in BOTH repos —
+     dotfiles-MacBook/sketchybar/PARITY.md and dotfiles-Windows/desktop/PARITY.md. Edit both together — it is the single
      shared contract that keeps the Zebar (Windows) and sketchybar (macOS) bars
      looking and behaving the same. When you change one bar, update this spec and
      mirror it to the other repo.
@@ -29,7 +29,7 @@ Two sanctioned platform exceptions (no cross-platform equivalent):
 - **caffeinate / keep-awake** — macOS `caffeinate -di` toggle, far right before
   `power`. No matching one-shot toggle on the Windows host.
 
-`logo` is a per-host brand glyph: Apple `` (macOS) / Windows `` (nf-fa-windows).
+`logo` is a per-host brand glyph: Apple `` (macOS) / Windows `` (nf-fa-windows).
 `clock` uses the format `EEE d MMM t` → e.g. `Mon 13 Jul 2:45 PM`.
 
 ## Geometry (floating rounded, matched proportions)
@@ -90,8 +90,8 @@ Nerd Fonts webfont. Same icon on both.
 
 | Module | Nerd Font name | glyph | Zebar `nf-*` class |
 | --- | --- | --- | --- |
-| logo (macOS) | fa-apple |  | — |
-| logo (Windows) | fa-windows |  | `nf-fa-windows` |
+| logo (macOS) | fa-apple |  | — |
+| logo (Windows) | fa-windows |  | `nf-fa-windows` |
 | pomodoro | md-timer-outline | 󰔛 | `nf-md-timer_outline` |
 | clock | md-clock-outline | 󰅐 | `nf-md-clock_outline` |
 | media prev/play/pause/next | md-skip-previous / play / pause / skip-next | 󰒮 󰐊 󰏤 󰒭 | `nf-md-skip_previous` / `nf-md-play` / `nf-md-pause` / `nf-md-skip_next` |
@@ -100,7 +100,7 @@ Nerd Fonts webfont. Same icon on both.
 | disk | md-harddisk | 󰋊 | `nf-md-harddisk` |
 | memory | md-memory | 󰍛 | `nf-md-memory` |
 | cpu | md-cpu-64-bit | 󰻠 | `nf-md-cpu_64_bit` |
-| battery full/¾/½/¼/empty | fa-battery-4/3/2/1/0 |     | `nf-fa-battery_4` … `_0` |
+| battery full/¾/½/¼/empty | fa-battery-4/3/2/1/0 |      | `nf-fa-battery_4` … `_0` |
 | battery charging bolt | md-power-plug | 󰚥 | `nf-md-power_plug` |
 | weather | weather-\* (day/night × clear/cloudy/rain/snow/thunder) | see weather.sh / getWeatherIcon | `nf-weather-*` |
 | caffeinate awake/asleep | md-coffee / md-power-sleep | 󰅶 󰒲 | — |

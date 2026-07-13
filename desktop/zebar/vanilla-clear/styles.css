@@ -46,12 +46,8 @@ body,
   margin: 8px;
   padding: 0 12px;
   border-radius: 9px;
-  background: rgba(
-    29,
-    32,
-    47,
-    93%
-  ); /* #1d202f @ ~93% — shared bar-background token */
+  /* #1d202f @ ~93% — shared bar-background token */
+  background: rgba(29, 32, 47, 0.93);
 }
 
 .left,
@@ -82,9 +78,17 @@ body,
   margin-right: 20px;
 }
 
-/* Brand anchor (Windows glyph) — the twin of sketchybar's Apple logo. */
+/* Brand anchor (Windows glyph) — the twin of sketchybar's Apple logo. Rendered as a <button> for
+   keyboard focus; strip the native chrome so it reads as the plain glyph. */
 .logo {
+  display: flex;
+  align-items: center;
   cursor: pointer;
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
 }
 
 /* Frontmost window (GlazeWM focused container) — accent, bold; matches sketchybar front_app. */

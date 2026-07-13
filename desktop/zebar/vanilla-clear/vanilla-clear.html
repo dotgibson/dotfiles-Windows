@@ -329,14 +329,16 @@
         return (
           <div className="app">
             <div className="left">
-              {/* Brand anchor (Windows glyph) — twin of sketchybar's Apple logo; click reloads. */}
-              <div
+              {/* Brand anchor (Windows glyph) — twin of sketchybar's Apple logo; click reloads.
+                  A <button> (not a bare <div>) so it's keyboard-focusable and Enter/Space work. */}
+              <button
+                type="button"
                 className="logo"
                 title="reload bar"
                 onClick={() => window.location.reload()}
               >
                 <i className="nf nf-fa-windows"></i>
-              </div>
+              </button>
 
               {/* GlazeWM workspaces — click to focus, mirrors alt+<n>. */}
               {output.glazewm && (

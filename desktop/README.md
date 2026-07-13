@@ -15,7 +15,7 @@ It ships three things: a **tiling window manager** (GlazeWM), a **top bar**
 | Path | What | Symlinked to |
 | --- | --- | --- |
 | `glazewm/config.yaml` | GlazeWM tiling-WM config (Tokyo Night, vim-key focus) | `~/.glzr/glazewm/config.yaml` |
-| `zebar/vanilla-clear/` | Zebar v3 widget pack (`zpack.json`) — logo · workspaces · front-app · pomodoro \| clock \| media · net · volume · disk · mem · cpu · battery · weather · power (kept at parity with macOS sketchybar; see `PARITY.md`) | `~/.glzr/zebar/vanilla-clear` |
+| `zebar/vanilla-clear/` | Zebar v3 widget pack (`zpack.json`) — logo · workspaces · front-app · pomodoro \| clock \| media · network · volume · disk · memory · cpu · battery · weather · power (kept at parity with macOS sketchybar; see `PARITY.md`) | `~/.glzr/zebar/vanilla-clear` |
 
 The symlinks are wired by `install.ps1` from the shared link plan
 (`Get-DotfilesLinkPlan`), so `dotfiles-doctor` verifies them and `uninstall.ps1`
