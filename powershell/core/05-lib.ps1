@@ -382,9 +382,15 @@ function Test-InMux {
 # the drive PROVIDER and throws DriveNotFoundException for a path on a drive that
 # doesn't exist on this host — which is exactly what the tests inject (H:, L:, D:).
 #
-# ParentMustExist flags a link whose parent we must NOT create on demand: the
-# Windows Terminal LocalState dir only exists when WT (Store build) is installed,
-# so install.ps1 skips that row rather than materializing an empty tree.
+# ParentMustExist flags a link whose parent we must NOT create on demand: a
+# Windows Terminal settings dir only exists when THAT build of WT is installed, so
+# install.ps1 skips the row rather than materializing an empty tree. WT ships in
+# three flavors that each keep settings.json in a different place — the packaged
+# Store/winget build (Packages\...WindowsTerminal_8wekyb3d8bbwe\LocalState), the
+# unpackaged/scoop build (%LOCALAPPDATA%\Microsoft\Windows Terminal), and the
+# Preview package — so all three are planned. Each row links only when ITS build's
+# settings dir already exists, so a box links whichever flavor(s) it has (usually
+# one, but stable + Preview can coexist) and the rest self-skip.
 function Get-DotfilesLinkPlan {
     param(
         [Parameter(Mandatory)][string]$RepoRoot,
@@ -409,7 +415,9 @@ function Get-DotfilesLinkPlan {
         & $row 'psmux.conf'                (& $repo 'psmux\psmux.conf')              (& $join $HomeDir      '.config\psmux\psmux.conf')
         & $row 'psmux.reset.conf'          (& $repo 'psmux\psmux.reset.conf')        (& $join $HomeDir      '.config\psmux\psmux.reset.conf')
         & $row 'psmux scripts'             (& $repo 'psmux\scripts')                 (& $join $HomeDir      '.config\psmux\scripts')
-        & $row 'Windows Terminal settings' (& $repo 'windows-terminal\settings.json') (& $join $LocalAppData 'Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json') $true
+        & $row 'Windows Terminal settings'             (& $repo 'windows-terminal\settings.json') (& $join $LocalAppData 'Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json') $true
+        & $row 'Windows Terminal settings (unpackaged)' (& $repo 'windows-terminal\settings.json') (& $join $LocalAppData 'Microsoft\Windows Terminal\settings.json') $true
+        & $row 'Windows Terminal settings (Preview)'    (& $repo 'windows-terminal\settings.json') (& $join $LocalAppData 'Packages\Microsoft.WindowsTerminalPreview_8wekyb3d8bbwe\LocalState\settings.json') $true
         # Opt-in desktop layer (GlazeWM + Zebar). The ~/.glzr parents are created on
         # demand, so these are plain rows (no ParentMustExist) — linking a config for
         # an as-yet-uninstalled app is harmless, exactly like the nvim row above.

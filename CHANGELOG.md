@@ -6,7 +6,35 @@ so entries are grouped by theme rather than strict semver releases.
 
 ## [Unreleased]
 
+### Added
+
+- **A real `winget import`-compatible manifest and a `winget configure` baseline.**
+  `winget.json` is this repo's own shape (`{ packages: [ id | { id, group } ] }`) so
+  the installer can carry optional-group tags — which means it is *not* consumable by
+  `winget import`. New `packages/Export-WingetImport.ps1` projects it down to the
+  official export schema at `packages/winget-import.json`, so a fresh box restores the
+  whole set in one command (`winget import -i packages/winget-import.json …`);
+  `-Frozen` pins versions from `packages.lock.json`. New root `configuration.dsc.yaml`
+  goes further — an idempotent `winget configure` baseline that also enables Developer
+  Mode (symlinks without an admin prompt).
+- **Windows Terminal "PowerShell (JetBrains Mono)" profile.** `JetBrainsMono-NF` was
+  installed by `scoopfile.json` but unused; it now has a home as a second pwsh profile,
+  alongside the CaskaydiaCove default.
+- **PSReadLine `F2` toggles the prediction view** (inline ghost ⇄ multi-row ListView)
+  on demand, and the prediction UI is now tinted to the Tokyo Night palette instead of
+  PSReadLine's default grey. The low-churn InlineView stays the default.
+- **Tab-completion of local branch names for bare `git`** after a ref-consuming verb
+  (`checkout`/`switch`/`merge`/`rebase`/`branch`) — filling the gap left by running no
+  posh-git.
+
 ### Changed
+
+- **Windows Terminal opts into the AtlasEngine renderer explicitly**
+  (`useAtlasEngine: true` in `profiles.defaults`) — it's the modern default, but the
+  setting documents intent and guards an older WT build.
+- **`dotfiles-doctor` and `core version` spawn one fewer `git` per run.** The "Repo
+  version" detail collapsed two of its three `git` invocations into a single
+  `git log -1 --format='%h%n%cs'`.
 
 - **GlazeWM keymap reconciled with the Mac's AeroSpace into one shared cross-OS keymap.**
   The tiled desktop now has identical muscle memory on Windows and macOS: `desktop/glazewm/config.yaml`
@@ -31,6 +59,15 @@ so entries are grouped by theme rather than strict semver releases.
 
 ### Fixed
 
+- **Windows Terminal settings now link for a scoop/unpackaged or Preview WT, not just
+  the Store build.** `Get-DotfilesLinkPlan` (`powershell/core/05-lib.ps1`) hardcoded the
+  packaged `…WindowsTerminal_8wekyb3d8bbwe\LocalState` path, and the row self-skips when
+  that parent is absent — so an unpackaged WT silently never got its `settings.json`.
+  Two more plan rows cover `%LOCALAPPDATA%\Microsoft\Windows Terminal\` (unpackaged) and
+  the `…WindowsTerminalPreview…` package; only the installed flavor's row links.
+- **`packages.lock.json` pinned 1Password to a range (`> 8.12.24.34`), not an exact
+  version** — defeating `-Frozen` reproducibility for that one package. Pinned to an
+  exact version (regenerate on a real box with `Update-PackageLock.ps1`).
 - **GlazeWM and Zebar failed to install (`winget … NO_APPLICATIONS_FOUND`).** The
   `desktop` group used the CamelCase winget IDs `glzr-io.GlazeWM` / `glzr-io.Zebar`,
   but the community manifests publish them **lowercase** (`glzr-io.glazewm` /

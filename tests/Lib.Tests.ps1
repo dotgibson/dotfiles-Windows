@@ -436,9 +436,20 @@ Describe 'Get-DotfilesLinkPlan' {
             $links | Should -Match ([regex]::Escape($needle))
         }
     }
-    It 'flags only Windows Terminal as ParentMustExist' {
+    It 'flags only the Windows Terminal settings variants as ParentMustExist' {
+        # WT keeps settings.json in a per-build location (packaged Store, unpackaged/
+        # scoop, Preview); each row self-skips unless THAT build's parent exists, so
+        # all three — and nothing else — carry ParentMustExist.
         $plan = Get-DotfilesLinkPlan -RepoRoot 'R:' -HomeDir 'H:' -LocalAppData 'L:' -Documents 'D:'
-        @($plan | Where-Object ParentMustExist).Name | Should -Be 'Windows Terminal settings'
+        @($plan | Where-Object ParentMustExist).Name | Should -Be @(
+            'Windows Terminal settings'
+            'Windows Terminal settings (unpackaged)'
+            'Windows Terminal settings (Preview)'
+        )
+        # every ParentMustExist row is a Windows Terminal settings row (no others crept in)
+        foreach ($n in @($plan | Where-Object ParentMustExist).Name) {
+            $n | Should -BeLike 'Windows Terminal settings*'
+        }
     }
 }
 

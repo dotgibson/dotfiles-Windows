@@ -52,7 +52,7 @@
     "zoxide": "0.10.0"
   },
   "winget": {
-    "AgileBits.1Password": "> 8.12.24.34",
+    "AgileBits.1Password": "8.12.24.34",
     "AgileBits.1Password.CLI": "2.34.1",
     "CharlesMilette.TranslucentTB": "2026.1.0.0",
     "Git.Git": "2.55.0.2",

@@ -83,7 +83,8 @@
       "padding": "0",
       "scrollbarState": "hidden",
       "snapOnInput": true,
-      "useAcrylic": false
+      "useAcrylic": false,
+      "useAtlasEngine": true
     },
     "list": [
       {
@@ -110,6 +111,17 @@
         "hidden": false,
         "name": "kali-linux",
         "source": "Microsoft.WSL"
+      },
+      {
+        "commandline": "pwsh.exe -NoLogo",
+        "font": {
+          "face": "JetBrainsMono Nerd Font",
+          "size": 13
+        },
+        "guid": "{7c3b1e2a-9f4d-4a6b-8c1d-2e3f4a5b6c7d}",
+        "hidden": false,
+        "name": "PowerShell (JetBrains Mono)",
+        "startingDirectory": "%USERPROFILE%"
       }
     ]
   },

@@ -98,3 +98,23 @@ Register-ArgumentCompleter -CommandName dothelp -ParameterName Filter -ScriptBlo
     if (-not (Get-Command Get-DotHelpFilters -ErrorAction SilentlyContinue)) { return }
     New-DotCompletions -Values (Get-DotHelpFilters) -Word $wordToComplete -Tooltip 'dothelp filter'
 }
+
+# --- git <checkout|switch|merge|rebase|branch> <branch> : local branch names ---
+# There's no posh-git here (starship renders git state; posh-git's prompt hook was
+# the startup cost we skipped) and pwsh ships no built-in git completion, so a bare
+# `git` offers nothing after a ref-consuming verb. Fill exactly that gap: local
+# branch names for the verbs whose first positional arg IS a branch. Native
+# completer (git.exe), guarded, no shell-out outside a repo. The g* shorthands splat
+# into a CHILD git so they can't be completed positionally — this is for bare `git`.
+Register-ArgumentCompleter -Native -CommandName git -ScriptBlock {
+    param($wordToComplete, $commandAst, $cursorPosition)
+    if (-not (Get-Command git -ErrorAction SilentlyContinue)) { return }
+    # Find the git verb by MEMBERSHIP, not position — so global options that take an
+    # argument (`git -C <path> checkout`, `git -c k=v switch`) still resolve the verb
+    # instead of mistaking the option's value for it.
+    $refVerbs = @('checkout', 'switch', 'merge', 'rebase', 'branch')
+    $tokens = @($commandAst.CommandElements | Select-Object -Skip 1 | ForEach-Object { "$_" })
+    if (-not ($tokens | Where-Object { $_ -in $refVerbs })) { return }
+    $branches = git branch --format='%(refname:short)' 2>$null
+    New-DotCompletions -Values $branches -Word $wordToComplete -Tooltip 'git branch'
+}

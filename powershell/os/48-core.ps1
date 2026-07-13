@@ -33,9 +33,12 @@ function global:core-version {
     $root   = if ($global:DOTFILES) { $global:DOTFILES } else { $env:DOTFILES_WIN }
     $detail = 'unknown (no git metadata)'
     if ($root -and (Test-Path (Join-Path $root '.git')) -and (Test-Cmd git)) {
-        $sha   = (& git -C $root rev-parse --short HEAD 2>$null)
-        $when  = (& git -C $root show -s --format=%cs HEAD 2>$null)
-        $dirty = [bool]((& git -C $root status --porcelain 2>$null) | Select-Object -First 1)
+        # One `git log` carries both the short SHA (%h) and the commit date (%cs),
+        # so two spawns cover what took three; the dirty check needs its own call.
+        $rev    = @(& git -C $root log -1 --format='%h%n%cs' HEAD 2>$null)
+        $sha    = if ($rev.Count -ge 1) { $rev[0] } else { '' }
+        $when   = if ($rev.Count -ge 2) { $rev[1] } else { '' }
+        $dirty  = [bool]((& git -C $root status --porcelain 2>$null) | Select-Object -First 1)
         $detail = Get-DotRepoVersionDetail -Sha "$sha" -IsDirty $dirty -When "$when"
     }
     Write-DotHost ("dotfiles-Windows {0}" -f $detail) -Color Cyan

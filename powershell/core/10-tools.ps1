@@ -85,6 +85,15 @@ if (Get-Module -ListAvailable PSReadLine) {
         # local.ps1 loads too late to gate this).
         $prlView = if ($env:DOTFILES_PSRL_LISTVIEW -eq '1') { 'ListView' } else { 'InlineView' }
         Set-PSReadLineOption -PredictionViewStyle $prlView
+        # Tint the prediction UI to the Tokyo Night palette the rest of the setup uses
+        # instead of PSReadLine's default grey: a muted inline ghost, a blue list row,
+        # a dark selection bar. Raw 24-bit SGR (Windows Terminal advertises truecolor);
+        # [char]27 = ESC, matching the escapes in core/05-lib.ps1's renderers.
+        Set-PSReadLineOption -Colors @{
+            InlinePrediction       = "$([char]27)[38;2;86;95;137m"
+            ListPrediction         = "$([char]27)[38;2;122;162;247m"
+            ListPredictionSelected = "$([char]27)[48;2;40;52;74m"
+        }
       } catch {
           # predictions unavailable in this host - carry on
         }
@@ -107,6 +116,11 @@ if (Get-Module -ListAvailable PSReadLine) {
     Set-PSReadLineKeyHandler -Key DownArrow -Function HistorySearchForward
     # Ctrl+arrow word movement; Tab = menu complete
     Set-PSReadLineKeyHandler -Key Tab       -Function MenuComplete
+    # F2 flips between the inline ghost and the multi-row dropdown on demand — the
+    # low-churn InlineView stays the default (see the PredictionViewStyle note above),
+    # but the richer ListView is one key away when you want several ranked sources at
+    # once. try/catch so an older PSReadLine without the function still loads clean.
+    try { Set-PSReadLineKeyHandler -Key F2 -Function SwitchPredictionView } catch { }
 }
 __lap 'PSReadLine'
 
