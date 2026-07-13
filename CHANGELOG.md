@@ -6,6 +6,18 @@ so entries are grouped by theme rather than strict semver releases.
 
 ## [Unreleased]
 
+### Changed
+
+- **GlazeWM keymap reconciled with the Mac's AeroSpace into one shared cross-OS keymap.**
+  The tiled desktop now has identical muscle memory on Windows and macOS: `desktop/glazewm/config.yaml`
+  is kept keystroke-for-keystroke in step with `dotfiles-MacBook/aerospace/aerospace.toml`.
+  Workspaces trimmed from 9 to **5** (matching AeroSpace's persistent 1–5); resize mode is now
+  HJKL-only (arrow duplicates removed). Bindings with no identical AeroSpace equivalent were dropped
+  for strict parity: minimize (`Alt+M`), toggle-tiling (`Alt+T`), pause mode (`Alt+Shift+P`), redraw
+  (`Alt+Shift+W`), exit-WM (`Alt+Shift+E`), and directional move-workspace-to-monitor
+  (`Alt+Shift+A/S/D/F`). Quit GlazeWM from its system-tray icon now that `wm-exit` has no bind.
+  `desktop/README.md` updated to match.
+
 ### Removed
 
 - **Dropped Visual Studio Code, Obsidian, and Firefox from the winget manifest.** VS Code

@@ -2,7 +2,16 @@
 #  GlazeWM — tiling window manager for the Windows host (opt-in desktop layer)
 #
 #  Symlinked to ~/.glzr/glazewm/config.yaml by install.ps1 (Get-DotfilesLinkPlan).
-#  Adapted from Gerrrt/make-windows-pretty and retuned for this fleet:
+#
+#  SHARED KEYMAP: this file is kept keystroke-for-keystroke identical to the Mac's
+#  AeroSpace config (dotfiles-MacBook/aerospace/aerospace.toml). Every binding below
+#  has an exact twin there; the two window managers are a single muscle-memory across
+#  Windows and macOS. Only bindings both WMs can express identically are kept —
+#  WM-specific extras (minimize, toggle-tiling, pause mode, wm-redraw, wm-exit, and
+#  directional monitor-move) were dropped for strict parity.
+#  Change one side → change the other.
+#
+#  Retuned for this fleet:
 #    • borders + accents follow Tokyo Night Storm (matches starship/nvim/WT)
 #    • the alt+<arrow> focus/move binds are REMOVED so they don't shadow Windows
 #      Terminal's own alt+<arrow> pane-focus (see windows-terminal/settings.json);
@@ -58,16 +67,13 @@ window_behavior:
       maximized: false
       shown_on_top: false
 
+# Five workspaces, matching AeroSpace's persistent 1–5.
 workspaces:
   - name: "1"
   - name: "2"
   - name: "3"
   - name: "4"
   - name: "5"
-  - name: "6"
-  - name: "7"
-  - name: "8"
-  - name: "9"
 
 window_rules:
   - commands: ["ignore"]
@@ -81,27 +87,20 @@ window_rules:
       - window_process: {equals: "PowerToys.PowerAccent"}
 
 binding_modes:
-  # Resize the focused window with arrow keys or HJKL, then escape/enter to exit.
-  # These arrows are safe: they're only live INSIDE resize mode, so they can't
-  # shadow Windows Terminal's global alt+<arrow>.
+  # Resize the focused window with HJKL, then escape/enter to exit. Identical to
+  # AeroSpace's resize mode: h/l size width, k/j size height.
   - name: "resize"
     keybindings:
       - commands: ["resize --width -2%"]
-        bindings: ["h", "left"]
+        bindings: ["h"]
       - commands: ["resize --width +2%"]
-        bindings: ["l", "right"]
+        bindings: ["l"]
       - commands: ["resize --height +2%"]
-        bindings: ["k", "up"]
+        bindings: ["k"]
       - commands: ["resize --height -2%"]
-        bindings: ["j", "down"]
+        bindings: ["j"]
       - commands: ["wm-disable-binding-mode --name resize"]
         bindings: ["escape", "enter"]
-  # Suspend all keybindings until alt+shift+p is pressed again (e.g. for a game
-  # or an app that needs alt+hjkl itself).
-  - name: "pause"
-    keybindings:
-      - commands: ["wm-disable-binding-mode --name pause"]
-        bindings: ["alt+shift+p"]
 
 keybindings:
   # --- focus (vim keys only — alt+<arrow> is left to Windows Terminal) ---------
@@ -125,6 +124,7 @@ keybindings:
     bindings: ["alt+shift+j"]
 
   # --- resize (quick nudges; alt+r enters the dedicated resize mode) -----------
+  # u/p = width -/+, o/i = height +/- (mirrors AeroSpace).
   - commands: ["resize --width -2%"]
     bindings: ["alt+u"]
   - commands: ["resize --width +2%"]
@@ -135,36 +135,26 @@ keybindings:
     bindings: ["alt+i"]
   - commands: ["wm-enable-binding-mode --name resize"]
     bindings: ["alt+r"]
-  - commands: ["wm-enable-binding-mode --name pause"]
-    bindings: ["alt+shift+p"]
 
   # --- layout ------------------------------------------------------------------
   - commands: ["toggle-tiling-direction"]
     bindings: ["alt+v"]
   - commands: ["toggle-floating --centered"]
     bindings: ["alt+shift+space"]
-  - commands: ["toggle-tiling"]
-    bindings: ["alt+t"]
   - commands: ["toggle-fullscreen"]
     bindings: ["alt+f"]
-  - commands: ["toggle-minimized"]
-    bindings: ["alt+m"]
   - commands: ["close"]
     bindings: ["alt+shift+q"]
 
   # --- WM control --------------------------------------------------------------
-  - commands: ["wm-exit"]
-    bindings: ["alt+shift+e"]
   - commands: ["wm-reload-config"]
     bindings: ["alt+shift+r"]
-  - commands: ["wm-redraw"]
-    bindings: ["alt+shift+w"]
 
   # --- launch Windows Terminal (the host's daily-driver terminal) --------------
   - commands: ["shell-exec wt"]
     bindings: ["alt+enter"]
 
-  # --- workspaces --------------------------------------------------------------
+  # --- workspaces (a = prev, s = next, d = recent; mirrors AeroSpace) ----------
   - commands: ["focus --next-workspace"]
     bindings: ["alt+s"]
   - commands: ["focus --prev-workspace"]
@@ -181,24 +171,6 @@ keybindings:
     bindings: ["alt+4"]
   - commands: ["focus --workspace 5"]
     bindings: ["alt+5"]
-  - commands: ["focus --workspace 6"]
-    bindings: ["alt+6"]
-  - commands: ["focus --workspace 7"]
-    bindings: ["alt+7"]
-  - commands: ["focus --workspace 8"]
-    bindings: ["alt+8"]
-  - commands: ["focus --workspace 9"]
-    bindings: ["alt+9"]
-
-  # --- move whole workspaces between monitors ----------------------------------
-  - commands: ["move-workspace --direction left"]
-    bindings: ["alt+shift+a"]
-  - commands: ["move-workspace --direction right"]
-    bindings: ["alt+shift+f"]
-  - commands: ["move-workspace --direction up"]
-    bindings: ["alt+shift+d"]
-  - commands: ["move-workspace --direction down"]
-    bindings: ["alt+shift+s"]
 
   # --- send the focused window to a workspace and follow it ---------------------
   - commands: ["move --workspace 1", "focus --workspace 1"]
@@ -211,11 +183,3 @@ keybindings:
     bindings: ["alt+shift+4"]
   - commands: ["move --workspace 5", "focus --workspace 5"]
     bindings: ["alt+shift+5"]
-  - commands: ["move --workspace 6", "focus --workspace 6"]
-    bindings: ["alt+shift+6"]
-  - commands: ["move --workspace 7", "focus --workspace 7"]
-    bindings: ["alt+shift+7"]
-  - commands: ["move --workspace 8", "focus --workspace 8"]
-    bindings: ["alt+shift+8"]
-  - commands: ["move --workspace 9", "focus --workspace 9"]
-    bindings: ["alt+shift+9"]
