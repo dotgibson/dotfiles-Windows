@@ -59,30 +59,51 @@ still work. Kept aligned by dotfiles-core's `PARITY.md` + `parity-check.sh`.
 | `gmd` | `glow [--pager]` | glow |
 | `dns` | `doggo` | doggo |
 | `du` | `dust` | dust |
+| `df` | `duf` | duf |
 | `pss` | `procs` | procs |
+| `top` / `htop` | `btop` | btop |
 | `watch` | `viddy` | viddy |
 | `hex` | `hexyl` | hexyl |
 | `loc` | `tokei` | tokei |
+| `fm` / `y` | `yazi` | yazi |
+| `tree` | `eza --tree --icons` | eza |
+| `ping` | `gping` | gping |
+| `cdi` | `zi` (zoxide interactive jump) | zoxide |
 
-## Git Functions (OMZ-compatible)
+## Git Functions (full OMZ-style set, parity with Core `git.zsh`)
 
-| Function | Equivalent |
-|----------|------------|
-| `g` | `git` |
-| `gs` | `git status -sb` |
-| `gst` | `git status` |
-| `gss` | `git status --short` |
-| `gsb` | `git status --short --branch` |
-| `ga` | `git add` |
-| `gaa` | `git add --all` |
-| `gc` | `git commit --verbose` |
-| `gcm` | `git commit -m` |
-| `gco` | `git checkout` |
-| `gd` | `git diff` |
-| `gl` | `git pull` |
-| `glog` | `git log --oneline --decorate --graph` |
-| `gp` | `git push` |
-| `lg` | `lazygit` |
+> The built-in PowerShell aliases that collide with a git shorthand (`gc`→Get-Content,
+> `gcm`→Get-Command, `gp`→Get-ItemProperty, `gl`→Get-Location, `gm`→Get-Member,
+> `gcb`→Get-Clipboard) are removed at load so these functions win.
+> `gbD` (force-delete) can't coexist with `gbd` — PowerShell is case-insensitive; use `gbd -D`.
+
+| Function | Equivalent | Function | Equivalent |
+|----------|------------|----------|------------|
+| `g` | `git` | `gsw` | `git switch` |
+| `gs` / `gsb` | `git status --short --branch` | `gswc` | `git switch --create` |
+| `gst` | `git status` | `gswm` | `git switch <trunk>` |
+| `gss` | `git status --short` | `gd` | `git diff` |
+| `ga` | `git add` | `gds` | `git diff --staged` |
+| `gaa` | `git add --all` | `gdw` | `git diff --word-diff` |
+| `gap` | `git add --patch` | `glog` | `git log --oneline --decorate --graph` |
+| `gc` | `git commit --verbose` | `gloga` | …`--all` |
+| `gcm` | `git commit --message` | `glol` / `glola` | pretty graph log |
+| `gca` | `git commit --verbose --all` | `gf` | `git fetch` |
+| `gcam` | `git commit --all --message` | `gfa` | `git fetch --all --prune --tags` |
+| `gc!` | `git commit --amend` | `gl` | `git pull` |
+| `gcn!` | `git commit --no-edit --amend` | `gpr` | `git pull --rebase` |
+| `gb` | `git branch` | `gp` | `git push` |
+| `gba` | `git branch --all` | `gpu` | `git push --set-upstream origin <cur>` |
+| `gbd` | `git branch --delete` | `gpf` | `git push --force-with-lease` (safe) |
+| `gbm` | `git branch --move` | `gpf!` | `git push --force` |
+| `gco` | `git checkout` | `gsta`/`gstaa` | `git stash push [--include-untracked]` |
+| `gcb` | `git checkout -b` | `gstp`/`gstl`/`gstd` | stash pop / list / drop |
+| `gcom` | `git checkout <trunk>` | `grb`/`grbi`/`grbm` | rebase / -i / onto trunk |
+| `grbc`/`grba` | rebase --continue / --abort | `grh`/`grhh` | `git reset` / `--hard` |
+| `grs`/`grss` | `git restore` / `--staged` | `gr`/`grv` | `git remote` / `--verbose` |
+| `gm`/`gma` | `git merge` / `--abort` | `gdft` | `git difftool --tool=difftastic` |
+| `jjs`/`jjl`/`jjd` | jujutsu status / log / diff | `lg` | `lazygit` |
+| `gaf`/`grf`/`grsf` | fuzzy stage / restore / unstage | | |
 
 ## Git Safety (`08-git-safety.ps1`)
 
@@ -110,8 +131,14 @@ still work. Kept aligned by dotfiles-core's `PARITY.md` + `parity-check.sh`.
 | `myip` | External IP address |
 | `myip-full` | Full IP info |
 | `localips` | All local IP addresses |
+| `ports` | Listening TCP/UDP sockets + owning process |
 | `pbcopy` / `pbpaste` | Clipboard (Mac-style parity) |
 | `serve [port]` | Start a local HTTP server |
+| `cdup [n]` | Climb N directories (default 1) |
+| `fcd` | Fuzzy-cd into any subdirectory (fd + fzf) |
+| `genpw [length]` | Random alphanumeric password (default 16, crypto RNG) |
+| `please` | Re-run the last command elevated (previews + confirms) |
+| `pullall [dir]` | Fast-forward every git repo under a dir, in parallel |
 | `sha256 / sha1 / md5 <file>` | File hash |
 | `mkbak <file>` | Timestamped backup |
 | `extract <archive>` | Extract any archive format |
