@@ -15,7 +15,7 @@ It ships three things: a **tiling window manager** (GlazeWM), a **top bar**
 | Path | What | Symlinked to |
 | --- | --- | --- |
 | `glazewm/config.yaml` | GlazeWM tiling-WM config (Tokyo Night, vim-key focus) | `~/.glzr/glazewm/config.yaml` |
-| `zebar/vanilla-clear/` | Zebar v3 widget pack (`zpack.json`) — logo · workspaces · front-app · pomodoro \| clock \| media · network · volume · disk · memory · cpu · battery · weather · power (kept at parity with macOS sketchybar; see `PARITY.md`) | `~/.glzr/zebar/vanilla-clear` |
+| `zebar/vanilla-clear/` | Zebar v3 widget pack (`zpack.json`) — logo · workspaces · front-app · pomodoro \| clock \| network · volume · disk · memory · cpu · battery · weather · power (kept at parity with macOS sketchybar; see `PARITY.md`) | `~/.glzr/zebar/vanilla-clear` |
 
 The symlinks are wired by `install.ps1` from the shared link plan
 (`Get-DotfilesLinkPlan`), so `dotfiles-doctor` verifies them and `uninstall.ps1`
@@ -97,26 +97,25 @@ in **`PARITY.md`** (an identical copy sits in `dotfiles-MacBook/sketchybar/`) �
 change both bars together. Layout:
 
 ```
-logo · workspaces · [binding-mode] · front-app · pomodoro | clock | media · network · volume · disk · memory · cpu · battery · weather · power
+logo · workspaces · [binding-mode] · front-app · pomodoro | clock | network · volume · disk · memory · cpu · battery · weather · power
 ```
 
 `binding-mode` is Windows-only (GlazeWM binding modes; macOS has no twin); macOS's
 `caffeinate` keep-awake toggle is likewise macOS-only.
 
-Three widgets are interactive, ported from
+Two widgets are interactive, ported from
 [`Gerrrt/yasb-glazewm-config`](https://github.com/Gerrrt/yasb-glazewm-config):
 
 | Widget | What | Interaction |
 | --- | --- | --- |
 | **Pomodoro** (left) | 25/5 work-break timer | click the time to start/pause, right-click to reset |
-| **Media** (right) | now-playing title/artist | prev / play-pause / next (Zebar `media` provider) |
 | **Power menu** (far right) | lock / sleep / restart / shut down | click the power icon to expand, click an action to run |
 
 The power menu runs its actions with Zebar's `shellExec` (`shutdown` and
 `rundll32`), so those two programs are whitelisted under
 `privileges.shellCommands` in `zpack.json` — Zebar refuses any shell command a
 widget hasn't declared. The `zebar` client is pinned to the `@3` major to match
-the pinned Zebar app, so the `media` provider and `shellExec` are present.
+the pinned Zebar app, so `shellExec` is present.
 
 ## Editing
 

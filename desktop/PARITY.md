@@ -20,7 +20,7 @@ canonical spec; both implementations follow it.
 | --- | --- |
 | **Left** | `logo` · `workspaces` · *(binding-mode — Windows only)* · `front_app` · `pomodoro` |
 | **Center** | `clock` |
-| **Right** | `media` · `network` · `volume` · `disk` · `memory` · `cpu` · `battery` · `weather` · *(caffeinate — macOS only)* · `power` |
+| **Right** | `network` · `volume` · `disk` · `memory` · `cpu` · `battery` · `weather` · *(caffeinate — macOS only)* · `power` |
 
 Two sanctioned platform exceptions (no cross-platform equivalent):
 
@@ -46,21 +46,29 @@ Individual items are **chip-less** — plain spaced icon+text directly on the
 translucent bar (no per-item background). The only rounded container is the
 `workspaces` group.
 
-- **sketchybar** floats natively: `--bar height=20 margin=8 corner_radius=9 blur_radius=20`.
-- **Zebar** floats via CSS: the transparent full-width window paints an inset
-  rounded pill (`.app { margin: 8px; border-radius: 9px; background: <token> }`).
-  GlazeWM's existing `gaps.outer.top: 50px` already clears it.
+Sizes/spacing are **per-host tuning knobs**, kept in one place on each side so
+they're easy to iterate: sketchybar's `--bar` / `--default` block at the top of
+`sketchybarrc`, and Zebar's `:root` "tuning knobs" block at the top of `styles.css`
+(`--bar-font-size` / `--bar-height` / `--bar-gap` / `--bar-radius` / `--bar-pad-x` /
+`--item-gap`). They're tuned to *look* the same, not to be pixel-identical.
+
+- **sketchybar** floats natively: `--bar height=36 y_offset=4 margin=8 corner_radius=9 padding=2 blur_radius=20`.
+- **Zebar** floats via CSS: a transparent `zpack.json` window (`height: 52px`)
+  paints an inset rounded pill sized by the `:root` knobs (`.app { height:
+  var(--bar-height); margin: var(--bar-gap) var(--bar-gap) 0; … }`). Keep the zpack
+  window `height` ≥ `--bar-height + 2×--bar-gap` or the pill clips; GlazeWM's
+  `gaps.outer.top: 50px` clears the current pill.
 
 ## Font
 
 **CaskaydiaCove Nerd Font** on both (macOS: Homebrew cask; Windows: the
-`CascadiaCode-NF` scoop package installs this exact family). Sizes are matched
-visually, not pixel-identical across DPI: sketchybar `14.0` pt, Zebar `13px`.
+`CascadiaCode-NF` scoop package installs this exact family). Sizes are tuned per
+host to match visually, not pixel-identical across DPI: sketchybar `17.0` pt, Zebar
+`16px` (`--bar-font-size`) — adjust via each bar's knobs.
 
-The two variable-width labels — **front-app** and the **now-playing** title —
-are capped at ~22 chars on both bars (Zebar: `max-width: 22ch` + ellipsis;
-sketchybar: `label.max_chars=22`) so a long app name or song title can't grow into
-the centered clock.
+The variable-width **front-app** label is capped at ~22 chars on both bars (Zebar:
+`max-width: 22ch` + ellipsis; sketchybar: `label.max_chars=22`) so a long app name
+can't grow into the centered clock.
 
 ## Colors — semantic load scheme (Tokyo Night Storm)
 
@@ -68,13 +76,13 @@ the centered clock.
 | --- | --- | --- | --- |
 | bg | `#24283b` | `0xff24283b` | item background |
 | fg | `#c0caf5` | `0xffc0caf5` | default text |
-| fg-dim | `#a9b1d6` | — | dimmed text (workspaces, media/power btns) |
+| fg-dim | `#a9b1d6` | — | dimmed text (workspaces, power btns) |
 | blue / accent | `#7aa2f7` | `0xff7aa2f7` | active highlight, logo, workspaces, front_app, network, clock, weather, battery-charging |
 | green | `#9ece6a` | `0xff9ece6a` | load: low |
 | yellow | `#e0af68` | `0xffe0af68` | load: mid |
 | red | `#f7768e` | `0xfff7768e` | load: high |
 | cyan | `#7dcfff` | `0xff7dcfff` | volume |
-| purple | `#bb9af7` | `0xffbb9af7` | media now-playing label |
+| purple | `#bb9af7` | `0xffbb9af7` | reserved (Tokyo Night accent; currently unused) |
 | grey / comment | `#565f89` | `0xff565f89` | inactive / dim |
 
 Shared thresholds (glyph **and** value colored together):
@@ -99,7 +107,6 @@ Nerd Fonts webfont. Same icon on both.
 | logo (Windows) | fa-windows |  | `nf-fa-windows` |
 | pomodoro | md-timer-outline | 󰔛 | `nf-md-timer_outline` |
 | clock | md-clock-outline | 󰅐 | `nf-md-clock_outline` |
-| media prev/play/pause/next | md-skip-previous / play / pause / skip-next | 󰒮 󰐊 󰏤 󰒭 | `nf-md-skip_previous` / `nf-md-play` / `nf-md-pause` / `nf-md-skip_next` |
 | network | md-speedometer | 󰓅 | `nf-md-speedometer` |
 | volume high/med/low/off | md-volume-high / medium / low / off | 󰕾 󰖀 󰕿 󰖁 | `nf-md-volume_high` / `_medium` / `_low` / `_off` |
 | disk | md-harddisk | 󰋊 | `nf-md-harddisk` |
@@ -115,8 +122,6 @@ Nerd Fonts webfont. Same icon on both.
 ## Behaviour parity
 
 - **network** — throughput `↓<down> ↑<up>`, compact units (`B`/`K`/`M` per second).
-- **media** — hidden entirely when no session; label `title — artist` (purple);
-  prev / play-pause / next transport.
 - **pomodoro** — 25/5 work-break timer; left-click start/pause, right-click reset;
   states colored green (work) / blue (break) / grey (paused).
 - **power** — collapsed icon expands to lock · sleep · restart · shutdown.

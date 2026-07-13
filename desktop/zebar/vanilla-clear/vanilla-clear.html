@@ -28,15 +28,12 @@
       import React, { useState, useEffect } from "https://esm.sh/react@18";
       import { createRoot } from "https://esm.sh/react-dom@18/client";
       // Client pinned to the same major as the Zebar app (3.x, packages.lock.json)
-      // so the media provider + shellExec used below are present and the provider
-      // output shapes match.
+      // so the shellExec used below is present and the provider output shapes match.
       import * as zebar from "https://esm.sh/zebar@3";
 
       const providers = zebar.createProviderGroup({
         // GlazeWM: workspaces + binding modes, so the bar pairs with the WM.
         glazewm: { type: "glazewm" },
-        // Now-playing session for the media widget (title/artist + transport).
-        media: { type: "media" },
         network: { type: "network" },
         // Output volume + free-disk, so the bar mirrors sketchybar's volume + disk widgets.
         audio: { type: "audio" },
@@ -132,47 +129,6 @@
             >
               {mm}:{ss}
             </button>
-          </div>
-        );
-      }
-
-      // --- Media (ported from the YASB config) --------------------------------
-      // Now-playing title/artist + prev/play-pause/next, driven by the Zebar
-      // media provider. Controls live on the provider output, not the session.
-      function Media({ media }) {
-        const session = media?.currentSession;
-        if (!session || (!session.title && !session.artist)) return null;
-        const label = [session.title, session.artist].filter(Boolean).join(" — ");
-        return (
-          <div className="media">
-            <button
-              className="media-btn"
-              disabled={!session.isPreviousEnabled}
-              onClick={() => media.previous()}
-              title="previous"
-            >
-              <i className="nf nf-md-skip_previous"></i>
-            </button>
-            <button
-              className="media-btn"
-              onClick={() => media.togglePlayPause()}
-              title="play / pause"
-            >
-              <i
-                className={`nf ${session.isPlaying ? "nf-md-pause" : "nf-md-play"}`}
-              ></i>
-            </button>
-            <button
-              className="media-btn"
-              disabled={!session.isNextEnabled}
-              onClick={() => media.next()}
-              title="next"
-            >
-              <i className="nf nf-md-skip_next"></i>
-            </button>
-            <span className="media-label" title={label}>
-              {label}
-            </span>
           </div>
         );
       }
@@ -392,8 +348,6 @@
             </div>
 
             <div className="right">
-              <Media media={output.media} />
-
               {/* Network throughput ↓/↑ (matches sketchybar network.sh). */}
               {output.network?.traffic && (
                 <div className="network">
