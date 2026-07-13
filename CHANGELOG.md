@@ -8,6 +8,18 @@ so entries are grouped by theme rather than strict semver releases.
 
 ### Added
 
+- **Everything (voidtools) instant file search + its `es` CLI.** `everything` (the
+  MFT-indexed search service, extras bucket) and `everything-cli` (the `es` command,
+  main bucket) added to `scoopfile.json` + `packages.lock.json`. `es` pairs with the
+  shell — `es foo | fzf`, or as an `FZF_DEFAULT_COMMAND` source — and needs the
+  Everything service running, which is why both are installed together.
+- **`windows/defaults.ps1` — Windows preferences as code** (the pwsh twin of the Mac's
+  `macos/defaults.sh`). A handful of privacy/telemetry + Explorer tweaks (disable the
+  advertising ID, Start-menu suggestions, Bing-in-Start; show file extensions; open to
+  This PC) codified as idempotent **HKCU** registry writes — no admin, nothing
+  machine-wide. `-DryRun` previews, `-RestartExplorer` applies shell changes now. The
+  point: the tweaks live in git (diffable, reproducible) instead of a one-shot debloat
+  GUI. Standalone/opt-in — it is not wired into `install.ps1`.
 - **jujutsu (`jj`) config on the host.** New `jj/config.toml` — the host-side twin of
   Core's `core/jujutsu/config.toml` — is symlinked to `%APPDATA%\jj\config.toml` (jj's
   native Windows config location) via `Get-DotfilesLinkPlan`, so the `jjs`/`jjl`/`jjd`
