@@ -17,6 +17,7 @@
       "id": "User.scrollToMark.2A0DA8E0"
     }
   ],
+  "alwaysShowTabs": true,
   "copyFormatting": "none",
   "copyOnSelect": true,
   "defaultProfile": "{574e775e-4f2a-5b96-ac1e-a2962a402336}",
@@ -137,6 +138,7 @@
       "yellow": "#E0AF68"
     }
   ],
+  "showTabsInTitlebar": true,
   "themes": [],
   "useAcrylicInTabRow": false
 }

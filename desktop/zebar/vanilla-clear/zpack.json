@@ -3,8 +3,13 @@
   "name": "vanilla-clear",
   "version": "1.0.0",
   "description": "Tokyo Night Storm top bar — clock, live GlazeWM workspaces, system stats, weather.",
-  "tags": ["glazewm", "tokyo-night", "bar"],
+  "tags": [
+    "glazewm",
+    "tokyo-night",
+    "bar"
+  ],
   "previewImages": [],
+  "repositoryUrl": "",
   "widgets": [
     {
       "name": "vanilla-clear",
@@ -14,14 +19,21 @@
       "focused": false,
       "resizable": false,
       "transparent": true,
-      "includeFiles": ["vanilla-clear.html", "styles.css", "normalize.css"],
+      "includeFiles": [
+        "vanilla-clear.html",
+        "styles.css",
+        "normalize.css"
+      ],
       "caching": {
         "defaultDuration": 604800,
         "rules": []
       },
       "privileges": {
         "shellCommands": [
-          { "program": "shutdown", "argsRegex": "^(/s|/r|/t|0|\\s)+$" },
+          {
+            "program": "shutdown",
+            "argsRegex": "^(/s|/r|/t|0|\\s)+$"
+          },
           {
             "program": "rundll32",
             "argsRegex": "^(user32\\.dll,LockWorkStation|powrprof\\.dll,SetSuspendState|0,1,0|\\s)+$"
