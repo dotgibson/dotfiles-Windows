@@ -63,6 +63,8 @@
     { "Name": "hexyl", "Source": "main" },
     { "Name": "gping", "Source": "main" },
     { "Name": "difftastic", "Source": "main" },
-    { "Name": "jj", "Source": "main" }
+    { "Name": "jj", "Source": "main" },
+    { "Name": "everything", "Source": "extras" },
+    { "Name": "everything-cli", "Source": "main" }
   ]
 }
