@@ -172,15 +172,22 @@ function script:Get-DoctorResults {
             elseif (Test-Path $row.Link)      { $r.Add((New-DoctorResult "link: $($row.Name)" 'warn' 'present, not a repo link' 're-run install.ps1 -SkipPackages')) }
             else                              { $r.Add((New-DoctorResult "link: $($row.Name)" 'warn' 'missing' 'run install.ps1')) }
         }
-        # One Windows Terminal row: linked if any installed flavor is wired, a skip if no
-        # WT is installed at all (a warning nothing could ever clear), else present-not-ours.
+        # One Windows Terminal row, but keep the SAME four states the per-row logic above
+        # reports so the collapse doesn't hide a real problem:
+        #   linked        - a flavor's settings.json is our repo link
+        #   present/not   - settings.json exists but isn't our link (foreign file)
+        #   missing       - WT is installed (a flavor dir exists) but has no settings.json
+        #   skipped       - no WT installed at all (nothing to link; not actionable)
         if ($wtRows.Count -gt 0) {
-            $wtLinked  = @($wtRows | Where-Object { Test-LinkIntoRepo $_.Link })
-            $wtPresent = @($wtRows | Where-Object { Test-Path (Split-Path -Parent $_.Link) })
+            $wtLinked    = @($wtRows | Where-Object { Test-LinkIntoRepo $_.Link })
+            $wtFile      = @($wtRows | Where-Object { Test-Path -LiteralPath $_.Link })
+            $wtInstalled = @($wtRows | Where-Object { Test-Path -LiteralPath (Split-Path -Parent $_.Link) })
             if ($wtLinked.Count -gt 0) {
                 $r.Add((New-DoctorResult 'link: Windows Terminal settings' 'ok' 'linked'))
-            } elseif ($wtPresent.Count -gt 0) {
+            } elseif ($wtFile.Count -gt 0) {
                 $r.Add((New-DoctorResult 'link: Windows Terminal settings' 'warn' 'present, not a repo link' 're-run install.ps1 -SkipPackages'))
+            } elseif ($wtInstalled.Count -gt 0) {
+                $r.Add((New-DoctorResult 'link: Windows Terminal settings' 'warn' 'missing' 'run install.ps1'))
             } else {
                 $r.Add((New-DoctorResult 'link: Windows Terminal settings' 'ok' 'skipped (Windows Terminal not installed)'))
             }
