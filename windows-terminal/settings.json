@@ -65,6 +65,7 @@
       "keys": "ctrl+alt+down"
     }
   ],
+  "launchMode": "focus",
   "newTabMenu": [
     {
       "type": "remainingProfiles"
@@ -79,12 +80,11 @@
         "face": "CaskaydiaCove Nerd Font",
         "size": 16
       },
-      "opacity": 90,
+      "opacity": 75,
       "padding": "0",
       "scrollbarState": "hidden",
       "snapOnInput": true,
-      "useAcrylic": true,
-      "useAtlasEngine": true
+      "useAcrylic": true
     },
     "list": [
       {
@@ -92,7 +92,9 @@
         "guid": "{574e775e-4f2a-5b96-ac1e-a2962a402336}",
         "hidden": false,
         "icon": "ms-appx:///ProfileIcons/{61c54bbd-c2c6-5271-96e7-009a87ff44bf}.png",
+        "intenseTextStyle": "all",
         "name": "PowerShell",
+        "opacity": 75,
         "source": "Windows.Terminal.PowershellCore",
         "startingDirectory": "%USERPROFILE%"
       },
