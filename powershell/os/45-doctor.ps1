@@ -161,19 +161,29 @@ function script:Get-DoctorResults {
     # sync with the actual link set. The profile link is checked separately above,
     # so it's skipped here to avoid a duplicate row.
     if ($root) {
+        # Windows Terminal keeps settings.json in a per-build location, so the plan lists
+        # one ParentMustExist candidate per flavor (Store / unpackaged / Preview). Collect
+        # them and report ONE summary row below instead of three (two forever "skipped").
+        $wtRows = [System.Collections.Generic.List[object]]::new()
         foreach ($row in (Get-DotfilesLinkPlan -RepoRoot $root)) {
             if ($row.Name -eq 'PowerShell profile') { continue }
-            # Honor ParentMustExist (Windows Terminal): install.ps1 deliberately skips
-            # that row when its parent folder is absent (WT not installed). Flagging it
-            # "missing → run install.ps1" would be a warning nothing could ever clear,
-            # so report it as a skip instead.
-            if ($row.ParentMustExist -and -not (Test-Path (Split-Path -Parent $row.Link))) {
-                $r.Add((New-DoctorResult "link: $($row.Name)" 'ok' 'skipped (parent app not installed)'))
-                continue
-            }
+            if ($row.ParentMustExist) { $wtRows.Add($row); continue }
             if (Test-LinkIntoRepo $row.Link)  { $r.Add((New-DoctorResult "link: $($row.Name)" 'ok' 'linked')) }
             elseif (Test-Path $row.Link)      { $r.Add((New-DoctorResult "link: $($row.Name)" 'warn' 'present, not a repo link' 're-run install.ps1 -SkipPackages')) }
             else                              { $r.Add((New-DoctorResult "link: $($row.Name)" 'warn' 'missing' 'run install.ps1')) }
+        }
+        # One Windows Terminal row: linked if any installed flavor is wired, a skip if no
+        # WT is installed at all (a warning nothing could ever clear), else present-not-ours.
+        if ($wtRows.Count -gt 0) {
+            $wtLinked  = @($wtRows | Where-Object { Test-LinkIntoRepo $_.Link })
+            $wtPresent = @($wtRows | Where-Object { Test-Path (Split-Path -Parent $_.Link) })
+            if ($wtLinked.Count -gt 0) {
+                $r.Add((New-DoctorResult 'link: Windows Terminal settings' 'ok' 'linked'))
+            } elseif ($wtPresent.Count -gt 0) {
+                $r.Add((New-DoctorResult 'link: Windows Terminal settings' 'warn' 'present, not a repo link' 're-run install.ps1 -SkipPackages'))
+            } else {
+                $r.Add((New-DoctorResult 'link: Windows Terminal settings' 'ok' 'skipped (Windows Terminal not installed)'))
+            }
         }
     }
 
