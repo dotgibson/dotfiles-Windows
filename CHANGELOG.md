@@ -6,6 +6,8 @@ so entries are grouped by theme rather than strict semver releases.
 
 ## [Unreleased]
 
+## [v1.2.0] - 2026-07-14
+
 ### Added
 
 - **QuickLook (`QL-Win.QuickLook`) — macOS-style spacebar file preview** added to the
@@ -32,7 +34,7 @@ so entries are grouped by theme rather than strict semver releases.
   host. Identity stays unset (set once per machine with `jj config set --user …`).
 - **Windows↔Mac terminal parity pass — the PowerShell/psmux/Windows Terminal stack
   now matches the Core (zsh) baseline the Mac inherits, wherever it's reproducible.**
-  - *Git shorthands:* the **full curated `git.zsh` set** (~55 `g*` verbs) is now on the
+  - _Git shorthands:_ the **full curated `git.zsh` set** (~55 `g*` verbs) is now on the
     host — `gap`, the `gca`/`gcam`/`gc!`/`gcn!` commit family, `gb*` branch, `gcb`/`gcom`/
     `gsw`/`gswc`/`gswm` checkout/switch, `gds`/`gdw`, `gloga`/`glol`/`glola`, `gf`/`gfa`/
     `gpr`/`gpu`, **`gpf` = `push --force-with-lease`** (the safe force), the `gsta*` stash
@@ -43,23 +45,23 @@ so entries are grouped by theme rather than strict semver releases.
     functions win — which also **fixes `gl`/`gc`/`gcm`/`gp`, previously shadowed** and
     silently not doing their git thing. `gbD` (force-delete) is dropped: PowerShell is
     case-insensitive, so it can't coexist with `gbd` (use `gbd -D`).
-  - *Modern-CLI aliases:* `df`→duf, `fm`/`y`→yazi, `top`/`htop`→btop, `tree`→eza,
+  - _Modern-CLI aliases:_ `df`→duf, `fm`/`y`→yazi, `top`/`htop`→btop, `tree`→eza,
     `ping`→gping, `cdi`→zoxide interactive, and `notes`.
-  - *Functions:* `ports` (listening sockets + process), `cdup`, `fcd`, `genpw`
+  - _Functions:_ `ports` (listening sockets + process), `cdup`, `fcd`, `genpw`
     (crypto RNG), `please` (elevated re-run of the last command), and `pullall`
     (parallel fast-forward of every repo under a dir).
-  - *Tools:* `gping`, `difftastic`, and `jj` (jujutsu) added to `scoopfile.json`
+  - _Tools:_ `gping`, `difftastic`, and `jj` (jujutsu) added to `scoopfile.json`
     (+ `packages.lock.json`); the difftastic difftool + `dft` alias added to `git/.gitconfig`.
-  - *psmux keys:* full-span splits (`\`/`_`), zoom (`m`), kill/swap (`x`/`X`), toggle
+  - _psmux keys:_ full-span splits (`\`/`_`), zoom (`m`), kill/swap (`x`/`X`), toggle
     titles (`P`), synchronize-panes (`*`), a floating popup (`F`), window cycling
     (`Alt+Shift+H`/`L`), rename/kill window (`,`/`&`), enriched vi copy-mode
     (`Enter`/`v`/`C-v`/`Escape`), `R`/`S`/`d` QoL, double-tap-prefix → last-window, and a
     new **`prefix + u` URL picker** (`psmux-url.ps1`, host port of tmux-fzf-url). The
     cheatsheet moved from `prefix + D` to **`prefix + ?`** to match Core's tmux.
-  - *`Ctrl+\`* now toggles PSReadLine predictions, mirroring zsh's `autosuggest-toggle`.
+  - _`Ctrl+\`_ now toggles PSReadLine predictions, mirroring zsh's `autosuggest-toggle`.
 - **A real `winget import`-compatible manifest and a `winget configure` baseline.**
   `winget.json` is this repo's own shape (`{ packages: [ id | { id, group } ] }`) so
-  the installer can carry optional-group tags — which means it is *not* consumable by
+  the installer can carry optional-group tags — which means it is _not_ consumable by
   `winget import`. New `packages/Export-WingetImport.ps1` projects it down to the
   official export schema at `packages/winget-import.json`, so a fresh box restores the
   whole set in one command (`winget import -i packages/winget-import.json …`);
@@ -156,7 +158,7 @@ so entries are grouped by theme rather than strict semver releases.
   whitelisted in `zpack.json`'s `privileges.shellCommands`). The `zebar` client import is
   bumped to the `@3` major to match the pinned app so those providers/APIs are present.
 - **Opt-in tiling-desktop layer (`desktop/`).** A new optional layer that rices the
-  *desktop* on top of the shell host, adapted from `Gerrrt/make-windows-pretty` and
+  _desktop_ on top of the shell host, adapted from `Gerrrt/make-windows-pretty` and
   retuned to the fleet's Tokyo Night Storm palette. Ships **GlazeWM** (i3-style tiling
   WM), a **Zebar** top bar (the buildless-React `vanilla-clear` widget as a native
   Zebar **v3 widget pack** (`zpack.json`), wired to GlazeWM for live, clickable
@@ -361,13 +363,13 @@ experience, grouped by theme.
 - **`tools` command implemented** — the cheatsheet advertised `tools` ("open the
   host tool docs") but nothing defined it. It now renders `docs/TOOLS.md` (glow →
   bat → nvim → plain), and is listed in `dothelp`.
-- **Dead-shim guards for `fif` / `fbr`** — a tool that *resolves* on PATH but
-  won't *launch* (a stale Chocolatey shim, or a scoop shim whose app was removed,
+- **Dead-shim guards for `fif` / `fbr`** — a tool that _resolves_ on PATH but
+  won't _launch_ (a stale Chocolatey shim, or a scoop shim whose app was removed,
   shadowing the real binary) produced raw `Program rg.exe failed to run` /
   `cannot find file ...fzf.exe` errors. A new `Test-CmdRuns` helper probes
   executability so `fif`/`fbr` (and the same class of `Ctrl+t`/`Ctrl+r` breakage)
   fail with an actionable fix hint instead.
-- **`dotfiles-doctor` now checks executability** — a new *Core toolchain runs*
+- **`dotfiles-doctor` now checks executability** — a new _Core toolchain runs_
   probe flags tools that resolve but won't launch, which the resolve-only check
   could not see.
 - **`tools` / `gmd` no longer abort when `less` is absent** — glow (and bat) page
