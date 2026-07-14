@@ -113,7 +113,7 @@ if ($tun) {
 elseif ($AllNetworks) {
     $lan = Get-LanIp
     if ($lan) {
-        Pill $GREEN " $lan"                       # ethernet: LAN only
+        Pill $GREEN "󰈀 $lan"                       # ethernet: LAN only
     }
 }
 
