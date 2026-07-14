@@ -332,17 +332,29 @@ Write-Step 'Wiring configs'
 # Documents folder inside the plan is resolved the OneDrive-aware way via
 # [Environment]::GetFolderPath('MyDocuments'), so the profile we link is the one
 # pwsh ACTUALLY loads even when Documents is redirected to OneDrive.
+# Windows Terminal keeps settings.json in a per-build location (packaged Store/winget,
+# unpackaged/scoop, Preview), so the plan carries one candidate row per flavor, all
+# flagged ParentMustExist. Wire them as a GROUP: link whichever flavor(s) are actually
+# installed and stay silent about the ones that aren't — you normally have exactly one,
+# so a "skipping" warning per absent flavor was just noise. Only nudge if NONE is present.
+$wtRows = [System.Collections.Generic.List[object]]::new()
 foreach ($row in (Get-DotfilesLinkPlan -RepoRoot $RepoRoot)) {
-    # A row flagged ParentMustExist (Windows Terminal) is skipped when its parent
-    # dir is absent — WT isn't installed — instead of materializing an empty tree.
-    if ($row.ParentMustExist -and -not (Test-Path -LiteralPath (Split-Path -Parent $row.Link))) {
-        Write-DotWarn "$($row.Name): target folder not found — skipping." 'If you installed Windows Terminal via scoop, link its settings.json manually.'
-        continue
-    }
+    if ($row.ParentMustExist) { $wtRows.Add($row); continue }
     Link-Item -Target $row.Target -Link $row.Link
     if ($row.Name -eq 'PowerShell profile') {
         Write-Host "  (profile target: $($row.Link))" -ForegroundColor DarkGray
     }
+}
+$wtLinked = 0
+foreach ($row in $wtRows) {
+    if (Test-Path -LiteralPath (Split-Path -Parent $row.Link)) {
+        Link-Item -Target $row.Target -Link $row.Link
+        $wtLinked++
+    }
+}
+if ($wtRows.Count -gt 0 -and $wtLinked -eq 0) {
+    Write-DotWarn 'Windows Terminal settings not linked — no Windows Terminal install found.' `
+        'Install Windows Terminal (Store/winget or scoop), then re-run install.ps1.'
 }
 
 # --- ppm (psmux plugin manager) -------------------------------------------------

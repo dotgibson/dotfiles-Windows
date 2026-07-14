@@ -116,6 +116,13 @@ so entries are grouped by theme rather than strict semver releases.
 
 ### Fixed
 
+- **The multi-flavor Windows Terminal settings link no longer prints a "target folder
+  not found — skipping" warning per flavor you don't have.** After the three-flavor
+  support landed (Store / unpackaged / Preview), `install.ps1` warned once for each
+  absent flavor and `dotfiles-doctor` showed three link rows (two forever "skipped") —
+  noise, since you normally have exactly one WT install. Both now treat the flavors as
+  a group: link whichever is present, stay silent about the rest, and warn/skip once
+  only when **no** Windows Terminal is installed at all.
 - **Windows Terminal settings now link for a scoop/unpackaged or Preview WT, not just
   the Store build.** `Get-DotfilesLinkPlan` (`powershell/core/05-lib.ps1`) hardcoded the
   packaged `…WindowsTerminal_8wekyb3d8bbwe\LocalState` path, and the row self-skips when
