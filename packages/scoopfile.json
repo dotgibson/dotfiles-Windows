@@ -70,6 +70,9 @@
     { "Name": "gsudo", "Source": "main" },
     { "Name": "watchexec", "Source": "main" },
     { "Name": "trippy", "Source": "main" },
-    { "Name": "ast-grep", "Source": "main" }
+    { "Name": "ast-grep", "Source": "main" },
+    { "Name": "yt-dlp", "Source": "main" },
+    { "Name": "restic", "Source": "main" },
+    { "Name": "mpv", "Source": "extras" }
   ]
 }
