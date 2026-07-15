@@ -9,13 +9,12 @@ so entries are grouped by theme rather than strict semver releases.
 ### Added
 
 - **The `awesome-windows` sweep's heavier picks** — added in their proper homes rather
-  than the always-on CLI core: `syncthing` (P2P sync) and `ollama` (local LLM runner) to
-  `scoopfile.json` (`main`), `tailscale` (mesh VPN; pairs with the WSL bridge) to
-  `scoopfile.json` (`extras`), and the GUI screenshot/capture tool **ShareX**
-  (`ShareX.ShareX`) to the opt-out **`gui` winget group** in `winget.json` (alongside
-  QuickLook/1Password). All install as plain binaries — no service auto-starts, and Ollama
-  downloads no models until `ollama pull`. `packages.lock.json` reconciled from the
-  Main/Extras + winget manifests (`syncthing 2.1.2`, `ollama 0.32.0`, `tailscale 1.98.9`,
+  than the always-on CLI core: `syncthing` (P2P sync) to `scoopfile.json` (`main`),
+  `tailscale` (mesh VPN; pairs with the WSL bridge) to `scoopfile.json` (`extras`), and
+  the GUI screenshot/capture tool **ShareX** (`ShareX.ShareX`) to the opt-out **`gui`
+  winget group** in `winget.json` (alongside QuickLook/1Password). All install as plain
+  binaries — no service auto-starts. `packages.lock.json` reconciled from the
+  Main/Extras + winget manifests (`syncthing 2.1.2`, `tailscale 1.98.9`,
   `ShareX.ShareX 21.0.0`) so the scoop **and** winget drift gates pass; re-run
   `packages/Update-PackageLock.ps1` on a Windows host to confirm installed versions.
 - **Three more host CLI tools from the `awesome-windows` sweep** in `scoopfile.json`:

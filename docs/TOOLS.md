@@ -84,10 +84,9 @@ rather than the always-on CLI core:
 | --------- | ----------------------------- | ----------------------------------------------------------------------------------------------------------- |
 | syncthing | `scoopfile.json` (`main`)     | P2P file sync. Ships the binary only — you still run/enable the service yourself.                            |
 | tailscale | `scoopfile.json` (`extras`)   | Mesh VPN; pairs with the WSL bridge for host↔WSL↔remote reach. Binary only; `tailscale up` to enroll.       |
-| ollama    | `scoopfile.json` (`main`)     | Local LLM runner. The **binary** is light, but pulled models are multi-GB and benefit from a GPU (CPU-only works, just slower) — nothing downloads until you `ollama pull`. |
 | ShareX    | `winget.json` **`gui` group** | Screenshot/capture/annotate power-tool. GUI, so it lives in the opt-out `gui` winget group (like QuickLook), not the scoopfile. |
 
-`ollama`/`tailscale`/`syncthing` install as plain scoop binaries (no service auto-starts),
+`tailscale`/`syncthing` install as plain scoop binaries (no service auto-starts),
 and `ShareX` opts out with the rest of the `gui` group via `DOTFILES_PKG_GROUPS`.
 
 ## Terminal multiplexer — psmux (native host)
