@@ -41,6 +41,7 @@
     "mpv": "0.41.0",
     "navi": "2.24.0",
     "neovim": "0.12.4",
+    "ollama": "0.32.0",
     "openssh": "10.0.0.0p2",
     "ouch": "0.8.1",
     "procs": "0.14.12",
@@ -50,7 +51,9 @@
     "ripgrep": "15.1.0",
     "sd": "1.1.0",
     "starship": "1.26.0",
+    "syncthing": "2.1.2",
     "sysinternals": "20260709",
+    "tailscale": "1.98.9",
     "television": "0.15.9",
     "tlrc": "1.13.1",
     "tokei": "12.1.2",
@@ -77,6 +80,7 @@
     "Microsoft.WindowsTerminal": "1.24.11321.0",
     "Microsoft.WSL": "2.7.10.0",
     "QL-Win.QuickLook": "4.5.0.0",
+    "ShareX.ShareX": "21.0.0",
     "WiresharkFoundation.Wireshark": "4.6.7"
   }
 }

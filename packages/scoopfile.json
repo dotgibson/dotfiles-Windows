@@ -73,6 +73,9 @@
     { "Name": "ast-grep", "Source": "main" },
     { "Name": "yt-dlp", "Source": "main" },
     { "Name": "restic", "Source": "main" },
-    { "Name": "mpv", "Source": "extras" }
+    { "Name": "mpv", "Source": "extras" },
+    { "Name": "syncthing", "Source": "main" },
+    { "Name": "ollama", "Source": "main" },
+    { "Name": "tailscale", "Source": "extras" }
   ]
 }

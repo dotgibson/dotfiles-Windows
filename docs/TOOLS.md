@@ -76,8 +76,19 @@ CLI tools that fit the shell-first host and weren't already covered:
 
 Same lockfile handling as above: `packages.lock.json` reconciled from the Main/Extras
 bucket manifests; re-run `packages/Update-PackageLock.ps1` on a Windows host to confirm.
-Heavier service-style picks from the same sweep (Tailscale, Syncthing, Ollama) and the
-GUI power-tool **ShareX** were deliberately left for opt-in, not the shell core.
+
+The heavier picks from the same sweep were then added too, each in its proper home
+rather than the always-on CLI core:
+
+| Tool      | Home                          | Notes                                                                                                       |
+| --------- | ----------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| syncthing | `scoopfile.json` (`main`)     | P2P file sync. Ships the binary only — you still run/enable the service yourself.                            |
+| tailscale | `scoopfile.json` (`extras`)   | Mesh VPN; pairs with the WSL bridge for host↔WSL↔remote reach. Binary only; `tailscale up` to enroll.       |
+| ollama    | `scoopfile.json` (`main`)     | Local LLM runner. The **binary** is light, but pulled models are multi-GB and want a GPU — nothing downloads until you `ollama pull`. |
+| ShareX    | `winget.json` **`gui` group** | Screenshot/capture/annotate power-tool. GUI, so it lives in the opt-out `gui` winget group (like QuickLook), not the scoopfile. |
+
+`ollama`/`tailscale`/`syncthing` install as plain scoop binaries (no service auto-starts),
+and `ShareX` opts out with the rest of the `gui` group via `DOTFILES_PKG_GROUPS`.
 
 ## Terminal multiplexer — psmux (native host)
 
