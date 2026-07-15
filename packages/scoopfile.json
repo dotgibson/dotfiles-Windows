@@ -65,6 +65,12 @@
     { "Name": "difftastic", "Source": "main" },
     { "Name": "jj", "Source": "main" },
     { "Name": "everything", "Source": "extras" },
-    { "Name": "everything-cli", "Source": "main" }
+    { "Name": "everything-cli", "Source": "main" },
+    { "Name": "lsd", "Source": "main" },
+    { "Name": "gsudo", "Source": "main" },
+    { "Name": "watchexec", "Source": "main" },
+    { "Name": "trippy", "Source": "main" },
+    { "Name": "ast-grep", "Source": "main" },
+    { "Name": "jless", "Source": "main" }
   ]
 }
