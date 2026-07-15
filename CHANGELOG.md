@@ -6,6 +6,27 @@ so entries are grouped by theme rather than strict semver releases.
 
 ## [Unreleased]
 
+### Added
+
+- **Five host CLI tools filling genuine gaps** in `scoopfile.json` (all scoop `main`):
+  `lsd` (the `eza`-fallback `docs/TOOLS.md` already documented but wasn't installed),
+  `gsudo` (in-session `sudo` for Windows — cached elevation, covers Win10), `watchexec`
+  (run-on-file-change, the change-driven complement to `viddy`), `trippy` (`trip` —
+  mtr/traceroute TUI), and `ast-grep` (`sg` — structural AST search/replace alongside
+  `rg`/`sd`). Documented in `docs/TOOLS.md`. `packages.lock.json` was reconciled with
+  their Main-bucket versions so the drift gate passes; re-run `Update-PackageLock.ps1`
+  on a Windows host to confirm against installed versions. (`jless` was dropped — not in
+  the scoop buckets and weak on Windows; `gron`/`jq` cover it.)
+
+### Fixed
+
+- **`psmux/scripts/psmux-cheat.ps1` — `prefix ?` cheatsheet rendered as 3 columns of
+  ~1 character each.** The `$rows` array was built from newline-separated `@(...)`
+  literals, so PowerShell emitted each inner array as a separate pipeline statement and
+  the collecting `@()` flattened them into one string array; `$_[0..2]` then indexed
+  single characters (`'psmux'[0]='p'`). Added the leading-comma idiom (`,@(...)`) to each
+  row so unrolling preserves the row, plus a comment documenting why it must stay.
+
 ## [v1.2.0] - 2026-07-14
 
 ### Added

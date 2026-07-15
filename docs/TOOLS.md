@@ -41,6 +41,28 @@ repo for the offensive catalog.
 Aliases are **guarded** (`if (Test-Cmd ...)`) the same way the zsh aliases are —
 on a box where a tool isn't installed, the classic command is untouched.
 
+### Mid-2026 additions (host gaps)
+
+Filling holes the stack above didn't cover — each is deliberately **not** a
+duplicate of an existing tool:
+
+| Tool                | Replaces / adds     | scoop name  | Notes                                                                                                   |
+| ------------------- | ------------------- | ----------- | ------------------------------------------------------------------------------------------------------- |
+| lsd                 | ls (eza fallback)   | `lsd`       | The `eza`-fallback the tables above already assumed — now actually installed, not just documented.      |
+| gsudo               | sudo                | `gsudo`     | A real in-session `sudo` for Windows (cached elevation, `gsudo !!`); covers Win10 where native `sudo` is absent. |
+| watchexec           | —                   | `watchexec` | Run a command **on file change** — the change-driven complement to `viddy`'s interval re-run.           |
+| trippy (`trip`)     | mtr / traceroute    | `trippy`    | Traceroute + ping TUI; the hop/path analysis `gping`/`doggo` don't do.                                  |
+| ast-grep (`sg`)     | —                   | `ast-grep`  | Structural (AST-aware) code search/replace; complements `rg` + `sd` for real refactors.                 |
+
+> **Lockfile:** `packages.lock.json` was reconciled with these five apps from the
+> ScoopInstaller **Main** bucket manifests (the same source `Update-PackageLock.ps1`
+> queries) so the drift gate stays green. Re-run `packages/Update-PackageLock.ps1` on a
+> Windows host to confirm against your actually-installed versions.
+>
+> `jless` (interactive JSON/YAML viewer) was considered and **left out** — it isn't in
+> the scoop Main/Extras buckets and its Windows support is weak; `gron`/`jq` cover the
+> need. Install via `cargo install jless` if you want it.
+
 ## Terminal multiplexer — psmux (native host)
 
 The fleet runs tmux inside WSL, but the **host** now gets a real multiplexer too.
