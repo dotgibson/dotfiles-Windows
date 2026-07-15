@@ -160,9 +160,9 @@ lazygit, htop) instead of psmux intercepting them.
 
 `status-position top`, refreshed every 5 s. The palette is set as `@tn_*` user options; pills use
 rounded Nerd-Font caps. **Left**: a session pill whose colour tracks mode (blue normal, orange
-when prefix is held `󰠠`, yellow in copy mode `󰆏`). **Windows**: muted pills, current is blue with
-a zoom glyph `󰊓` when zoomed. **Right**: three segments — the operator/VPN pill (file-backed,
-§2.7), the cwd basename (`󰉋`), and the clock (`󰥔 %H:%M`).
+when the prefix is held, yellow in copy mode). **Windows**: muted pills, current is blue with a
+zoom marker when zoomed. **Right**: three segments — the operator/VPN pill (file-backed, §2.7),
+the cwd basename, and the clock (`%H:%M`). Each live segment carries a Nerd-Font glyph.
 
 > **Design rule — no shell spawns on the render path.** psmux expands `status-right`
 > *synchronously* on the server's state-push (a blocking `Command::output()`), so a cold
@@ -209,7 +209,7 @@ a zoom glyph `󰊓` when zoomed. **Right**: three segments — the operator/VPN 
 `psmux-pill-enable` opts a box in (persisted as `DOTFILES_PSMUX_PILL=1`; `-AllNetworks` adds the
 plain-LAN IP). In opted-in panes an **in-session `System.Timers.Timer`** (not a Scheduled Task —
 avoids elevation) refreshes `%LOCALAPPDATA%\dotfiles\psmux-netinfo.pill` on a background thread
-(first tick ~2.5 s, then 60 s). Default is **tunnel-only**: an orange `` pill appears only when a
+(first tick ~2.5 s, then 60 s). Default is **tunnel-only**: an orange **VPN** pill appears only when a
 VPN/tunnel adapter is up (WireGuard/Wintun/OpenVPN/Tailscale/…). Commands: `psmux-pill-now`,
 `psmux-pill-enable`, `psmux-pill-disable`, `psmux-pill-status`.
 
@@ -553,8 +553,8 @@ Activated in `10-tools.ps1` (`mise activate pwsh`, or `--shims` in psmux panes /
 
 ### 8.4 jujutsu (`jj/config.toml`)
 
-The host twin of Core's jj config (native copy, hand-maintained), symlinked to `%APPDATA%\jj\
-config.toml`. Opt-in, colocated companion to git — never replaces it. `default-command = "log"`
+The host twin of Core's jj config (native copy, hand-maintained), symlinked to
+`%APPDATA%\jj\config.toml`. Opt-in, colocated companion to git — never replaces it. `default-command = "log"`
 (bare `jj` = `jj log`), `pager = ":builtin"` (Windows-safe), `auto-local-bookmark = true`; aliases
 `l`/`st`. Identity is **not** hardcoded (`jj config set --user`). Shell verbs `jjs`/`jjl`/`jjd`.
 
