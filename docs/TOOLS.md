@@ -53,11 +53,15 @@ duplicate of an existing tool:
 | watchexec           | —                   | `watchexec` | Run a command **on file change** — the change-driven complement to `viddy`'s interval re-run.           |
 | trippy (`trip`)     | mtr / traceroute    | `trippy`    | Traceroute + ping TUI; the hop/path analysis `gping`/`doggo` don't do.                                  |
 | ast-grep (`sg`)     | —                   | `ast-grep`  | Structural (AST-aware) code search/replace; complements `rg` + `sd` for real refactors.                 |
-| jless               | —                   | `jless`     | Interactive JSON/YAML viewer (browse + fold); complements the transform-only `jq`/`yq`/`gron`.          |
 
-> **Lockfile:** these are in `scoopfile.json` but not yet pinned in
-> `packages.lock.json` — re-run `packages/Update-PackageLock.ps1` on a Windows host
-> to freeze their resolved versions (the lock is generator-owned, never hand-edited).
+> **Lockfile:** `packages.lock.json` was reconciled with these five apps from the
+> ScoopInstaller **Main** bucket manifests (the same source `Update-PackageLock.ps1`
+> queries) so the drift gate stays green. Re-run `packages/Update-PackageLock.ps1` on a
+> Windows host to confirm against your actually-installed versions.
+>
+> `jless` (interactive JSON/YAML viewer) was considered and **left out** — it isn't in
+> the scoop Main/Extras buckets and its Windows support is weak; `gron`/`jq` cover the
+> need. Install via `cargo install jless` if you want it.
 
 ## Terminal multiplexer — psmux (native host)
 

@@ -8,14 +8,15 @@ so entries are grouped by theme rather than strict semver releases.
 
 ### Added
 
-- **Six host CLI tools filling genuine gaps** in `scoopfile.json` (all scoop `main`):
+- **Five host CLI tools filling genuine gaps** in `scoopfile.json` (all scoop `main`):
   `lsd` (the `eza`-fallback `docs/TOOLS.md` already documented but wasn't installed),
   `gsudo` (in-session `sudo` for Windows — cached elevation, covers Win10), `watchexec`
   (run-on-file-change, the change-driven complement to `viddy`), `trippy` (`trip` —
-  mtr/traceroute TUI), `ast-grep` (`sg` — structural AST search/replace alongside
-  `rg`/`sd`), and `jless` (interactive JSON/YAML viewer alongside `jq`/`yq`/`gron`).
-  Documented in `docs/TOOLS.md`; `packages.lock.json` still needs a generator run on a
-  Windows host to pin their versions.
+  mtr/traceroute TUI), and `ast-grep` (`sg` — structural AST search/replace alongside
+  `rg`/`sd`). Documented in `docs/TOOLS.md`. `packages.lock.json` was reconciled with
+  their Main-bucket versions so the drift gate passes; re-run `Update-PackageLock.ps1`
+  on a Windows host to confirm against installed versions. (`jless` was dropped — not in
+  the scoop buckets and weak on Windows; `gron`/`jq` cover it.)
 
 ### Fixed
 
