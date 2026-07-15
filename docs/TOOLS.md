@@ -63,6 +63,22 @@ duplicate of an existing tool:
 > the scoop Main/Extras buckets and its Windows support is weak; `gron`/`jq` cover the
 > need. Install via `cargo install jless` if you want it.
 
+### From the awesome-windows sweep
+
+A pass over the `awesome-windows` catalogue (mostly GUI apps) surfaced three
+CLI tools that fit the shell-first host and weren't already covered:
+
+| Tool   | Adds                | scoop name         | Notes                                                                                          |
+| ------ | ------------------- | ------------------ | ---------------------------------------------------------------------------------------------- |
+| yt-dlp | media downloader    | `yt-dlp`           | Feature-rich audio/video downloader; pairs with `mpv`.                                          |
+| restic | backup / snapshots  | `restic`           | Fills a real gap — the stack had **no** backup tool. Encrypted, incremental, dedup.            |
+| mpv    | media player        | `mpv` (extras)     | Scriptable, keyboard-driven player — fits the terminal ethos better than a GUI player.         |
+
+Same lockfile handling as above: `packages.lock.json` reconciled from the Main/Extras
+bucket manifests; re-run `packages/Update-PackageLock.ps1` on a Windows host to confirm.
+Heavier service-style picks from the same sweep (Tailscale, Syncthing, Ollama) and the
+GUI power-tool **ShareX** were deliberately left for opt-in, not the shell core.
+
 ## Terminal multiplexer — psmux (native host)
 
 The fleet runs tmux inside WSL, but the **host** now gets a real multiplexer too.

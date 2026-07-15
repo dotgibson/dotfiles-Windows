@@ -8,6 +8,14 @@ so entries are grouped by theme rather than strict semver releases.
 
 ### Added
 
+- **Three more host CLI tools from the `awesome-windows` sweep** in `scoopfile.json`:
+  `yt-dlp` (feature-rich media downloader), `restic` (encrypted incremental backup —
+  the stack had no backup tool at all), and `mpv` (scriptable keyboard-driven media
+  player; extras bucket). Documented in `docs/TOOLS.md`. `packages.lock.json` reconciled
+  from the Main/Extras bucket manifests (`restic 0.19.1`, `yt-dlp 2026.07.04`,
+  `mpv 0.41.0`) so the drift gate stays green; re-run `Update-PackageLock.ps1` on a
+  Windows host to confirm against installed versions. Heavier service picks (Tailscale,
+  Syncthing, Ollama) and the GUI tool ShareX were left for opt-in.
 - **Five host CLI tools filling genuine gaps** in `scoopfile.json` (all scoop `main`):
   `lsd` (the `eza`-fallback `docs/TOOLS.md` already documented but wasn't installed),
   `gsudo` (in-session `sudo` for Windows — cached elevation, covers Win10), `watchexec`
