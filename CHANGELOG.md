@@ -6,6 +6,8 @@ so entries are grouped by theme rather than strict semver releases.
 
 ## [Unreleased]
 
+## v1.3.0 - 2026-07-16
+
 ### Added
 
 - **The `awesome-windows` sweep's heavier picks** — added in their proper homes rather
