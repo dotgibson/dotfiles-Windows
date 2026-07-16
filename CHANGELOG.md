@@ -8,14 +8,22 @@ so entries are grouped by theme rather than strict semver releases.
 
 ### Added
 
+- **The `awesome-windows` sweep's heavier picks** — added in their proper homes rather
+  than the always-on CLI core: `syncthing` (P2P sync) to `scoopfile.json` (`main`),
+  `tailscale` (mesh VPN; pairs with the WSL bridge) to `scoopfile.json` (`extras`), and
+  the GUI screenshot/capture tool **ShareX** (`ShareX.ShareX`) to the opt-out **`gui`
+  winget group** in `winget.json` (alongside QuickLook/1Password). All install as plain
+  binaries — no service auto-starts. `packages.lock.json` reconciled from the
+  Main/Extras + winget manifests (`syncthing 2.1.2`, `tailscale 1.98.9`,
+  `ShareX.ShareX 21.0.0`) so the scoop **and** winget drift gates pass; re-run
+  `packages/Update-PackageLock.ps1` on a Windows host to confirm installed versions.
 - **Three more host CLI tools from the `awesome-windows` sweep** in `scoopfile.json`:
   `yt-dlp` (feature-rich media downloader), `restic` (encrypted incremental backup —
   the stack had no backup tool at all), and `mpv` (scriptable keyboard-driven media
   player; extras bucket). Documented in `docs/TOOLS.md`. `packages.lock.json` reconciled
   from the Main/Extras bucket manifests (`restic 0.19.1`, `yt-dlp 2026.07.04`,
   `mpv 0.41.0`) so the drift gate stays green; re-run `packages/Update-PackageLock.ps1` on a
-  Windows host to confirm against installed versions. Heavier service picks (Tailscale,
-  Syncthing, Ollama) and the GUI tool ShareX were left for opt-in.
+  Windows host to confirm against installed versions.
 - **Five host CLI tools filling genuine gaps** in `scoopfile.json` (all scoop `main`):
   `lsd` (the `eza`-fallback `docs/TOOLS.md` already documented but wasn't installed),
   `gsudo` (in-session `sudo` for Windows — cached elevation, covers Win10), `watchexec`
