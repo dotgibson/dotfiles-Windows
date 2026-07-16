@@ -5,16 +5,16 @@
     {
       "command": {
         "action": "scrollToMark",
-        "direction": "previous"
+        "direction": "next"
       },
-      "id": "User.scrollToMark.D3F0B923"
+      "id": "User.scrollToMark.2A0DA8E0"
     },
     {
       "command": {
         "action": "scrollToMark",
-        "direction": "next"
+        "direction": "previous"
       },
-      "id": "User.scrollToMark.2A0DA8E0"
+      "id": "User.scrollToMark.D3F0B923"
     }
   ],
   "alwaysShowTabs": true,
@@ -25,32 +25,32 @@
   "initialRows": 32,
   "keybindings": [
     {
-      "id": "Terminal.MoveFocusDown",
-      "keys": "alt+down"
-    },
-    {
       "id": "Terminal.SplitPaneRight",
       "keys": "alt+shift+plus"
+    },
+    {
+      "id": "Terminal.MoveFocusDown",
+      "keys": "alt+down"
     },
     {
       "id": "Terminal.SplitPaneDown",
       "keys": "alt+shift+minus"
     },
     {
-      "id": "Terminal.FindText",
-      "keys": "ctrl+shift+f"
-    },
-    {
-      "id": "Terminal.MoveFocusUp",
-      "keys": "alt+up"
+      "id": "Terminal.ClosePane",
+      "keys": "ctrl+shift+w"
     },
     {
       "id": "Terminal.MoveFocusRight",
       "keys": "alt+right"
     },
     {
-      "id": "Terminal.ClosePane",
-      "keys": "ctrl+shift+w"
+      "id": "Terminal.MoveFocusUp",
+      "keys": "alt+up"
+    },
+    {
+      "id": "Terminal.FindText",
+      "keys": "ctrl+shift+f"
     },
     {
       "id": "Terminal.MoveFocusLeft",
@@ -124,6 +124,18 @@
         "hidden": false,
         "name": "PowerShell (JetBrains Mono)",
         "startingDirectory": "%USERPROFILE%"
+      },
+      {
+        "guid": "{fbe6c408-11a1-5a95-8ec0-f90dbc2c5f3e}",
+        "hidden": false,
+        "name": "Developer Command Prompt for VS 18",
+        "source": "Windows.Terminal.VisualStudio"
+      },
+      {
+        "guid": "{e60e0ce2-fbc8-566c-9333-72a68d46c0b9}",
+        "hidden": false,
+        "name": "Developer PowerShell for VS 18",
+        "source": "Windows.Terminal.VisualStudio"
       }
     ]
   },
