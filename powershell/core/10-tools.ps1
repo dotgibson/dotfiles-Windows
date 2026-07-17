@@ -5,7 +5,7 @@
 
 # --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
 # provides: Get-InitCache, Clear-InitCache, shell-bench, prof-trace, Invoke-DotfilesSessionizer, Invoke-DotLoadPSFzf
-# requires: Get-DotStringSha256, Test-Cmd, Test-InMux, Test-SensitiveHistoryLine, Write-DotErr, Write-DotHost, Write-DotWarn
+# requires: Get-DotCmdEntry, Get-DotStringSha256, Test-Cmd, Test-InMux, Test-SensitiveHistoryLine, Write-DotErr, Write-DotHost, Write-DotWarn
 
 # --- FAST_START escape hatch --------------------------------------------------
 # Skips ALL the heavy prompt/history/completion init in this fragment. The cheap
@@ -42,6 +42,18 @@ function script:__lap {
     $script:__tlast = $now
 }
 
+# --- module availability: one scan, not three (P1) ----------------------------
+# Get-Module -ListAvailable walks the entire PSModulePath tree; calling it once per
+# module (PSReadLine, CompletionPredictor, PSFzf, Terminal-Icons) repeated that walk
+# 3-4× every shell start (~30-120ms). Do ONE up-front scan for just the modules this
+# fragment gates on, into a case-insensitive name set, then test membership (O(1)) at
+# each guard below. A single -Name call with all four keeps it to one traversal.
+$script:DotAvailModules = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+foreach ($m in (Get-Module -ListAvailable -Name PSReadLine, CompletionPredictor, PSFzf, Terminal-Icons -ErrorAction SilentlyContinue)) {
+    [void]$script:DotAvailModules.Add($m.Name)
+}
+__lap 'module-scan'
+
 # --- PSReadLine: history, prediction, keybinds --------------------------------
 # PSReadLine ships with PowerShell 7. Configure it for a zsh-like feel.
 #
@@ -54,7 +66,7 @@ function script:__lap {
 # text / runs vim commands" bug. Bracketed paste needs PSReadLine >= 2.2.0
 # (Windows Terminal already sends it), so packages/modules.ps1 pins a recent
 # PSReadLine and the version guard below self-diagnoses a stale in-box build.
-if (Get-Module -ListAvailable PSReadLine) {
+if ($script:DotAvailModules.Contains('PSReadLine')) {
     Import-Module PSReadLine
     # Self-diagnose a paste-unsafe PSReadLine instead of misbehaving silently. The
     # check is one cheap [version] compare on the already-loaded module, and the
@@ -69,10 +81,21 @@ if (Get-Module -ListAvailable PSReadLine) {
     Set-PSReadLineOption -HistoryNoDuplicates
     Set-PSReadLineOption -HistorySearchCursorMovesToEnd
     # CompletionPredictor (managed in packages/modules.ps1) registers itself as a
-    # PSReadLine predictor plugin on import. Without this import the "Plugin" half
-    # of HistoryAndPlugin below has no source and only history predictions show.
-    if (Get-Module -ListAvailable CompletionPredictor) {
-        try { Import-Module CompletionPredictor -ErrorAction Stop } catch { }
+    # PSReadLine predictor plugin on import — it's the "Plugin" half of the
+    # HistoryAndPlugin source set below. Importing it EAGERLY costs ~50-150ms of
+    # JIT + subsystem registration on the cold-start path (P2), yet the plugin only
+    # earns its keep once you're actually typing at the prompt. So DEFER it to the
+    # first idle tick (fires the instant the prompt is drawn, off the render path).
+    # A predictor registers PROCESS-globally via SubsystemManager, so an OnIdle import
+    # — which runs in the eventing runspace, not the session one — still lands where
+    # PSReadLine picks it up (unlike PSFzf's keybindings, which must import into the
+    # session runspace and so defer to a keypress instead). Until it loads, the Plugin
+    # half is simply empty and history predictions still show; it fills in a few ms
+    # after the prompt appears. -MaxTriggerCount 1 makes it one-shot (auto-unsubscribes).
+    if ($script:DotAvailModules.Contains('CompletionPredictor')) {
+        $null = Register-EngineEvent -SourceIdentifier PowerShell.OnIdle -MaxTriggerCount 1 -Action {
+            try { Import-Module CompletionPredictor -ErrorAction Stop } catch { }
+        }
     }
     try {
         Set-PSReadLineOption -PredictionSource HistoryAndPlugin
@@ -149,7 +172,7 @@ __lap 'PSReadLine'
 # the env var (User scope, so it's present at shell start — local.ps1 loads too
 # late): [Environment]::SetEnvironmentVariable('DOTFILES_TERMINAL_ICONS','1','User')
 # Try/catch: the manifest can exist while the .psm1 it points at is missing.
-if ($env:DOTFILES_TERMINAL_ICONS -eq '1' -and (Get-Module -ListAvailable Terminal-Icons)) {
+if ($env:DOTFILES_TERMINAL_ICONS -eq '1' -and $script:DotAvailModules.Contains('Terminal-Icons')) {
     try   { Import-Module Terminal-Icons -ErrorAction Stop }
     catch { Write-DotWarn 'Terminal-Icons failed to load' 'reinstall: Install-Module Terminal-Icons -Scope CurrentUser -Force -AllowClobber' }
 }
@@ -206,7 +229,12 @@ function global:Get-InitCache {
     # top-level shell / fresh psmux server, or force it now with `init-cache-clear`.
     if ((Test-InMux) -and (Test-Path $cacheFile) -and $hashOk) { return $cacheFile }
 
-    $src = (Get-Command $Name -ErrorAction SilentlyContinue).Source
+    # Reuse the resolution Test-Cmd already did (P3): each caller gates on `Test-Cmd
+    # <tool>` right before calling us, so Get-DotCmdEntry returns the cached {Found,
+    # Source} record — no second Get-Command PATH scan per tool. (Cache-name-only keys
+    # like 'mise-shims', which are never a real command, resolve to Source=$null here
+    # just as the old Get-Command did, so the mtime check below is skipped for them.)
+    $src = (Get-DotCmdEntry $Name).Source
 
     $stale = $true
     if ((Test-Path $cacheFile) -and $src -and (Test-Path $src)) {
@@ -347,7 +375,7 @@ __lap 'zoxide'
 # Ctrl+R ownership: atuin (loaded below) ignores ATUIN_NOBIND and seizes Ctrl+R on
 # init, so the atuin block RE-ASSERTS this lazy Ctrl+R stub afterwards and moves
 # atuin's TUI to Ctrl+E to match zsh (Ctrl+E = atuin, Ctrl+R = quick fzf history).
-if ((Test-Cmd fzf) -and (Get-Module -ListAvailable PSFzf) -and -not $global:DotfilesInit.Fzf) {
+if ((Test-Cmd fzf) -and $script:DotAvailModules.Contains('PSFzf') -and -not $global:DotfilesInit.Fzf) {
     # Layout + the EXPLICIT tokyonight-storm palette, kept byte-for-byte in step with
     # Core's zsh fzf.zsh FZF_DEFAULT_OPTS so fzf looks identical across the WSL-zsh and
     # Windows-pwsh halves of the fleet (previously pwsh fell back to the terminal's
