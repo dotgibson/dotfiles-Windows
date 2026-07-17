@@ -22,8 +22,8 @@
 #     repeated probes across fragments collapse to one lookup each. The entry carries
 #     both Found (for Test-Cmd) and Source (the resolved path, reused by Get-InitCache
 #     in 10-tools instead of a second Get-Command — see P3).
-#   • on-disk (cross-session):  Import-DotCmdCache seeds that map from a file written
-#     by the previous shell, so a cold start / psmux split skips the stat-storm
+#   • on-disk (cross-session):  the load-time block below seeds that map from a file
+#     written by the previous shell, so a cold start / psmux split skips the stat-storm
 #     entirely. The file is keyed by a PATH fingerprint (Get-DotCmdCacheFingerprint),
 #     so installing or removing a tool self-busts it; Export-DotCmdCache (called from
 #     profile.ps1 after all fragments load) flushes newly-probed names back.
@@ -80,14 +80,16 @@ function script:Get-DotCmdCacheFingerprint {
 }
 
 # Seed $global:DotfilesCmdCache from the on-disk file IF its fingerprint still matches.
-# Best-effort: any failure (no LOCALAPPDATA, unreadable file) just leaves the
-# map empty and every probe falls back to a live Get-Command (unreadable/partial file
-# is fine — the fingerprint check simply won't match). Line 1 is the marker.
-$global:DotfilesCmdCacheFp   = script:Get-DotCmdCacheFingerprint
+# The path is resolved null-safely: a host with no LOCALAPPDATA leaves the file $null,
+# which DISABLES the on-disk tier entirely (Export-DotCmdCache no-ops too) rather than
+# letting `Join-Path $null …` throw and abort profile load. Otherwise best-effort — an
+# unreadable/partial file just leaves the map empty (the fingerprint check won't match)
+# and every probe falls back to a live Get-Command. Line 1 is the fingerprint marker.
+$global:DotfilesCmdCacheFp    = script:Get-DotCmdCacheFingerprint
 $global:DotfilesCmdCacheDirty = $false
+$global:DotfilesCmdCacheFile  = if ($env:LOCALAPPDATA) { Join-Path $env:LOCALAPPDATA 'dotfiles\cmd-cache.txt' } else { $null }
 try {
-    $global:DotfilesCmdCacheFile = Join-Path $env:LOCALAPPDATA 'dotfiles\cmd-cache.txt'
-    if (Test-Path $global:DotfilesCmdCacheFile) {
+    if ($global:DotfilesCmdCacheFile -and (Test-Path $global:DotfilesCmdCacheFile)) {
         $lines = Get-Content $global:DotfilesCmdCacheFile -ErrorAction Stop
         if ($lines -and $lines[0] -eq "# fp: $global:DotfilesCmdCacheFp") {
             foreach ($ln in ($lines | Select-Object -Skip 1)) {
@@ -101,7 +103,7 @@ try {
             }
         }
     }
-} catch { $global:DotfilesCmdCacheFile = Join-Path ([string]$env:LOCALAPPDATA) 'dotfiles\cmd-cache.txt' }
+} catch { }
 
 # Flush newly-probed names back to disk under the current fingerprint. Called from
 # profile.ps1 AFTER every fragment has loaded (so 10-tools' probes are captured too),
@@ -109,7 +111,9 @@ try {
 # in the eventing runspace and couldn't see them. No-op when nothing new was probed
 # (a full on-disk hit), so warm shells and psmux splits never rewrite the file.
 function Export-DotCmdCache {
-    if (-not $global:DotfilesCmdCacheDirty) { return }
+    # Skip when nothing new was probed (full on-disk hit) or the on-disk tier is
+    # disabled ($global:DotfilesCmdCacheFile is $null — no LOCALAPPDATA on this host).
+    if (-not $global:DotfilesCmdCacheDirty -or -not $global:DotfilesCmdCacheFile) { return }
     try {
         $dir = Split-Path -Parent $global:DotfilesCmdCacheFile
         if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
