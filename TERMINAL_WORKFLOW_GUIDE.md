@@ -219,9 +219,12 @@ VPN/tunnel adapter is up (WireGuard/Wintun/OpenVPN/Tailscale/…). Commands: `ps
 
 ### 3.1 Capability detection — the `HAVE_*` twin
 
-- **`Test-Cmd <tool>`** (`00-aliases.ps1`) — a cached `Get-Command` probe backed by
-  `$global:DotfilesCmdCache` (distinguishes a cached `$false` from a miss). Every tool block is
-  `if (Test-Cmd <tool>)`-guarded, so a missing tool silently falls back to the classic command.
+- **`Test-Cmd <tool>`** (`00-aliases.ps1`) — a cached `Get-Command` probe. Two tiers: an in-session
+  map (`$global:DotfilesCmdCache`, `{Found, Source}` per name — the `Source` is reused by
+  `Get-InitCache` so no tool is re-resolved) plus a **cross-session on-disk cache**
+  (`%LOCALAPPDATA%\dotfiles\cmd-cache.txt`, keyed by a PATH fingerprint) that skips the first-probe
+  stat-storm on a cold start / psmux split. Every tool block is `if (Test-Cmd <tool>)`-guarded, so a
+  missing tool silently falls back to the classic command.
 - **`Test-CmdRuns <tool>`** — the stronger probe: actually launches `--version` to catch a
   *resolved-but-dead* scoop/Chocolatey shim. Used by `fif`/`fbr`.
 - Idempotency sentinels (`$global:DotfilesInit`) stop `reload` from re-wiring hooks.

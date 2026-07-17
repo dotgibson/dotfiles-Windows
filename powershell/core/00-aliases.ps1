@@ -3,7 +3,7 @@
 # ============================================================================
 
 # --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
-# provides: Test-Cmd, Test-CmdRuns, ls, l, ll, la, lt, llt, cat, catp, grep, http, https, gmd, dns, du, pss, watch, hex, loc, df, fm, y, top, htop, tree, ping, cdi, notes, g, gs, gst, gss, gsb, ga, gaa, gap, gc, gcm, gca, gcam, gc!, gcn!, gb, gba, gbd, gbm, gco, gcb, gcom, gsw, gswc, gswm, gd, gds, gdw, glog, gloga, glol, glola, gf, gfa, gl, gpr, gp, gpu, gpf, gpf!, gsta, gstaa, gstp, gstl, gstd, grb, grbi, grbm, grbc, grba, grh, grhh, grs, grss, gr, grv, gm, gma, gdft, jjs, jjl, jjd, lg, .., ..., ...., ~, mkcd, which, reload, dotfiles
+# provides: Test-Cmd, Get-DotCmdEntry, Export-DotCmdCache, Test-CmdRuns, ls, l, ll, la, lt, llt, cat, catp, grep, http, https, gmd, dns, du, pss, watch, hex, loc, df, fm, y, top, htop, tree, ping, cdi, notes, g, gs, gst, gss, gsb, ga, gaa, gap, gc, gcm, gca, gcam, gc!, gcn!, gb, gba, gbd, gbm, gco, gcb, gcom, gsw, gswc, gswm, gd, gds, gdw, glog, gloga, glol, glola, gf, gfa, gl, gpr, gp, gpu, gpf, gpf!, gsta, gstaa, gstp, gstl, gstd, grb, grbi, grbm, grbc, grba, grh, grhh, grs, grss, gr, grv, gm, gma, gdft, jjs, jjl, jjd, lg, .., ..., ...., ~, mkcd, which, reload, dotfiles
 # requires: Write-DotHost
 # PowerShell has built-in aliases (ls, cat, cp...) that point at cmdlets.
 # We remove the ones we want to override, then define functions that shadow
@@ -11,24 +11,117 @@
 # need to pass default flags.
 
 # --- helper: define a function-backed alias only if the tool exists -----------
-# MEMOIZED. Get-Command does a PATH scan for an external tool; the fleet checks the
-# same handful of tools (rg, fzf, eza, psmux…) from MANY fragments, and psmux alone
-# is probed at top level from three os/ files. Caching the first result per name
-# collapses those repeated scans to one lookup each — the single biggest cheap win
-# on the cold-start/psmux-split path, and it speeds every guard in every fragment
-# that calls Test-Cmd (they all share this definition, dot-sourced at profile scope).
-# The cache is a session global reset on every `reload` (this fragment re-runs top
-# to bottom), so a tool installed mid-session is picked up after `reload`.
+# MEMOIZED, two tiers. Get-Command does a PATH scan for an external tool; the fleet
+# checks the same handful of tools (rg, fzf, eza, psmux…) from MANY fragments, and
+# psmux alone is probed at top level from three os/ files. Worse, a MISS is the
+# expensive case — to prove a name is absent Get-Command stats every PATHEXT variant
+# in every PATH dir, an on-access-AV stat-storm on Windows — and 00-aliases below
+# fires ~21 first-time probes for tools that may not be installed.
+#
+#   • in-memory (session):  Get-DotCmdEntry caches the resolved command per name, so
+#     repeated probes across fragments collapse to one lookup each. The entry carries
+#     both Found (for Test-Cmd) and Source (the resolved path, reused by Get-InitCache
+#     in 10-tools instead of a second Get-Command — see P3).
+#   • on-disk (cross-session):  Import-DotCmdCache seeds that map from a file written
+#     by the previous shell, so a cold start / psmux split skips the stat-storm
+#     entirely. The file is keyed by a PATH fingerprint (Get-DotCmdCacheFingerprint),
+#     so installing or removing a tool self-busts it; Export-DotCmdCache (called from
+#     profile.ps1 after all fragments load) flushes newly-probed names back.
+#
+# The in-memory map is a session global reset on every `reload` (this fragment re-runs
+# top to bottom), then re-seeded from disk — so a tool installed mid-session is picked
+# up after `reload` (the install bumps a PATH dir's mtime, changing the fingerprint,
+# which discards the stale on-disk entries and forces a live re-probe).
 $global:DotfilesCmdCache = @{}
-function Test-Cmd {
+
+# Resolve a name once, caching the outcome as a small {Found, Source} record. Every
+# cached value is a non-null object, so a present key (hit, positive OR negative) is
+# truthy and an absent key ($null) is the only miss — no cached-$false ambiguity.
+function Get-DotCmdEntry {
     param([string]$Name)
     $hit = $global:DotfilesCmdCache[$Name]
-    # Distinguish a cached $false from a cache MISS: an absent key returns $null,
-    # a cached negative returns [bool]$false. Only a real miss re-scans PATH.
-    if ($null -ne $hit) { return $hit }
-    $found = [bool](Get-Command $Name -ErrorAction SilentlyContinue)
-    $global:DotfilesCmdCache[$Name] = $found
-    return $found
+    if ($hit) { return $hit }
+    $cmd   = Get-Command $Name -ErrorAction SilentlyContinue | Select-Object -First 1
+    $entry = [pscustomobject]@{ Found = [bool]$cmd; Source = $cmd.Source }
+    $global:DotfilesCmdCache[$Name] = $entry
+    $global:DotfilesCmdCacheDirty   = $true   # a live probe happened; profile.ps1 flushes at load end
+    return $entry
+}
+function Test-Cmd {
+    param([string]$Name)
+    (Get-DotCmdEntry $Name).Found
+}
+
+# --- cross-session command-resolution cache (P6) ------------------------------
+# A cheap signature of "which commands could resolve on PATH". It changes when the
+# PATH string changes OR when any existing PATH directory's contents change —
+# installing/removing a shim bumps that directory's LastWriteTime on NTFS — so a
+# scoop/winget install or uninstall self-busts the cache. A mere version UPGRADE
+# (same shim path) does not, which is correct: Test-Cmd only cares that a name
+# resolves, and Get-InitCache re-stats the actual binary's mtime itself. Directory
+# metadata reads are NOT executable launches, so they dodge the on-access-AV storm
+# this whole cache exists to avoid. No dependency on 05-lib helpers — this fragment
+# loads before 05-lib, so the SHA is computed inline.
+function script:Get-DotCmdCacheFingerprint {
+    $parts = [System.Collections.Generic.List[string]]::new()
+    $parts.Add([string]$env:PATHEXT)
+    foreach ($dir in ($env:PATH -split ';')) {
+        if (-not $dir) { continue }
+        # GetLastWriteTimeUtc returns a sentinel (not a throw) for a missing dir, so a
+        # PATH entry that doesn't exist contributes a stable constant. try/catch guards
+        # only genuinely malformed paths.
+        try { $parts.Add("$dir|$([System.IO.Directory]::GetLastWriteTimeUtc($dir).Ticks)") }
+        catch { $parts.Add("$dir|x") }
+    }
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($parts -join "`n")
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try { (($sha.ComputeHash($bytes) | ForEach-Object { $_.ToString('x2') }) -join '') }
+    finally { $sha.Dispose() }
+}
+
+# Seed $global:DotfilesCmdCache from the on-disk file IF its fingerprint still matches.
+# Best-effort: any failure (no LOCALAPPDATA, unreadable file) just leaves the
+# map empty and every probe falls back to a live Get-Command (unreadable/partial file
+# is fine — the fingerprint check simply won't match). Line 1 is the marker.
+$global:DotfilesCmdCacheFp   = script:Get-DotCmdCacheFingerprint
+$global:DotfilesCmdCacheDirty = $false
+try {
+    $global:DotfilesCmdCacheFile = Join-Path $env:LOCALAPPDATA 'dotfiles\cmd-cache.txt'
+    if (Test-Path $global:DotfilesCmdCacheFile) {
+        $lines = Get-Content $global:DotfilesCmdCacheFile -ErrorAction Stop
+        if ($lines -and $lines[0] -eq "# fp: $global:DotfilesCmdCacheFp") {
+            foreach ($ln in ($lines | Select-Object -Skip 1)) {
+                if (-not $ln) { continue }
+                $f, $name, $src = $ln -split "`t", 3
+                if (-not $name) { continue }
+                $global:DotfilesCmdCache[$name] = [pscustomobject]@{
+                    Found  = ($f -eq '1')
+                    Source = if ($src) { $src } else { $null }
+                }
+            }
+        }
+    }
+} catch { $global:DotfilesCmdCacheFile = Join-Path ([string]$env:LOCALAPPDATA) 'dotfiles\cmd-cache.txt' }
+
+# Flush newly-probed names back to disk under the current fingerprint. Called from
+# profile.ps1 AFTER every fragment has loaded (so 10-tools' probes are captured too),
+# which runs in the session runspace where these globals live — an OnIdle handler runs
+# in the eventing runspace and couldn't see them. No-op when nothing new was probed
+# (a full on-disk hit), so warm shells and psmux splits never rewrite the file.
+function Export-DotCmdCache {
+    if (-not $global:DotfilesCmdCacheDirty) { return }
+    try {
+        $dir = Split-Path -Parent $global:DotfilesCmdCacheFile
+        if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
+        $out = [System.Collections.Generic.List[string]]::new()
+        $out.Add("# fp: $global:DotfilesCmdCacheFp")
+        foreach ($k in $global:DotfilesCmdCache.Keys) {
+            $e = $global:DotfilesCmdCache[$k]
+            $out.Add(("{0}`t{1}`t{2}" -f $(if ($e.Found) { '1' } else { '0' }), $k, $e.Source))
+        }
+        Set-Content -Path $global:DotfilesCmdCacheFile -Value $out -Encoding utf8
+        $global:DotfilesCmdCacheDirty = $false
+    } catch { }
 }
 
 # --- helper: does a command RESOLVE *and* actually launch? ---------------------

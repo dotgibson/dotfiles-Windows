@@ -147,6 +147,14 @@ foreach ($layer in @('core', 'os')) {
 $LocalProfile = Join-Path $ProfileDir 'local.ps1'
 if (Test-Path $LocalProfile) { . $LocalProfile }
 
+# --- persist the cross-session command-resolution cache (P6) ------------------
+# Every fragment (and local.ps1) has now run, so the in-memory Test-Cmd map is as
+# warm as it gets this session. Flush any newly-probed names to disk so the NEXT
+# cold start / psmux split skips the PATH-scan stat-storm. Defined in core/00-aliases;
+# guarded so a degraded load that never reached it can't error here. No-op unless a
+# live probe happened this session (a full on-disk hit leaves nothing to write).
+if (Get-Command Export-DotCmdCache -ErrorAction SilentlyContinue) { Export-DotCmdCache }
+
 # --- surface a degraded load (B7) ---------------------------------------------
 # If any fragment failed, say so once — a half-loaded profile that looks fine is
 # worse than a visible warning. `dotfiles-doctor` has the per-fragment detail.
