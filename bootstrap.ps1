@@ -1,12 +1,14 @@
 # ============================================================================
 #  bootstrap.ps1  -  one command to set up dotfiles-Windows on a fresh box.
 #
-#  Run it straight from the web (PowerShell 7+):
-#      irm https://raw.githubusercontent.com/dotgibson/dotfiles-Windows/main/bootstrap.ps1 | iex
-#
-#  Integrity-gated (verify the published SHA-256 before running) — see README:
+#  Run it straight from the web (PowerShell 7+).
+#  RECOMMENDED — verify the published SHA-256 first, so a tampered or MITM'd fetch
+#  of this `main` script can't run arbitrary code:
 #      $b = irm https://raw.githubusercontent.com/dotgibson/dotfiles-Windows/main/bootstrap.ps1
 #      # compare SHA-256 of $b to the hash pinned in the README, then: $b | iex
+#
+#  Quick (UNVERIFIED) one-liner — only on a network you fully trust:
+#      irm https://raw.githubusercontent.com/dotgibson/dotfiles-Windows/main/bootstrap.ps1 | iex
 #
 #  What it does: clone (or update) the repo, optionally check out a pinned ref,
 #  then hand off to install.ps1. It NEVER pipes a further network script into

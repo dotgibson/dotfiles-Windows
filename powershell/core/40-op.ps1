@@ -9,9 +9,9 @@
 
 # --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
 # provides: opsecret, openv, optoken, opssh
-# requires: Write-DotOk
+# requires: Test-Cmd, Write-DotOk
 
-if (-not (Get-Command op -ErrorAction SilentlyContinue)) { return }
+if (-not (Test-Cmd op)) { return }
 
 # opsecret — fetch a secret by vault/item/field path
 #   opsecret 'Personal/AWS/access_key_id'

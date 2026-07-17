@@ -75,6 +75,11 @@ function ConvertFrom-ScoopExport {
 # { Sources: [ { Packages: [ { PackageIdentifier, Version } ] } ] }. Skip entries
 # with no usable version ("", "Unknown", "Latest") — winget without
 # --include-versions omits versions entirely, and we must not pin to a non-version.
+# ALSO reject constraint tokens: for a store/newer-than package, winget export can
+# emit "> 8.12.28.25" (a comparison operator + space) instead of an exact pin. That
+# is not a version — passing it to `winget install --version "> 8.12.28.25"` is
+# rejected by winget and breaks -Frozen — so only accept a clean version literal
+# (starts with a digit, no <>= or whitespace). This also subsumes ""/Unknown/Latest.
 function ConvertFrom-WingetExport {
     param([string]$Json)
     $map = @{}
@@ -82,8 +87,8 @@ function ConvertFrom-WingetExport {
     try { $obj = $Json | ConvertFrom-Json -ErrorAction Stop } catch { return $map }
     foreach ($s in @($obj.Sources)) {
         foreach ($p in @($s.Packages)) {
-            $v = "$($p.Version)"
-            if ($p.PackageIdentifier -and $v -and $v -notin 'Unknown', 'Latest') {
+            $v = "$($p.Version)".Trim()
+            if ($p.PackageIdentifier -and $v -match '^\d' -and $v -notmatch '[<>=\s]') {
                 $map["$($p.PackageIdentifier)"] = $v
             }
         }

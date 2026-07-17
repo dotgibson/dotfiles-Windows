@@ -16,7 +16,7 @@
 
 # --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
 # provides: update-check, up
-# requires: Get-DotGlyph, Test-InteractiveShell, Write-DotBanner, Write-DotHost, Write-DotOk, Write-DotWarn
+# requires: Get-DotGlyph, Test-Cmd, Test-InteractiveShell, Write-DotBanner, Write-DotHost, Write-DotOk, Write-DotWarn
 
 $script:PkgUpCache          = Join-Path $env:LOCALAPPDATA 'dotfiles\pkg-updates'
 $script:UpdateCheckInterval = 86400   # seconds between background checks
@@ -73,11 +73,15 @@ $script:PkgUpCountSb = {
             $sep = $wg | Select-String -Pattern '^-{3,}' | Select-Object -First 1
             if ($sep) {
                 $idx  = [array]::IndexOf([string[]]$wg, $sep.Line)
-                $rows = $wg[($idx + 1)..($wg.Count - 1)] | Where-Object {
+                # Select-Object -Skip is edge-safe: if the '---' separator is the LAST
+                # line (no upgrade rows), skipping past the end yields nothing. A raw
+                # $wg[($idx+1)..($wg.Count-1)] slice would instead form a DESCENDING
+                # range there (e.g. 5..4 -> 5,4) and wrongly re-count earlier lines.
+                $rows = @($wg | Select-Object -Skip ($idx + 1) | Where-Object {
                     $_ -match '\S' -and
                     $_ -notmatch 'upgrades? available|No installed package|package\(s\) have'
-                }
-                $count += ($rows | Measure-Object).Count
+                })
+                $count += $rows.Count
             }
         } catch { }
     }
@@ -99,8 +103,7 @@ $script:PkgUpCountSb = {
 if ($env:FAST_START -ne '1' -and
     (Test-InteractiveShell) -and
     $env:DOTFILES_UPDATE_CHECK -eq '1' -and
-    ((Get-Command scoop -ErrorAction SilentlyContinue) -or
-     (Get-Command winget -ErrorAction SilentlyContinue))) {
+    ((Test-Cmd scoop) -or (Test-Cmd winget))) {
 
     $now  = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
     $last = 0
