@@ -25,6 +25,12 @@
           "PackageIdentifier": "AgileBits.1Password.CLI"
         },
         {
+          "PackageIdentifier": "QL-Win.QuickLook"
+        },
+        {
+          "PackageIdentifier": "ShareX.ShareX"
+        },
+        {
           "PackageIdentifier": "GNU.Wget2"
         },
         {

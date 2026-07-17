@@ -485,7 +485,13 @@ if (-not $SkipWinget) {
                 }
                 $sw = Write-PkgStep -N $j -Total $pkgs.Count -Name $label
                 $wgInstall = @('install', '--id', $id, '-e', '--silent', '--accept-package-agreements', '--accept-source-agreements')
-                if ($spec.Version) { $wgInstall += @('--version', $spec.Version) }
+                # Only pin when the lock holds a clean version literal. A stale lock can
+                # carry a winget constraint token like "> 8.12.28.25" (store/newer-than
+                # case); passing that as --version makes winget reject the install. Skip
+                # the pin and install floating rather than failing the package.
+                if ($spec.Version -and $spec.Version -match '^\d' -and $spec.Version -notmatch '[<>=\s]') {
+                    $wgInstall += @('--version', $spec.Version)
+                }
                 winget @wgInstall
                 $sw.Stop()
                 if ($LASTEXITCODE -ne 0) {

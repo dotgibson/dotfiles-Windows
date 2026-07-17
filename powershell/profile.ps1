@@ -28,6 +28,22 @@ try {
     $OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 } catch { }
 
+# --- Heal an unreadable working directory -------------------------------------
+# A pane/shell can be spawned with a start-dir it can't use — a \\wsl.localhost
+# path left over from `cdwsl`, or a since-deleted dir. Left as-is, cwd-relative
+# work later in load fails. Fall back to $HOME (always readable) so the shell
+# always comes up clean. The psmux split binds validate up front too
+# (psmux/scripts/psmux-split.ps1); this is the belt to that suspenders and covers
+# panes created by any other path. Cheap (one stat) and guarded so it can never
+# abort load.
+try {
+    if (-not (Test-Path -LiteralPath (Get-Location).Path -PathType Container)) {
+        Set-Location -LiteralPath $HOME
+    }
+} catch {
+    try { Set-Location -LiteralPath $HOME } catch { }
+}
+
 # --- Modules off OneDrive -----------------------------------------------------
 # When Documents is redirected to OneDrive, the default CurrentUser module path
 # (Documents\PowerShell\Modules) is OneDrive-synced — and importing modules from

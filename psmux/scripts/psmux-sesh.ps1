@@ -34,5 +34,12 @@ if (-not $pick) { return }
 $name = (Split-Path $pick -Leaf).ToLower() -replace '[ .]', '_'
 
 psmux has-session -t $name 2>$null
-if ($LASTEXITCODE -ne 0) { psmux new-session -d -s $name -c $pick }
+if ($LASTEXITCODE -ne 0) {
+    # Guard the start-dir the same way the split binds do (psmux-split.ps1): a
+    # zoxide entry can point at a WSL/UNC or stale path that a new native pane
+    # shell can't chdir into, which would make the session abort on first attach.
+    # Fall back to $HOME.
+    $start = if ($pick -notmatch '^(\\\\|//)' -and (Test-Path -LiteralPath $pick -PathType Container)) { $pick } else { $HOME }
+    psmux new-session -d -s $name -c $start
+}
 psmux switch-client -t $name

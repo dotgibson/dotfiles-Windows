@@ -59,7 +59,14 @@
 	prompt = false
 	keepBackup = false
 [mergetool "nvimdiff"]
-	cmd = nvim -d \"$LOCAL\" \"$MERGED\" \"$REMOTE\" -c '$wincmd w' -c 'wincmd J'
+	# Canonical 4-pane layout: LOCAL · BASE · REMOTE across the top, MERGED (the file
+	# you actually edit + save) full-width on the bottom. Including $BASE is the point
+	# of pairing this with conflictstyle=zdiff3 above — you can see the common ancestor,
+	# not just the two sides. `wincmd b` focuses MERGED (the last / bottom-right pane),
+	# then `wincmd J` drops it full-width to the bottom. (`wincmd b` beats the common
+	# `$wincmd w` idiom, whose leading `$` acts as a range/count and only lands on MERGED
+	# when the first file has enough lines — fragile on short files.)
+	cmd = nvim -d \"$LOCAL\" \"$BASE\" \"$REMOTE\" \"$MERGED\" -c 'wincmd b' -c 'wincmd J'
 
 [rerere]
 	enabled = true                # record conflict resolutions and auto-replay them
@@ -197,6 +204,10 @@
 	# stats
 	contributors = shortlog --summary --numbered --email
 	mine = !git log --author=\"$(git config user.email)\" --oneline
+	# conflicts — open every unresolved (conflicted) file straight in nvim
+	ec = "!fs=$(git diff --name-only --diff-filter=U); [ -n \"$fs\" ] && nvim $fs || echo 'no conflicts'"
+	# sync — rebase onto the tracked upstream, then push (pairs with autoSetupRemote)
+	sync = !git pull --rebase && git push
 
 # ── Per-directory work identity (create the file; missing = silently ignored) ─
 [includeIf "gitdir:~/work/"]
