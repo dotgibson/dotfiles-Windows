@@ -134,9 +134,12 @@ function script:Get-DoctorResults {
     # Repo provenance: which revision is actually on this box (and is it dirty?).
     # Informational — a copy-install with no .git is fine, just unversioned. The
     # revision is resolved by the caller and passed in (so the header can reuse the
-    # same object without a second git spawn — C2); fall back to resolving it here
-    # when called directly with no -RepoRevision.
-    $rev = if ($PSBoundParameters.ContainsKey('RepoRevision')) { $RepoRevision } else { Get-DotRepoRevision -Root $root }
+    # same object without a second git spawn — C2); resolve it here when the caller
+    # handed us nothing. Gate on $null, NOT $PSBoundParameters: a caller that passes
+    # `-RepoRevision $null` (dotfiles-doctor does, on a non-git checkout) genuinely
+    # has no revision, so re-resolving is correct — and cheap, since Get-DotRepoRevision
+    # fails fast on the .git check (no git spawn) and returns $null again.
+    $rev = if ($null -ne $RepoRevision) { $RepoRevision } else { Get-DotRepoRevision -Root $root }
     if ($rev) {
         $r.Add((New-DoctorResult 'Repo version' 'ok' (Get-DotRepoVersionDetail -Sha "$($rev.Sha)" -IsDirty $rev.IsDirty -When "$($rev.When)")))
     } else {
