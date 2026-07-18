@@ -297,3 +297,30 @@ Describe 'packages.lock.json drift' {
         $wd.Orphan  | Should -BeNullOrEmpty -Because "winget ids removed from the manifest but still locked: $($wd.Orphan -join ', ')"
     }
 }
+
+Describe 'winget-import.json drift' {
+    # The committed packages/winget-import.json is a GENERATED projection of
+    # winget.json (Export-WingetImport.ps1). It went stale silently before — a winget
+    # id was added to the manifest but the import file wasn't regenerated. This gate
+    # regenerates it to a temp path and asserts byte-for-byte equality with the copy on
+    # disk. The generator is deterministic (no CreationDate/WinGetVersion stamp), so a
+    # clean tree round-trips exactly; the default (floating) form matches the committed
+    # ids-only artifact and needs neither winget nor the lockfile — so it runs anywhere.
+    It 'is byte-identical to a fresh Export-WingetImport regeneration' {
+        $generator = Join-Path $RepoRoot 'packages/Export-WingetImport.ps1'
+        $committed  = Join-Path $RepoRoot 'packages/winget-import.json'
+        $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("winget-import-drift-{0}.json" -f ([guid]::NewGuid().ToString('N')))
+        try {
+            & $generator -OutPath $tmp *> $null
+            (Test-Path $tmp) | Should -BeTrue -Because 'the generator should have written the import file'
+            # Base64 of the raw bytes so a BOM / CRLF / trailing-newline drift is caught,
+            # not just the JSON text.
+            $fresh  = [System.Convert]::ToBase64String([System.IO.File]::ReadAllBytes($tmp))
+            $onDisk = [System.Convert]::ToBase64String([System.IO.File]::ReadAllBytes($committed))
+            $fresh | Should -Be $onDisk `
+                -Because 'packages/winget-import.json is stale — regenerate it: .\packages\Export-WingetImport.ps1'
+        } finally {
+            Remove-Item $tmp -Force -ErrorAction SilentlyContinue
+        }
+    }
+}

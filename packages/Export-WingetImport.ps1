@@ -23,6 +23,10 @@
 param(
     [switch]$Frozen,
     [switch]$DryRun,
+    # Where to write the import file. Defaults to packages/winget-import.json (the
+    # committed artifact). Overridable so the drift test (tests/Packages.Tests.ps1)
+    # can regenerate to a temp path and byte-compare without touching the repo copy.
+    [string]$OutPath,
     [switch]$Help
 )
 
@@ -112,7 +116,7 @@ if ($DryRun) {
     return
 }
 
-$outPath = Join-Path $here 'winget-import.json'
+$outPath = if ($OutPath) { $OutPath } else { Join-Path $here 'winget-import.json' }
 # LF + UTF-8 (no BOM) + single trailing newline regardless of host OS — the same
 # byte-clean write Update-PackageLock.ps1 uses so the repo's .editorconfig LF gate
 # (which reads CRLF as trailing whitespace) stays green everywhere.

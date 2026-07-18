@@ -90,6 +90,44 @@ function Test-SymlinkCurrent {
     return [string]::Equals($a, $b, [System.StringComparison]::OrdinalIgnoreCase)
 }
 
+# --- is the copy at $Link already identical to $Target? -----------------------
+# Copy-mode idempotency (used on a host with no symlink capability). Without it a
+# repeat install with no upstream change still backs up + recopies every run — each
+# pass drops a fresh timestamped .bak and re-copies identical bytes, so backups pile
+# up unbounded (issue #129). Compare CONTENT instead: a file by its SHA-256, a
+# directory (nvim\, psmux\scripts) by the full {relative path -> SHA-256} set on both
+# sides, so an added / removed / renamed / edited file anywhere in the tree still reads
+# as different. A missing link (or a file-vs-directory mismatch) is "not current".
+function Test-CopyCurrent {
+    param([string]$Link, [string]$Target)
+    if (-not (Test-Path -LiteralPath $Link))   { return $false }
+    if (-not (Test-Path -LiteralPath $Target)) { return $false }
+    $linkIsDir   = Test-Path -LiteralPath $Link   -PathType Container
+    $targetIsDir = Test-Path -LiteralPath $Target -PathType Container
+    if ($linkIsDir -ne $targetIsDir) { return $false }
+    if (-not $targetIsDir) {
+        return ((Get-FileHash -LiteralPath $Link).Hash -eq (Get-FileHash -LiteralPath $Target).Hash)
+    }
+    # Directory: hash every file, keyed by its path relative to the tree root.
+    $hashTree = {
+        param([string]$Root)
+        $root = (Resolve-Path -LiteralPath $Root).Path
+        $map  = @{}   # PowerShell hashtables are case-insensitive, matching NTFS
+        Get-ChildItem -LiteralPath $root -Recurse -File -Force -ErrorAction SilentlyContinue | ForEach-Object {
+            $rel = $_.FullName.Substring($root.Length).TrimStart('\', '/')
+            $map[$rel] = (Get-FileHash -LiteralPath $_.FullName).Hash
+        }
+        $map
+    }
+    $a = & $hashTree $Link
+    $b = & $hashTree $Target
+    if ($a.Count -ne $b.Count) { return $false }
+    foreach ($k in $a.Keys) {
+        if (-not $b.ContainsKey($k) -or $b[$k] -ne $a[$k]) { return $false }
+    }
+    return $true
+}
+
 # --- run accounting + UI --------------------------------------------------------
 # A single tally Link-Item updates, summarized at the end so the run reports what
 # actually changed (linked/copied/skipped/backed-up) instead of scrolling past.
@@ -173,6 +211,14 @@ function Link-Item {
     # links, get backed up and replaced.
     if ($CanSymlink -and (Test-SymlinkCurrent -Link $Link -Target $Target)) {
         Write-Host "  ok      $Link (already linked)" -ForegroundColor DarkGray
+        $script:LinkStats.skipped++
+        return
+    }
+    # Same idempotency for COPY mode (no symlink capability): if the destination
+    # already matches the target's content, skip — otherwise every re-install backs
+    # up + recopies identical bytes and the .bak files accumulate (issue #129).
+    if (-not $CanSymlink -and (Test-CopyCurrent -Link $Link -Target $Target)) {
+        Write-Host "  ok      $Link (already up to date)" -ForegroundColor DarkGray
         $script:LinkStats.skipped++
         return
     }

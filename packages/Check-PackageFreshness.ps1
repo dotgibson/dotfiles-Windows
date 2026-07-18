@@ -45,8 +45,27 @@ function Test-ExactVersion {
 if (-not $SkipScoop) {
     try {
         if (-not (Get-Command scoop -ErrorAction SilentlyContinue)) {
+            # Fetch the installer to a STRING first so it can be integrity-checked
+            # before it runs — the same opt-in gate install.ps1 applies, so ONE
+            # DOTFILES_SCOOP_SHA256 value covers both the installer and this CI path
+            # (that gap — CI had no gate — is what issue #129 flagged). The SHA is
+            # computed over the UTF-8 string bytes exactly as install.ps1's
+            # Get-DotStringSha256 does, so the same expected hash matches here.
+            # Deliberately NO hardcoded pin: get.scoop.sh is a moving target, so a
+            # baked-in SHA would break CI on every upstream installer edit.
+            $scoopSrc = Invoke-RestMethod -Uri 'https://get.scoop.sh'
+            if ($env:DOTFILES_SCOOP_SHA256) {
+                $sha = [System.Security.Cryptography.SHA256]::Create()
+                try { $actual = (($sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($scoopSrc)) | ForEach-Object { $_.ToString('x2') }) -join '') }
+                finally { $sha.Dispose() }
+                if ($actual -ne $env:DOTFILES_SCOOP_SHA256.ToLowerInvariant()) {
+                    throw "scoop installer hash mismatch — expected $($env:DOTFILES_SCOOP_SHA256), got $actual"
+                }
+            }
+            # Must run as a FILE (scoop's installer takes -RunAsAdmin, which iex can't
+            # pass). The hash above gated the in-memory string; write it out verbatim.
             $installer = Join-Path ([System.IO.Path]::GetTempPath()) 'install-scoop.ps1'
-            Invoke-RestMethod -Uri 'https://get.scoop.sh' -OutFile $installer
+            Set-Content -LiteralPath $installer -Value $scoopSrc -Encoding utf8
             & $installer -RunAsAdmin 2>&1 | Out-Null   # CI runs elevated; -RunAsAdmin lets scoop install anyway
             $env:PATH = "$HOME\scoop\shims;$env:PATH"   # make `scoop` resolvable in this session
         }
