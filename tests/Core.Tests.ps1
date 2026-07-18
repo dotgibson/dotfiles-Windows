@@ -24,8 +24,15 @@ BeforeAll {
     # behaviour so core-version's git-metadata guard resolves.
     function global:Test-Cmd { param([string]$Name) [bool](Get-Command $Name -ErrorAction Ignore) }
 
-    # Point the layer root at this checkout so core-version exercises its real
-    # git-revision branch (the repo IS a git checkout in CI).
+    # Get-DotRepoRevision is likewise a fragment function — it lives in the
+    # earlier-loading os/45-doctor.ps1 (which core-version now shares to avoid the
+    # duplicated git block, C3). It's absent when 48-core is dot-sourced alone, so
+    # stub it with a fixed revision record; core-version's job here is only to FORMAT
+    # and print it, so a canned object exercises that path without spawning git.
+    function global:Get-DotRepoRevision { param([string]$Root) [pscustomobject]@{ Sha = 'abc1234'; When = '2026-01-01'; IsDirty = $false } }
+
+    # Point the layer root at this checkout (core-version resolves $root from it
+    # before handing off to Get-DotRepoRevision).
     $script:prevDotfilesWin = $env:DOTFILES_WIN
     $env:DOTFILES_WIN = $RepoRoot
 
@@ -44,7 +51,7 @@ AfterAll {
     Remove-Variable -Name DotCoreCalls -Scope Global -ErrorAction SilentlyContinue
     Remove-Item function:core, function:core-doctor, function:core-help, function:core-version -ErrorAction SilentlyContinue
     Remove-Item function:dotfiles-doctor, function:dothelp, function:up -ErrorAction SilentlyContinue
-    Remove-Item function:Test-Cmd -ErrorAction SilentlyContinue
+    Remove-Item function:Test-Cmd, function:Get-DotRepoRevision -ErrorAction SilentlyContinue
     if ($script:Module) { Remove-Module $script:Module -Force -ErrorAction SilentlyContinue }
 }
 

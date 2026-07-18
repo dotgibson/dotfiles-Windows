@@ -22,7 +22,7 @@
 
 # --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
 # provides: tvim, ttext, tcd, trepo, tbranch, tenv
-# requires: Test-Cmd
+# requires: Get-DotGitBranchNames, Test-Cmd
 
 if (Test-Cmd tv) {
 
@@ -52,14 +52,11 @@ if (Test-Cmd tv) {
     }
 
     # --- tbranch: fuzzy-pick a git branch and check it out --------------------
-    # television parallel to `fbr`. Branch names are cleaned in PowerShell first
-    # (strip '* '/'+ ' markers and 'remotes/<remote>/') so the checkout target is
-    # already a valid ref, then piped into tv as an ad-hoc list.
+    # television parallel to `fbr`. Branch names come pre-cleaned from the shared
+    # Get-DotGitBranchNames helper (core/20-functions.ps1) — plain refs ready to
+    # check out — then piped into tv as an ad-hoc list.
     function tbranch {
-        $branches = git branch --all 2>$null |
-            Where-Object { $_ -notmatch 'HEAD' } |
-            ForEach-Object { ($_ -replace '^[*+ ]+', '' -replace 'remotes/[^/]+/', '').Trim() } |
-            Sort-Object -Unique
+        $branches = Get-DotGitBranchNames
         if (-not $branches) { return }
         $branch = $branches | tv
         if ($branch) { git checkout $branch.Trim() }

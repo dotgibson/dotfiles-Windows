@@ -18,7 +18,7 @@
 
 # --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
 # provides: core, core-doctor, core-help, core-version
-# requires: dothelp, dotfiles-doctor, Get-DotLevenshtein, Get-DotRepoVersionDetail, Test-Cmd, up, Write-DotErr, Write-DotHost
+# requires: dothelp, dotfiles-doctor, Get-DotLevenshtein, Get-DotRepoRevision, Get-DotRepoVersionDetail, up, Write-DotErr, Write-DotHost
 
 # Standalone twins — mirror Core's core-help / core-doctor / core-version. Thin
 # pass-throughs (splat all args) to the host's native verbs, which remain the
@@ -28,19 +28,14 @@ function global:core-help   { dothelp @args }
 
 function global:core-version {
     # Windows has no core.version file (it replicates Core rather than vendoring
-    # it), so the "version" of this layer is the repo revision — same detail the
-    # doctor's "Repo version" row shows, via the shared pure helper.
+    # it), so the "version" of this layer is the repo revision — the SAME detail the
+    # doctor's "Repo version" row shows. Resolve it via the shared Get-DotRepoRevision
+    # helper (os/45-doctor.ps1) so the git-log/status block lives in exactly one place
+    # (C3), then format it with the pure Get-DotRepoVersionDetail.
     $root   = if ($global:DOTFILES) { $global:DOTFILES } else { $env:DOTFILES_WIN }
-    $detail = 'unknown (no git metadata)'
-    if ($root -and (Test-Path (Join-Path $root '.git')) -and (Test-Cmd git)) {
-        # One `git log` carries both the short SHA (%h) and the commit date (%cs),
-        # so two spawns cover what took three; the dirty check needs its own call.
-        $rev    = @(& git -C $root log -1 --format='%h%n%cs' HEAD 2>$null)
-        $sha    = if ($rev.Count -ge 1) { $rev[0] } else { '' }
-        $when   = if ($rev.Count -ge 2) { $rev[1] } else { '' }
-        $dirty  = [bool]((& git -C $root status --porcelain 2>$null) | Select-Object -First 1)
-        $detail = Get-DotRepoVersionDetail -Sha "$sha" -IsDirty $dirty -When "$when"
-    }
+    $rev    = Get-DotRepoRevision -Root $root
+    $detail = if ($rev) { Get-DotRepoVersionDetail -Sha "$($rev.Sha)" -IsDirty $rev.IsDirty -When "$($rev.When)" }
+              else       { 'unknown (no git metadata)' }
     Write-DotHost ("dotfiles-Windows {0}" -f $detail) -Color Cyan
 }
 

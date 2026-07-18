@@ -3,7 +3,7 @@
 # ============================================================================
 
 # --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
-# provides: myip, myip-full, localips, ports, extract, compress, mkbak, cdup, fcd, genpw, please, pullall, sha256, sha1, md5, cheat, pbcopy, pbpaste, serve, fif, fbr, gaf, grf, grsf, tools
+# provides: myip, myip-full, localips, ports, extract, compress, mkbak, cdup, fcd, genpw, please, pullall, sha256, sha1, md5, cheat, pbcopy, pbpaste, serve, fif, Get-DotGitBranchNames, fbr, gaf, grf, grsf, tools
 # requires: Get-DotServePlan, Read-DotConfirm, Test-Cmd, Test-CmdRuns, Write-DotErr, Write-DotHost, Write-DotWarn
 
 # --- public IP / network quicklook (parity with your `myip` aliases) ----------
@@ -257,6 +257,20 @@ function fif {
     else { Write-DotErr 'nvim not found to open the match' "the file is: $file" }
 }
 
+# --- Get-DotGitBranchNames: clean, unique branch names for a picker -----------
+# Shared by fbr (below) and tbranch (core/25-television.ps1): list local + remote
+# branches, drop the HEAD pointer line, strip the '* '/'+ ' current markers and the
+# 'remotes/<remote>/' prefix, and de-dup — so a picker shows plain refs that are
+# already valid checkout targets. Cleaning in PowerShell (not the picker's shell)
+# also keeps {} in an fzf --preview a valid ref. Emits nothing when there are no
+# branches (not a git repo, or an empty one), which both callers treat as "nothing".
+function Get-DotGitBranchNames {
+    git branch --all 2>$null |
+        Where-Object { $_ -notmatch 'HEAD' } |
+        ForEach-Object { ($_ -replace '^[*+ ]+', '' -replace 'remotes/[^/]+/', '').Trim() } |
+        Sort-Object -Unique
+}
+
 # --- fbr: fuzzy git branch checkout -------------------------------------------
 function fbr {
     if (-not (Test-Cmd fzf)) { Write-DotErr 'fbr needs fzf' 'scoop install fzf'; return }
@@ -267,12 +281,7 @@ function fbr {
         Write-DotErr "fbr: 'fzf' is on PATH but won't launch (broken shim?)" 'reset the scoop shim (scoop reset fzf) or remove a stale Chocolatey/duplicate fzf shadowing it; run dotfiles-doctor for detail'
         return
     }
-    # Clean the branch names in PowerShell BEFORE handing them to fzf, so {} in
-    # the preview (run by fzf's shell, not PowerShell) is already a valid ref.
-    $branches = git branch --all 2>$null |
-        Where-Object { $_ -notmatch 'HEAD' } |
-        ForEach-Object { ($_ -replace '^[*+ ]+', '' -replace 'remotes/[^/]+/', '').Trim() } |
-        Sort-Object -Unique
+    $branches = Get-DotGitBranchNames
     if (-not $branches) { return }
     $branch = $branches | fzf --preview 'git log --oneline --color=always -20 {}'
     if ($branch) { git checkout $branch.Trim() }

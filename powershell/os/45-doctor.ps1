@@ -16,8 +16,27 @@
 # ============================================================================
 
 # --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
-# provides: dotfiles-doctor
+# provides: dotfiles-doctor, Get-DotRepoRevision
 # requires: Format-DotWrap, Get-DoctorFixPlan, Get-DoctorGroup, Get-DoctorSummary, Get-DotConsoleWidth, Get-DotfilesLinkPlan, Get-DotGlyph, Get-DotRepoVersionDetail, Get-FragmentHealthResult, Get-NvimVendorDetail, modules-localize, New-DoctorResult, Test-Cmd, Test-CmdRuns, Test-DotUnicode, Write-DotErr, Write-DotHost, Write-DotWarn
+
+# --- repo git revision (shared by the probe, the header, and core-version) -----
+# The doctor's "Repo version" row, the report HEADER, and the `core-version` verb
+# (os/48-core.ps1) all want the same three facts about the checkout: short SHA,
+# commit date, and whether the tree is dirty. Resolve them ONCE here — one `git log`
+# (SHA + date in a single spawn) plus one status probe — so nothing open-codes the
+# same git calls a second or third time (C2/C3). Returns $null when $Root isn't a git
+# checkout, so each caller renders its own "unversioned" copy. Lives in the fragment,
+# not the pure Dotfiles module, because it spawns git (the module stays host-free).
+function global:Get-DotRepoRevision {
+    [OutputType([pscustomobject])]
+    param([string]$Root)
+    if (-not ($Root -and (Test-Path (Join-Path $Root '.git')) -and (Test-Cmd git))) { return $null }
+    $rev   = @(& git -C $Root log -1 --format='%h%n%cs' HEAD 2>$null)
+    $sha   = if ($rev.Count -ge 1) { $rev[0] } else { '' }
+    $when  = if ($rev.Count -ge 2) { $rev[1] } else { '' }
+    $dirty = [bool]((& git -C $Root status --porcelain 2>$null) | Select-Object -First 1)
+    [pscustomobject]@{ Sha = $sha; When = $when; IsDirty = $dirty }
+}
 
 # --- render one result line ---------------------------------------------------
 # Glyphs/colour route through the shared helpers (core/05-lib.ps1) so the report
@@ -71,7 +90,10 @@ function script:Test-LinkIntoRepo {
 }
 
 # --- the probes (host-specific; each returns a DoctorResult) ------------------
+# -RepoRevision: the pre-resolved Get-DotRepoRevision record, threaded in by
+# dotfiles-doctor so the "Repo version" row and the header share one git spawn.
 function script:Get-DoctorResults {
+    param([pscustomobject]$RepoRevision)
     $r = [System.Collections.Generic.List[object]]::new()
 
     # pwsh edition
@@ -110,15 +132,16 @@ function script:Get-DoctorResults {
     }
 
     # Repo provenance: which revision is actually on this box (and is it dirty?).
-    # Informational — a copy-install with no .git is fine, just unversioned.
-    if ($root -and (Test-Path (Join-Path $root '.git')) -and (Test-Cmd git)) {
-        # One `git log` carries both the short SHA (%h) and the commit date (%cs),
-        # so two spawns cover what took three; the dirty check needs its own call.
-        $rev   = @(& git -C $root log -1 --format='%h%n%cs' HEAD 2>$null)
-        $sha   = if ($rev.Count -ge 1) { $rev[0] } else { '' }
-        $when  = if ($rev.Count -ge 2) { $rev[1] } else { '' }
-        $dirty = [bool]((& git -C $root status --porcelain 2>$null) | Select-Object -First 1)
-        $r.Add((New-DoctorResult 'Repo version' 'ok' (Get-DotRepoVersionDetail -Sha "$sha" -IsDirty $dirty -When "$when")))
+    # Informational — a copy-install with no .git is fine, just unversioned. The
+    # revision is resolved by the caller and passed in (so the header can reuse the
+    # same object without a second git spawn — C2); resolve it here when the caller
+    # handed us nothing. Gate on $null, NOT $PSBoundParameters: a caller that passes
+    # `-RepoRevision $null` (dotfiles-doctor does, on a non-git checkout) genuinely
+    # has no revision, so re-resolving is correct — and cheap, since Get-DotRepoRevision
+    # fails fast on the .git check (no git spawn) and returns $null again.
+    $rev = if ($null -ne $RepoRevision) { $RepoRevision } else { Get-DotRepoRevision -Root $root }
+    if ($rev) {
+        $r.Add((New-DoctorResult 'Repo version' 'ok' (Get-DotRepoVersionDetail -Sha "$($rev.Sha)" -IsDirty $rev.IsDirty -When "$($rev.When)")))
     } else {
         $r.Add((New-DoctorResult 'Repo version' 'ok' 'not a git checkout (copy install — unversioned)'))
     }
@@ -273,7 +296,13 @@ function global:dotfiles-doctor {
         return
     }
 
-    $results = Get-DoctorResults
+    # Resolve the repo root + git revision ONCE, up front, and thread the revision
+    # through both the probe (the "Repo version" row) and the header below — one git
+    # spawn shared, instead of the row computing it and the header re-deriving the SHA
+    # with a third `git` call (C2). $root mirrors Get-DoctorResults' own resolution.
+    $root = if ($global:DOTFILES) { $global:DOTFILES } else { $env:DOTFILES_WIN }
+    $rev  = Get-DotRepoRevision -Root $root
+    $results = Get-DoctorResults -RepoRevision $rev
 
     # -Json: emit a machine-readable summary+results object for tooling/CI and
     # return early — no human render, no colour, no -Fix (it's a query) (U4).
@@ -286,14 +315,10 @@ function global:dotfiles-doctor {
         # Header mirrors Core's `core doctor` on Unix (dotfiles-core zsh/functions.zsh):
         # "<repo> <ver> — core-doctor (<glyph legend>)", cyan repo+version + dim legend,
         # so `core doctor` reads the same on both shells. Legend maps the row glyphs.
-        # Reuse the doctor's already-resolved $root ($global:DOTFILES or
-        # $env:DOTFILES_WIN, line ~105) + the same .git guard as the Repo version
-        # probe, so the header version can't disagree with the report.
-        $ver = 'dev'
-        if ($root -and (Test-Path (Join-Path $root '.git')) -and (Test-Cmd git)) {
-            $s = (& git -C $root rev-parse --short HEAD 2>$null)
-            if ($s) { $ver = $s }
-        }
+        # $ver is the SHA from the SAME $rev the "Repo version" row used, so the header
+        # can't disagree with the report — and there's no extra git spawn (C2). Falls
+        # back to 'dev' on a copy install with no git metadata.
+        $ver = if ($rev -and $rev.Sha) { $rev.Sha } else { 'dev' }
         $sep    = if (Test-DotUnicode) { '·' } else { '|' }
         $dash   = if (Test-DotUnicode) { '—' } else { '-' }
         $legend = ('{0} ok {3} {1} warn {3} {2} fail' -f (Get-DotGlyph ok), (Get-DotGlyph warn), (Get-DotGlyph fail), $sep)
@@ -330,7 +355,12 @@ function global:dotfiles-doctor {
             foreach ($key in $plan) { Invoke-DoctorFix $key }
             Write-Host ''
             Write-DotHost '  re-checking...' -Color Cyan
-            $results = Get-DoctorResults
+            # Re-resolve the revision before the re-check: a fix action could have
+            # touched the working tree, so the second "Repo version" row must reflect
+            # current state, not the pre-fix snapshot. (Today's fixes all act outside
+            # the repo, so this is defensive — but it keeps the re-check honest.)
+            $rev     = Get-DotRepoRevision -Root $root
+            $results = Get-DoctorResults -RepoRevision $rev
             $s = Get-DoctorSummary $results
             $color = switch ($s.Overall) { 'ok' { 'Green' } 'warn' { 'Yellow' } 'fail' { 'Red' } }
             Write-DotHost ("  {0} ok {3} {1} warn {3} {2} fail" -f $s.Ok, $s.Warn, $s.Fail, $sep) -Color $color
