@@ -84,6 +84,14 @@ Describe 'Test-CopyCurrent' {
         'extra' | Set-Content (Join-Path $dst 'extra.txt')
         Test-CopyCurrent -Link $dst -Target $src | Should -BeFalse
     }
+    It 'is false when only an EMPTY subdirectory is added (no file changes)' {
+        $src = Join-Path $script:Cc 'src'; $dst = Join-Path $script:Cc 'dst'
+        New-Item -ItemType Directory -Force -Path $src | Out-Null
+        'a' | Set-Content (Join-Path $src 'a.txt')
+        Copy-Item $src $dst -Recurse
+        New-Item -ItemType Directory -Force -Path (Join-Path $dst 'emptydir') | Out-Null
+        Test-CopyCurrent -Link $dst -Target $src | Should -BeFalse
+    }
 }
 
 Describe 'Get-InstallSummaryLines' {

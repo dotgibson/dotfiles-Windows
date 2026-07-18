@@ -95,9 +95,13 @@ function Test-SymlinkCurrent {
 # repeat install with no upstream change still backs up + recopies every run — each
 # pass drops a fresh timestamped .bak and re-copies identical bytes, so backups pile
 # up unbounded (issue #129). Compare CONTENT instead: a file by its SHA-256, a
-# directory (nvim\, psmux\scripts) by the full {relative path -> SHA-256} set on both
-# sides, so an added / removed / renamed / edited file anywhere in the tree still reads
-# as different. A missing link (or a file-vs-directory mismatch) is "not current".
+# directory (nvim\, psmux\scripts) by the full {relative path -> marker} set on both
+# sides — files map to their SHA-256, subdirectories to a '<dir>' sentinel — so an
+# added / removed / renamed / edited file OR an added/removed empty directory anywhere
+# in the tree reads as different. A missing link (or a file-vs-directory mismatch) is
+# "not current". This is a GUARD: any enumeration/hash error (a locked or vanishing
+# file mid-walk) returns $false — "not current" — so the caller safely recopies rather
+# than skipping on an incomplete comparison.
 function Test-CopyCurrent {
     param([string]$Link, [string]$Target)
     if (-not (Test-Path -LiteralPath $Link))   { return $false }
@@ -105,22 +109,27 @@ function Test-CopyCurrent {
     $linkIsDir   = Test-Path -LiteralPath $Link   -PathType Container
     $targetIsDir = Test-Path -LiteralPath $Target -PathType Container
     if ($linkIsDir -ne $targetIsDir) { return $false }
-    if (-not $targetIsDir) {
-        return ((Get-FileHash -LiteralPath $Link).Hash -eq (Get-FileHash -LiteralPath $Target).Hash)
-    }
-    # Directory: hash every file, keyed by its path relative to the tree root.
-    $hashTree = {
-        param([string]$Root)
-        $root = (Resolve-Path -LiteralPath $Root).Path
-        $map  = @{}   # PowerShell hashtables are case-insensitive, matching NTFS
-        Get-ChildItem -LiteralPath $root -Recurse -File -Force -ErrorAction SilentlyContinue | ForEach-Object {
-            $rel = $_.FullName.Substring($root.Length).TrimStart('\', '/')
-            $map[$rel] = (Get-FileHash -LiteralPath $_.FullName).Hash
+    try {
+        if (-not $targetIsDir) {
+            return ((Get-FileHash -LiteralPath $Link -ErrorAction Stop).Hash -eq (Get-FileHash -LiteralPath $Target -ErrorAction Stop).Hash)
         }
-        $map
-    }
-    $a = & $hashTree $Link
-    $b = & $hashTree $Target
+        # Directory: map every entry to a marker, keyed by its path relative to the
+        # tree root — files to their SHA-256, subdirectories to '<dir>' so empty-dir
+        # drift is caught too. -ErrorAction Stop turns any traversal failure into a
+        # throw the catch below converts to "not current".
+        $hashTree = {
+            param([string]$Root)
+            $root = (Resolve-Path -LiteralPath $Root).Path
+            $map  = @{}   # PowerShell hashtables are case-insensitive, matching NTFS
+            Get-ChildItem -LiteralPath $root -Recurse -Force -ErrorAction Stop | ForEach-Object {
+                $rel = $_.FullName.Substring($root.Length).TrimStart('\', '/')
+                $map[$rel] = if ($_.PSIsContainer) { '<dir>' } else { (Get-FileHash -LiteralPath $_.FullName -ErrorAction Stop).Hash }
+            }
+            $map
+        }
+        $a = & $hashTree $Link
+        $b = & $hashTree $Target
+    } catch { return $false }
     if ($a.Count -ne $b.Count) { return $false }
     foreach ($k in $a.Keys) {
         if (-not $b.ContainsKey($k) -or $b[$k] -ne $a[$k]) { return $false }

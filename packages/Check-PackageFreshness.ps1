@@ -54,18 +54,27 @@ if (-not $SkipScoop) {
             # Deliberately NO hardcoded pin: get.scoop.sh is a moving target, so a
             # baked-in SHA would break CI on every upstream installer edit.
             $scoopSrc = Invoke-RestMethod -Uri 'https://get.scoop.sh'
+            # Hash and WRITE the exact same UTF-8 byte array, so the file that runs is
+            # byte-for-byte what we verified (Set-Content re-encodes / appends a newline,
+            # so it would NOT match the hashed bytes). These bytes are the BOM-less UTF-8
+            # of the string — GetBytes never emits a preamble — matching install.ps1's
+            # Get-DotStringSha256, so one DOTFILES_SCOOP_SHA256 value covers both paths.
+            $scoopBytes = [System.Text.Encoding]::UTF8.GetBytes($scoopSrc)
             if ($env:DOTFILES_SCOOP_SHA256) {
                 $sha = [System.Security.Cryptography.SHA256]::Create()
-                try { $actual = (($sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($scoopSrc)) | ForEach-Object { $_.ToString('x2') }) -join '') }
+                try { $actual = (($sha.ComputeHash($scoopBytes) | ForEach-Object { $_.ToString('x2') }) -join '') }
                 finally { $sha.Dispose() }
                 if ($actual -ne $env:DOTFILES_SCOOP_SHA256.ToLowerInvariant()) {
+                    # A mismatched installer is a security STOP, not a transient setup
+                    # hiccup — throw a tagged error the outer catch re-raises (below) so
+                    # the run actually fails instead of warning and carrying on.
                     throw "scoop installer hash mismatch — expected $($env:DOTFILES_SCOOP_SHA256), got $actual"
                 }
             }
             # Must run as a FILE (scoop's installer takes -RunAsAdmin, which iex can't
-            # pass). The hash above gated the in-memory string; write it out verbatim.
+            # pass). WriteAllBytes emits exactly the verified bytes — no re-encoding.
             $installer = Join-Path ([System.IO.Path]::GetTempPath()) 'install-scoop.ps1'
-            Set-Content -LiteralPath $installer -Value $scoopSrc -Encoding utf8
+            [System.IO.File]::WriteAllBytes($installer, $scoopBytes)
             & $installer -RunAsAdmin 2>&1 | Out-Null   # CI runs elevated; -RunAsAdmin lets scoop install anyway
             $env:PATH = "$HOME\scoop\shims;$env:PATH"   # make `scoop` resolvable in this session
         }
@@ -73,6 +82,10 @@ if (-not $SkipScoop) {
             try { scoop bucket add $b.Name $b.Source 2>&1 | Out-Null } catch { }
         }
     } catch {
+        # A tampered-installer hash mismatch must fail the run, not degrade to a
+        # warning — re-throw it. Transient setup failures (network, bucket add) stay
+        # tolerant so a single flaky source never fails the freshness check.
+        if ($_.Exception.Message -like 'scoop installer hash mismatch*') { throw }
         Write-Warning "scoop setup failed: $($_.Exception.Message)"
     }
 
