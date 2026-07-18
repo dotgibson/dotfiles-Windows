@@ -355,6 +355,11 @@ function global:dotfiles-doctor {
             foreach ($key in $plan) { Invoke-DoctorFix $key }
             Write-Host ''
             Write-DotHost '  re-checking...' -Color Cyan
+            # Re-resolve the revision before the re-check: a fix action could have
+            # touched the working tree, so the second "Repo version" row must reflect
+            # current state, not the pre-fix snapshot. (Today's fixes all act outside
+            # the repo, so this is defensive — but it keeps the re-check honest.)
+            $rev     = Get-DotRepoRevision -Root $root
             $results = Get-DoctorResults -RepoRevision $rev
             $s = Get-DoctorSummary $results
             $color = switch ($s.Overall) { 'ok' { 'Green' } 'warn' { 'Yellow' } 'fail' { 'Red' } }
