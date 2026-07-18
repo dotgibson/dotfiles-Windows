@@ -5,8 +5,8 @@ name: auto-tag
 # Windows vendors no core/, but the assets it MIRRORS from dotfiles-core (nvim/ via
 # nvim-sync.ps1, starship/ via starship-sync.ps1) play the same role: when they advance,
 # this repo's own version line should advance with them. Delegates to dotfiles-core's
-# reusable auto-tag workflow (@v2) — the same one the OS repos call; auto-tag.sh only
-# reads this repo's tags, so it needs no core/ subtree here.
+# reusable auto-tag workflow (pinned to a SHA below) — the same one the OS repos call;
+# auto-tag.sh only reads this repo's tags, so it needs no core/ subtree here.
 #
 # Fires on a push to main touching the mirrored dirs — whether that push is you landing a
 # local `nvim-sync.ps1`/`starship-sync.ps1` run, or the nvim-sync/starship-sync BOTs' PRs
@@ -35,4 +35,8 @@ jobs:
     # Fork guard (G9): only the canonical owner tags/releases. A fork pushing to its own
     # main must not attempt to cut a tag or a GitHub Release.
     if: github.repository_owner == 'dotgibson'
-    uses: dotgibson/dotfiles-core/.github/workflows/auto-tag-call.yml@v3
+    # Pinned to a full commit SHA, not the mutable @v3 tag, so a moved tag can't
+    # silently change what runs here — the same supply-chain discipline ci.yml applies
+    # to its third-party actions. Bump the SHA (and the # v-comment) when intentionally
+    # adopting a new auto-tag-call release.
+    uses: dotgibson/dotfiles-core/.github/workflows/auto-tag-call.yml@e9cf907f5849dfae2f3313d840fcbafb3772b83a # v3
