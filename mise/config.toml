@@ -1,0 +1,24 @@
+# mise — runtime version manager for the host layer.
+#
+# Linked to ~/.config/mise/config.toml by install.ps1 (Get-DotfilesLinkPlan in
+# powershell/core/05-lib.ps1); the shell hook is wired in powershell/core/10-tools.ps1.
+#
+# Scope is deliberately NODE ONLY — see docs/PACKAGE-OWNERSHIP.md for the full
+# reasoning. In short:
+#
+#   python  stays winget-owned (C:\Python314). The `py` launcher and `uv` both
+#           resolve to it, mise's python-build-standalone builds register nothing
+#           under HKLM\SOFTWARE\Python\PythonCore, and uv already does per-project
+#           python on Windows better than mise would.
+#   ruby    stays winget-owned. mise's core:ruby is built on ruby-build, a Unix
+#           shell toolchain, and 4.0.6 is currently the only ruby on the box.
+#   php/java/julia/composer  stay scoop-owned (declared in packages/scoopfile.json).
+#
+# NOTE: npm globals live under the active node version, not in %APPDATA%\npm.
+# After a major node bump, reinstall them or nvim's node provider goes missing:
+#
+#     npm install -g neovim obsidian-headless
+#     nvim --headless "+checkhealth provider" +qa
+#
+[tools]
+node = "24"

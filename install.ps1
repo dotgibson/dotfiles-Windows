@@ -533,6 +533,29 @@ if (-not (Test-Path -LiteralPath $gcLocal)) {
 # here would rewrite that line in-place with a machine-specific ABSOLUTE path,
 # silently dirtying the tracked repo file (it edits the symlink target).
 
+# --- 7. mise runtimes ---------------------------------------------------------
+# Provision the tools pinned in mise\config.toml (node only — see that file).
+# MUST run after step 3: mise reads ~/.config/mise/config.toml, which is the
+# symlink wired there, so a fresh box has nothing to install before then.
+# Non-fatal by design — a runtime download failure should not fail the bootstrap,
+# and `mise install` is idempotent, so re-running install.ps1 retries it.
+Write-Step $(if ($SkipPackages) { 'Provisioning mise runtimes (skipped: -SkipPackages)' } else { 'Provisioning mise runtimes' })
+if (-not $SkipPackages) {
+    if ($script:DryRun) {
+        Write-DotHost '  would run: mise install' -Color Cyan
+    } elseif (-not (Get-Command mise -ErrorAction SilentlyContinue)) {
+        Write-DotHost '  mise not installed - skipping (packages step installs it).' -Color DarkGray
+    } else {
+        try {
+            mise install
+            if ($LASTEXITCODE -eq 0) { Write-DotOk 'mise runtimes provisioned.' }
+            else { Write-DotWarn "mise install exited $LASTEXITCODE - runtimes may be incomplete." 'run `mise install` by hand to see the failure.' }
+        } catch {
+            Write-DotWarn "mise install failed: $_" 'run `mise install` by hand to see the failure.'
+        }
+    }
+}
+
 Write-Host ''
 Write-DotRule -Title 'Summary'
 Get-InstallSummaryLines -Stats $script:LinkStats | ForEach-Object { Write-DotHost "  $_" -Color Gray }

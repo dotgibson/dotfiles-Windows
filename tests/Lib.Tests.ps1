@@ -432,9 +432,20 @@ Describe 'Get-DotfilesLinkPlan' {
     It 'covers the full family of configs (parity with the installer)' {
         $links = (Get-DotfilesLinkPlan -RepoRoot 'R:' -HomeDir 'H:' -LocalAppData 'L:' -Documents 'D:').Link -join ';'
         foreach ($needle in 'profile.ps1', 'nvim', '.gitconfig', '.gitignore_global', 'ssh\config',
-                            'psmux.conf', 'psmux.reset.conf', 'psmux\scripts', 'settings.json') {
+                            'psmux.conf', 'psmux.reset.conf', 'psmux\scripts', 'settings.json',
+                            '.config\mise\config.toml') {
             $links | Should -Match ([regex]::Escape($needle))
         }
+    }
+    It 'links mise config to the XDG-style path mise reads on Windows' {
+        # mise reads ~/.config/mise/config.toml on Windows (NOT %APPDATA%), so the
+        # link must land there or the node pin silently never applies.
+        $plan = Get-DotfilesLinkPlan -RepoRoot 'R:\repo' -HomeDir 'H:\me' -LocalAppData 'L:' -Documents 'D:'
+        $mise = $plan | Where-Object Name -eq 'mise config'
+        $mise                  | Should -Not -BeNullOrEmpty
+        $mise.Link             | Should -Be 'H:\me\.config\mise\config.toml'
+        $mise.Target           | Should -Be 'R:\repo\mise\config.toml'
+        $mise.ParentMustExist  | Should -BeFalse
     }
     It 'flags only the Windows Terminal settings variants as ParentMustExist' {
         # WT keeps settings.json in a per-build location (packaged Store, unpackaged/

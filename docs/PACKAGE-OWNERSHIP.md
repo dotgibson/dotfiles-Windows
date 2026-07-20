@@ -129,6 +129,71 @@ Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*',
   Select-Object DisplayName, InstallLocation, UninstallString
 ```
 
+## A directory is not an install: the .NET phantom runtimes
+
+The same lie in a fourth place. ARP can misattribute an install, winget's tracking
+db can outlive one — and `dotnet --list-runtimes` can invent one outright, because
+it enumerates directory **names** under `shared\`, never their contents.
+
+Found 2026-07-20 in `C:\Program Files\dotnet`:
+
+| Path | Contents | Reported as installed |
+| ---- | -------- | --------------------- |
+| `shared\Microsoft.NETCore.App\9.0.6`        | 3 metadata files, 0 DLLs   | yes |
+| `shared\Microsoft.WindowsDesktop.App\9.0.6` | 2 metadata files, 0 DLLs   | yes |
+| `shared\Microsoft.AspNetCore.App\9.0.6`     | 4 metadata files, 0 DLLs   | yes |
+| `sdk\9.0.301`                               | 863 metadata files, 0 DLLs | no — needs `dotnet.dll` |
+
+No ARP entry claimed any of them: a .NET 9 uninstall had taken the binaries and the
+registrations but left the version directories standing.
+
+**An empty version directory is worse than no directory.** Because `9.0.6` existed,
+the host *selected* it and then died:
+
+```text
+A fatal error was encountered. The library 'hostpolicy.dll' required to execute
+the application was not found in '...\shared\Microsoft.NETCore.App\9.0.6'
+```
+
+Deleting the empty directories restores the correct, actionable failure:
+
+```text
+You must install or update .NET to run this application.
+Framework: 'Microsoft.NETCore.App', version '9.0.0' (x64)
+```
+
+So `dotnet --list-runtimes` is a claim, not evidence. Verify with a DLL count
+before trusting it, and before removing a runtime that looks redundant:
+
+```powershell
+Get-ChildItem 'C:\Program Files\dotnet\shared' -Directory | ForEach-Object {
+  Get-ChildItem $_.FullName -Directory | ForEach-Object {
+    '{0,-52} dlls={1}' -f $_.FullName.Replace('C:\Program Files\dotnet\shared\',''),
+      (Get-ChildItem $_.FullName -Filter *.dll -File -EA SilentlyContinue).Count
+  }
+}
+```
+
+### Before removing a shared runtime, classify its consumers
+
+`*.runtimeconfig.json` says which apps actually need a machine-wide runtime, and
+the distinction is the whole answer:
+
+- `"includedFrameworks"` — **self-contained**, ships its own runtime, unaffected by
+  anything you do to `C:\Program Files\dotnet`.
+- `"framework"` — **framework-dependent**, genuinely needs it. Check `rollForward`
+  too: the default stays within the same major, so .NET 10 does not rescue a
+  net9.0 app.
+
+Of 12 net9.0 apps on this host, 9 were self-contained (ShareX among them — it is a
+declared dependency in `winget.json` and bundles 9.0.17 internally). Only 3 were
+framework-dependent, all Razer Cortex plugins, and all already broken by the
+phantom.
+
+.NET 6 was removed the same day by the same method: nothing outside
+`C:\Program Files\dotnet` targeted it, and it had been out of support since
+November 2024.
+
 ## The stale registration that must NOT be cleaned: BullGuard
 
 There is a third registry of installed software besides ARP and winget's tracking
@@ -183,6 +248,55 @@ stale WSC registrations (vendor tooling, running with the privileges intended fo
 the job).
 
 A backup of the key is at `~\pkg-backup-2026-07-20\bullguard-av-registration.reg`.
+
+## mise owns node, and only node
+
+`mise` had been installed and activated (`powershell/core/10-tools.ps1`) since
+before this cleanup while managing **zero** runtimes. It now owns exactly one:
+
+```toml
+# mise/config.toml, linked to ~/.config/mise/config.toml
+[tools]
+node = "24"
+```
+
+Node was previously winget's `OpenJS.NodeJS.LTS` and — like python and ruby — was
+never declared in any manifest, so a rebuilt host would not have got it. Moving it
+to a committed `mise.toml` brings it under version control for the first time.
+
+Scope stops there deliberately:
+
+- **python** stays winget-owned at `C:\Python314`. mise installs
+  `python-build-standalone` builds, which register nothing under
+  `HKLM\SOFTWARE\Python\PythonCore` and do not provide the `py` launcher (which is
+  separately installed and would break). `uv` is already present and does
+  per-project python on Windows better than mise would.
+- **ruby** stays winget-owned. mise's `core:ruby` is built on `ruby-build`, a Unix
+  shell toolchain; `mise ls-remote ruby` listing versions does not establish that
+  installing one works. Ruby 4.0.6 is currently the only ruby on the box.
+- **php / java / julia / composer** stay scoop-owned, declared in
+  `packages/scoopfile.json`.
+
+### The two things that bite
+
+**npm globals are per-node-version.** They no longer live in `%APPDATA%\npm`
+(that directory and its PATH entry are gone). After a major node bump they must be
+reinstalled, and one of them is load-bearing:
+
+```powershell
+npm install -g neovim obsidian-headless
+nvim --headless "+checkhealth provider" +qa   # Node provider must report OK
+```
+
+`neovim@5.4.0` is nvim's **Node provider host**. If it goes missing, node-based
+plugins fail — quietly.
+
+**node is no longer on the system PATH.** It exists only inside a mise-activated
+shell. Anything that shells out to `node` from a non-shell context — a scheduled
+task, a service, a GUI app — will not find it. Interactive shells are fine because
+`10-tools.ps1` activates mise. This also broke `yarn` until the orphaned corepack
+shims left behind in `C:\Program Files\nodejs` were deleted; `yarn` and `pnpm` both
+carry their own installs and work normally now.
 
 ## Undeclared on purpose
 
