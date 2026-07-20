@@ -83,6 +83,52 @@ Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*' |
 If two entries share an `InstallLocation`, they are one install. Deregister
 rather than uninstall.
 
+## A manager listing something is not proof it installed it
+
+The corollary, and the one that took longest to see. **An absent ARP entry is as
+informative as a shared one** — it tells you which manager can actually remove a
+package, and therefore which manager's claim is real.
+
+Julia is the worked example. Its installer is Inno Setup with
+`CreateUninstallRegKey=no`: it writes `uninstall\unins000.exe` and registers
+*nothing* in ARP. So the ARP entry that existed on 2026-07-20 was
+**Chocolatey's**, describing a directory choco had installed into. winget had
+been listing Julia the whole time on the strength of someone else's registration.
+
+Two consequences follow, and both bit:
+
+1. Removing choco's Julia deleted the files, because choco genuinely owned that
+   install — winget's listing was never a second copy.
+2. Afterwards `winget uninstall` failed with `0x800401f5 Application not found`
+   **and could not be fixed by reinstalling**, because a fresh install still
+   registers nothing for winget to correlate against.
+
+The record was cleared by supplying the missing registration — a single HKCU key
+with `UninstallString` pointing at the real `unins000.exe`, so winget could
+correlate, run Julia's own uninstaller, and drop its tracking entry in one
+supported operation. The key is not removed by Inno afterwards (it did not create
+it), so delete it yourself once winget reports success.
+
+Do **not** edit winget's tracking database to fix this class of problem — it
+lives under the App Installer package data:
+
+```text
+%LOCALAPPDATA%\Packages\Microsoft.DesktopAppInstaller_8wekyb3d8bbwe\LocalState\Microsoft.Winget.Source_8wekyb3d8bbwe\installed.db
+```
+
+It is held open by a running service, and corrupting it breaks winget entirely
+rather than just the offending row.
+
+Before removing anything, ask which manager can *uninstall* it:
+
+```powershell
+# No ARP entry => winget/choco cannot remove it, whatever `list` claims.
+Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*',
+                 'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*' |
+  Where-Object { $_.DisplayName -match '<name>' -or $_.InstallLocation -match '<name>' } |
+  Select-Object DisplayName, InstallLocation, UninstallString
+```
+
 ## Undeclared on purpose
 
 - `cacert`, `dark`, `innounp`, `mingw` — scoop auto-dependencies, pulled in as
