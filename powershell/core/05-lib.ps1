@@ -417,6 +417,10 @@ function Get-DotfilesLinkPlan {
         # Plain row (parent created on demand): linking a config for an as-yet-uninstalled
         # tool is harmless, exactly like the nvim/GlazeWM rows.
         & $row 'jj config'                 (& $repo 'jj\config.toml')                (& $join $RoamingAppData 'jj\config.toml')
+        # mise (runtime version manager) — reads ~/.config/mise/config.toml on Windows.
+        # Plain row like the jj/nvim ones: linking ahead of the tool is harmless, and
+        # the hook in core/10-tools.ps1 no-ops when mise isn't installed.
+        & $row 'mise config'               (& $repo 'mise\config.toml')              (& $join $HomeDir      '.config\mise\config.toml')
         & $row 'ssh config'                (& $repo 'ssh\config')                    (& $join $HomeDir      '.ssh\config')
         & $row 'psmux.conf'                (& $repo 'psmux\psmux.conf')              (& $join $HomeDir      '.config\psmux\psmux.conf')
         & $row 'psmux.reset.conf'          (& $repo 'psmux\psmux.reset.conf')        (& $join $HomeDir      '.config\psmux\psmux.reset.conf')

@@ -184,6 +184,55 @@ the job).
 
 A backup of the key is at `~\pkg-backup-2026-07-20\bullguard-av-registration.reg`.
 
+## mise owns node, and only node
+
+`mise` had been installed and activated (`powershell/core/10-tools.ps1`) since
+before this cleanup while managing **zero** runtimes. It now owns exactly one:
+
+```toml
+# mise/config.toml, linked to ~/.config/mise/config.toml
+[tools]
+node = "24"
+```
+
+Node was previously winget's `OpenJS.NodeJS.LTS` and — like python and ruby — was
+never declared in any manifest, so a rebuilt host would not have got it. Moving it
+to a committed `mise.toml` brings it under version control for the first time.
+
+Scope stops there deliberately:
+
+- **python** stays winget-owned at `C:\Python314`. mise installs
+  `python-build-standalone` builds, which register nothing under
+  `HKLM\SOFTWARE\Python\PythonCore` and do not provide the `py` launcher (which is
+  separately installed and would break). `uv` is already present and does
+  per-project python on Windows better than mise would.
+- **ruby** stays winget-owned. mise's `core:ruby` is built on `ruby-build`, a Unix
+  shell toolchain; `mise ls-remote ruby` listing versions does not establish that
+  installing one works. Ruby 4.0.6 is currently the only ruby on the box.
+- **php / java / julia / composer** stay scoop-owned, declared in
+  `packages/scoopfile.json`.
+
+### The two things that bite
+
+**npm globals are per-node-version.** They no longer live in `%APPDATA%\npm`
+(that directory and its PATH entry are gone). After a major node bump they must be
+reinstalled, and one of them is load-bearing:
+
+```powershell
+npm install -g neovim obsidian-headless
+nvim --headless "+checkhealth provider" +qa   # Node provider must report OK
+```
+
+`neovim@5.4.0` is nvim's **Node provider host**. If it goes missing, node-based
+plugins fail — quietly.
+
+**node is no longer on the system PATH.** It exists only inside a mise-activated
+shell. Anything that shells out to `node` from a non-shell context — a scheduled
+task, a service, a GUI app — will not find it. Interactive shells are fine because
+`10-tools.ps1` activates mise. This also broke `yarn` until the orphaned corepack
+shims left behind in `C:\Program Files\nodejs` were deleted; `yarn` and `pnpm` both
+carry their own installs and work normally now.
+
 ## Undeclared on purpose
 
 - `cacert`, `dark`, `innounp`, `mingw` — scoop auto-dependencies, pulled in as
