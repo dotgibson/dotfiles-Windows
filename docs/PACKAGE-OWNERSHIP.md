@@ -129,6 +129,61 @@ Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*',
   Select-Object DisplayName, InstallLocation, UninstallString
 ```
 
+## The stale registration that must NOT be cleaned: BullGuard
+
+There is a third registry of installed software besides ARP and winget's tracking
+db — **Windows Security Center** — and it holds a ghost this repo deliberately
+leaves alone.
+
+`Get-CimInstance -Namespace root\SecurityCenter2 -ClassName AntiVirusProduct`
+reports **BullGuard Antivirus** as `enabled=ON, definitions=OUT-OF-DATE`. It is
+entirely fictional: both executables it names are absent, and there is no
+service, process, install directory, or ARP entry. BullGuard was discontinued
+(folded into Norton) and its uninstaller never called
+`WscUnRegisterSecurityProvider`. The leftover key is:
+
+```text
+HKLM\SOFTWARE\Microsoft\Security Center\Provider\Av\{0C5A09FB-657F-B94D-DF1B-BB843C6EE0E4}
+```
+
+**It cannot be deleted, and that is correct behaviour.** The ACL grants `Delete`
+to exactly one identity, `NT SERVICE\wscsvc` — the Security Center service.
+SYSTEM gets only `SetValue, CreateSubKey, ReadKey`; Administrators are not in the
+ACL at all. Verified on 2026-07-20: `reg delete` fails as Administrator, fails as
+`NT AUTHORITY\SYSTEM` (via `gsudo -s`), and restarting `wscsvc` does not purge it.
+
+That protection exists so malware cannot silently deregister your antivirus.
+Taking ownership to grant yourself `Delete` defeats it. Do not do that — "it is
+only a stale entry" is exactly the reasoning the control is built to resist.
+
+### The real risk, and the cheap mitigation
+
+Nothing is wrong today: Malwarebytes is active with current definitions, and
+Defender is correctly passive (`AMRunningMode: Not running`) because a third-party
+AV owns protection.
+
+The danger is conditional. Windows decides whether to re-enable Defender based on
+whether any *other* product claims to be enabled — and this ghost claims exactly
+that. **If Malwarebytes is ever removed or replaced, Defender may not turn itself
+back on, leaving no antivirus at all while Security Center believes otherwise.**
+
+So after any antivirus change, check explicitly rather than assuming:
+
+```powershell
+Get-MpComputerStatus | Select-Object AMRunningMode, AntivirusEnabled, RealTimeProtectionEnabled
+```
+
+If that reports `Not running` and no other AV is installed, re-enable Defender by
+hand in Windows Security.
+
+Two legitimate ways it could still disappear, neither worth doing for its own
+sake: a Windows in-place upgrade/repair install rebuilds the Security Center
+store, and Malwarebytes' own `mb-clean` support tool has historically cleared
+stale WSC registrations (vendor tooling, running with the privileges intended for
+the job).
+
+A backup of the key is at `~\pkg-backup-2026-07-20\bullguard-av-registration.reg`.
+
 ## Undeclared on purpose
 
 - `cacert`, `dark`, `innounp`, `mingw` — scoop auto-dependencies, pulled in as
