@@ -129,6 +129,71 @@ Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*',
   Select-Object DisplayName, InstallLocation, UninstallString
 ```
 
+## A directory is not an install: the .NET phantom runtimes
+
+The same lie in a fourth place. ARP can misattribute an install, winget's tracking
+db can outlive one — and `dotnet --list-runtimes` can invent one outright, because
+it enumerates directory **names** under `shared\`, never their contents.
+
+Found 2026-07-20 in `C:\Program Files\dotnet`:
+
+| Path | Contents | Reported as installed |
+| ---- | -------- | --------------------- |
+| `shared\Microsoft.NETCore.App\9.0.6`        | 3 metadata files, 0 DLLs   | yes |
+| `shared\Microsoft.WindowsDesktop.App\9.0.6` | 2 metadata files, 0 DLLs   | yes |
+| `shared\Microsoft.AspNetCore.App\9.0.6`     | 4 metadata files, 0 DLLs   | yes |
+| `sdk\9.0.301`                               | 863 metadata files, 0 DLLs | no — needs `dotnet.dll` |
+
+No ARP entry claimed any of them: a .NET 9 uninstall had taken the binaries and the
+registrations but left the version directories standing.
+
+**An empty version directory is worse than no directory.** Because `9.0.6` existed,
+the host *selected* it and then died:
+
+```text
+A fatal error was encountered. The library 'hostpolicy.dll' required to execute
+the application was not found in '...\shared\Microsoft.NETCore.App\9.0.6'
+```
+
+Deleting the empty directories restores the correct, actionable failure:
+
+```text
+You must install or update .NET to run this application.
+Framework: 'Microsoft.NETCore.App', version '9.0.0' (x64)
+```
+
+So `dotnet --list-runtimes` is a claim, not evidence. Verify with a DLL count
+before trusting it, and before removing a runtime that looks redundant:
+
+```powershell
+Get-ChildItem 'C:\Program Files\dotnet\shared' -Directory | ForEach-Object {
+  Get-ChildItem $_.FullName -Directory | ForEach-Object {
+    '{0,-52} dlls={1}' -f $_.FullName.Replace('C:\Program Files\dotnet\shared\',''),
+      (Get-ChildItem $_.FullName -Filter *.dll -File -EA SilentlyContinue).Count
+  }
+}
+```
+
+### Before removing a shared runtime, classify its consumers
+
+`*.runtimeconfig.json` says which apps actually need a machine-wide runtime, and
+the distinction is the whole answer:
+
+- `"includedFrameworks"` — **self-contained**, ships its own runtime, unaffected by
+  anything you do to `C:\Program Files\dotnet`.
+- `"framework"` — **framework-dependent**, genuinely needs it. Check `rollForward`
+  too: the default stays within the same major, so .NET 10 does not rescue a
+  net9.0 app.
+
+Of 12 net9.0 apps on this host, 9 were self-contained (ShareX among them — it is a
+declared dependency in `winget.json` and bundles 9.0.17 internally). Only 3 were
+framework-dependent, all Razer Cortex plugins, and all already broken by the
+phantom.
+
+.NET 6 was removed the same day by the same method: nothing outside
+`C:\Program Files\dotnet` targeted it, and it had been out of support since
+November 2024.
+
 ## The stale registration that must NOT be cleaned: BullGuard
 
 There is a third registry of installed software besides ARP and winget's tracking
