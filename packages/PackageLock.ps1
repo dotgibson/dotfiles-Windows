@@ -96,6 +96,23 @@ function ConvertFrom-WingetExport {
     $map
 }
 
+# --- Get-UnpinnableWingetId ---------------------------------------------------
+# winget ids that can NEVER appear in the lock, by design — not because someone
+# forgot to re-run the generator. Some apps ship their own updater and move out
+# from under winget, so `winget export` emits a constraint token ("> 8.12.28.25")
+# instead of an exact version, and ConvertFrom-WingetExport rejects it above so
+# -Frozen doesn't break. The consequence is a permanent lock gap, which the drift
+# check must treat as expected rather than as staleness.
+#
+# Keep this list SHORT and justified: every entry is a package `-Frozen` cannot
+# reproduce, so adding one is a real (if unavoidable) loss of reproducibility.
+function Get-UnpinnableWingetId {
+    @(
+        # Self-updating installer; winget only ever reports "> <version>".
+        'AgileBits.1Password'
+    )
+}
+
 # --- Get-PackageLockDrift -----------------------------------------------------
 # Compare the DESIRED names (from a manifest) against a lock map and report what's
 # out of sync: Missing = desired-but-unlocked (added to the manifest without
@@ -103,10 +120,15 @@ function ConvertFrom-WingetExport {
 # the manifest). This is the offline, CI-checkable half of B4 — it can't verify
 # the version strings are the truly-installed ones, but it guarantees the lock and
 # the manifest describe the SAME set. Case-insensitive.
+#
+# -Ignore drops names from BOTH sides before comparing (see Get-UnpinnableWingetId):
+# an unpinnable package is neither Missing when absent from the lock nor Orphan if a
+# stale lock still carries it, so the check stays quiet either way.
 function Get-PackageLockDrift {
-    param([string[]]$DesiredNames, [hashtable]$LockMap)
-    $desired = @($DesiredNames | Where-Object { $_ })
-    $locked = @(if ($LockMap) { $LockMap.Keys })
+    param([string[]]$DesiredNames, [hashtable]$LockMap, [string[]]$Ignore)
+    $skip = @($Ignore | Where-Object { $_ })
+    $desired = @($DesiredNames | Where-Object { $_ -and $skip -notcontains $_ })
+    $locked = @(if ($LockMap) { $LockMap.Keys | Where-Object { $skip -notcontains $_ } })
     $missing = @($desired | Where-Object { $locked -notcontains $_ } | Sort-Object -Unique)
     $orphan = @($locked  | Where-Object { $desired -notcontains $_ } | Sort-Object -Unique)
     [pscustomobject]@{

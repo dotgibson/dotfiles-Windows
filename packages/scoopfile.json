@@ -10,6 +10,7 @@
       "Name": "nonportable",
       "Source": "https://github.com/ScoopInstaller/Nonportable"
     },
+    { "Name": "java", "Source": "https://github.com/ScoopInstaller/Java" },
     { "Name": "psmux", "Source": "https://github.com/psmux/scoop-psmux" }
   ],
   "apps": [
@@ -45,7 +46,6 @@
     { "Name": "atuin", "Source": "main" },
     { "Name": "carapace-bin", "Source": "extras" },
     { "Name": "television", "Source": "extras" },
-    { "Name": "python", "Source": "main" },
     { "Name": "sysinternals", "Source": "extras" },
     { "Name": "JetBrainsMono-NF", "Source": "nerd-fonts" },
     { "Name": "CascadiaCode-NF", "Source": "nerd-fonts" },
@@ -75,6 +75,13 @@
     { "Name": "restic", "Source": "main" },
     { "Name": "mpv", "Source": "extras" },
     { "Name": "syncthing", "Source": "main" },
-    { "Name": "tailscale", "Source": "extras" }
+    { "Name": "tailscale", "Source": "extras" },
+    { "Name": "scoop-search", "Source": "main" },
+    { "Name": "luacheck", "Source": "main" },
+    { "Name": "tree-sitter", "Source": "main" },
+    { "Name": "php", "Source": "main" },
+    { "Name": "composer", "Source": "main" },
+    { "Name": "julia", "Source": "main" },
+    { "Name": "openjdk25", "Source": "java" }
   ]
 }
