@@ -260,6 +260,33 @@ Describe 'Get-PackageLockDrift' {
         $d = Get-PackageLockDrift -DesiredNames @('a') -LockMap @{ a = '1'; old = '9' }
         $d.Orphan | Should -Contain 'old'; $d.InSync | Should -BeFalse
     }
+    It 'does not flag an ignored name as Missing when it is absent from the lock' {
+        $d = Get-PackageLockDrift -DesiredNames @('a', 'selfup') -LockMap @{ a = '1' } -Ignore @('selfup')
+        $d.Missing | Should -BeNullOrEmpty; $d.InSync | Should -BeTrue
+    }
+    It 'does not flag an ignored name as Orphan when a stale lock still carries it' {
+        $d = Get-PackageLockDrift -DesiredNames @('a') -LockMap @{ a = '1'; selfup = '9' } -Ignore @('selfup')
+        $d.Orphan | Should -BeNullOrEmpty; $d.InSync | Should -BeTrue
+    }
+    It 'still flags genuinely missing names when an ignore list is supplied' {
+        $d = Get-PackageLockDrift -DesiredNames @('a', 'b') -LockMap @{ a = '1' } -Ignore @('selfup')
+        $d.Missing | Should -Contain 'b'; $d.InSync | Should -BeFalse
+    }
+}
+
+Describe 'Get-UnpinnableWingetId' {
+    It 'lists 1Password, whose version winget can only report as a constraint' {
+        Get-UnpinnableWingetId | Should -Contain 'AgileBits.1Password'
+    }
+    It 'stays short - every entry costs -Frozen reproducibility' {
+        @(Get-UnpinnableWingetId).Count | Should -BeLessOrEqual 5
+    }
+    It 'returns ids the version parser genuinely rejects' {
+        # Guards the pairing: if ConvertFrom-WingetExport ever started accepting
+        # "> 1.2.3", the allowlist would be silently masking a real drift.
+        $json = '{"Sources":[{"Packages":[{"PackageIdentifier":"AgileBits.1Password","Version":"> 8.12.28.25"}]}]}'
+        (ConvertFrom-WingetExport $json).ContainsKey('AgileBits.1Password') | Should -BeFalse
+    }
 }
 
 Describe 'New-PackageLockObject' {
@@ -289,8 +316,11 @@ Describe 'packages.lock.json drift' {
         $scoopNames = @($scoop.apps | ForEach-Object { $_.Name })
         $wingetIds  = @($winget.packages | ForEach-Object { if ($_ -is [string]) { $_ } else { $_.id } })
 
+        # Self-updating packages can never be locked (winget reports "> <ver>",
+        # which ConvertFrom-WingetExport rejects on purpose) — exclude them so a
+        # permanent, by-design gap doesn't read as "you forgot to re-lock".
         $sd = Get-PackageLockDrift -DesiredNames $scoopNames -LockMap $lock.Scoop
-        $wd = Get-PackageLockDrift -DesiredNames $wingetIds  -LockMap $lock.Winget
+        $wd = Get-PackageLockDrift -DesiredNames $wingetIds  -LockMap $lock.Winget -Ignore (Get-UnpinnableWingetId)
         $sd.Missing | Should -BeNullOrEmpty -Because "scoop apps added without re-locking: $($sd.Missing -join ', ')"
         $sd.Orphan  | Should -BeNullOrEmpty -Because "scoop apps removed from the manifest but still locked: $($sd.Orphan -join ', ')"
         $wd.Missing | Should -BeNullOrEmpty -Because "winget ids added without re-locking: $($wd.Missing -join ', ')"

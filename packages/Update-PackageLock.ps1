@@ -98,12 +98,21 @@ if (Get-Command winget -ErrorAction SilentlyContinue) {
 
 # --- restrict to the managed set; report anything unresolvable ---------------
 function Select-Managed {
-    param([string[]]$Names, [hashtable]$Resolved, [string]$Kind)
+    param([string[]]$Names, [hashtable]$Resolved, [string]$Kind, [string[]]$Unpinnable)
     $out = @{}
+    $skip = @($Unpinnable | Where-Object { $_ })
     $unresolved = [System.Collections.Generic.List[string]]::new()
+    $expected = [System.Collections.Generic.List[string]]::new()
     foreach ($n in $Names) {
         $v = Get-LockedVersion -Map $Resolved -Name $n
-        if ($v) { $out[$n] = $v } else { $unresolved.Add($n) }
+        if ($v) { $out[$n] = $v }
+        elseif ($skip -contains $n) { $expected.Add($n) }
+        else { $unresolved.Add($n) }
+    }
+    # Two different situations, two different messages: an unpinnable package is
+    # working as designed (nothing to fix), a genuinely missing one is actionable.
+    if ($expected.Count) {
+        Write-DotHost "  ${Kind}: $($expected.Count) self-updating package(s) left unlocked by design: $($expected -join ', ')" -Color DarkGray
     }
     if ($unresolved.Count) {
         Write-DotWarn "${Kind}: $($unresolved.Count) managed app(s) not installed - left unlocked: $($unresolved -join ', ')" `
@@ -112,7 +121,7 @@ function Select-Managed {
     $out
 }
 $scoopLock  = Select-Managed -Names $scoopNames  -Resolved $scoopResolved  -Kind 'scoop'
-$wingetLock = Select-Managed -Names $wingetIds   -Resolved $wingetResolved -Kind 'winget'
+$wingetLock = Select-Managed -Names $wingetIds   -Resolved $wingetResolved -Kind 'winget' -Unpinnable (Get-UnpinnableWingetId)
 
 $lock = New-PackageLockObject -Scoop $scoopLock -Winget $wingetLock -GeneratedAt (Get-Date -Format 'o')
 $json = $lock | ConvertTo-Json -Depth 5
