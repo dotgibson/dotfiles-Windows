@@ -6,6 +6,18 @@ so entries are grouped by theme rather than strict semver releases.
 
 ## [Unreleased]
 
+### Changed
+
+- **`Dotfiles.psd1` `Author` is now `dotgibson`, not the `Gerrrt` personal account.** The
+  repos moved to the org, but the module manifest still presented the personal account as
+  the owner — the last spot in the fleet doing so. Metadata only: nothing resolves this
+  field, so it's a naming/identity fix rather than a functional one. The remaining
+  `Gerrrt` references are all correct and deliberately untouched — the `nvim/lua/gerrrt/`
+  namespace and `Gerrrt*` highlight groups (internal identifiers, not paths), historical
+  `CHANGELOG` entries recording the migration itself, and attribution to
+  `Gerrrt/make-windows-pretty` / `Gerrrt/yasb-glazewm-config`, which are genuinely
+  external upstreams still living on that account.
+
 ### Fixed
 
 - **`Check-PackageFreshness.ps1` no longer reports padded version strings as updates.**
