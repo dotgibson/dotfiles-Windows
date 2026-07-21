@@ -6,6 +6,22 @@ so entries are grouped by theme rather than strict semver releases.
 
 ## [Unreleased]
 
+### Fixed
+
+- **`Check-PackageFreshness.ps1` no longer reports padded version strings as updates.**
+  The lock is captured from `winget export`, which pads versions to four components,
+  while `winget show` reports the source's own form — so `2.7.10.0` in the lock and
+  `2.7.10` upstream are one build written two ways. The check compared them as raw
+  strings, so three of the four packages in its 2026-07-21 report (`Microsoft.WSL`,
+  `QL-Win.QuickLook`, `CharlesMilette.TranslucentTB`) were flagged as behind when they
+  were current — and would have been flagged again every week, since re-pinning cannot
+  fix a difference that isn't real. New pure helper `Test-PackageVersionMatch` in
+  `PackageLock.ps1` compares component-wise with absent trailing components read as `0`,
+  and falls back to exact string equality when either side isn't purely numeric-dotted
+  (prereleases, scoop's date+hash strings, `nightly`), where there's no safe numeric
+  reading. Applied to both the scoop and winget comparison sites. Unit-tested offline in
+  `tests/Packages.Tests.ps1`.
+
 ## v1.3.0 - 2026-07-16
 
 ### Added
