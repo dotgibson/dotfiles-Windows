@@ -222,6 +222,44 @@ Describe 'Get-LockedVersion' {
     }
 }
 
+Describe 'Test-PackageVersionMatch' {
+    It 'treats trailing-zero padding as the same release (the #140 false positives)' {
+        Test-PackageVersionMatch '2026.1.0.0' '2026.1'  | Should -BeTrue
+        Test-PackageVersionMatch '2.7.10.0'   '2.7.10'  | Should -BeTrue
+        Test-PackageVersionMatch '4.5.0.0'    '4.5.0'   | Should -BeTrue
+        Test-PackageVersionMatch '1.0'        '1.0.0.0' | Should -BeTrue
+    }
+    It 'is symmetric regardless of which side carries more components' {
+        Test-PackageVersionMatch '2.7.10' '2.7.10.0' | Should -BeTrue
+    }
+    It 'still reports a genuine bump as different' {
+        # The one real update in #140.
+        Test-PackageVersionMatch '2026.7.11' '2026.7.7' | Should -BeFalse
+        Test-PackageVersionMatch '1.2.3'     '1.2.4'    | Should -BeFalse
+        Test-PackageVersionMatch '2.0'       '1.0.0.0'  | Should -BeFalse
+    }
+    It 'does not mistake a nonzero trailing component for padding' {
+        Test-PackageVersionMatch '1.2.3.1' '1.2.3' | Should -BeFalse
+    }
+    It 'falls back to exact string compare when either side is not numeric-dotted' {
+        Test-PackageVersionMatch '0.5.0-beta' '0.5.0'      | Should -BeFalse
+        Test-PackageVersionMatch '0.5.0-beta' '0.5.0-beta' | Should -BeTrue
+        Test-PackageVersionMatch 'nightly'    'nightly'    | Should -BeTrue
+        Test-PackageVersionMatch 'nightly'    '1.0'        | Should -BeFalse
+    }
+    It 'handles empty/absent versions without throwing' {
+        { Test-PackageVersionMatch '' '' } | Should -Not -Throw
+        Test-PackageVersionMatch '' ''    | Should -BeTrue
+        Test-PackageVersionMatch '1.0' '' | Should -BeFalse
+    }
+    It 'compares components numerically, not lexically' {
+        # A string compare would call these equal-length-but-different; a lexical
+        # one would order 9 after 10. Both must read as a real difference.
+        Test-PackageVersionMatch '1.10' '1.9'  | Should -BeFalse
+        Test-PackageVersionMatch '1.010' '1.10' | Should -BeTrue
+    }
+}
+
 Describe 'ConvertFrom-ScoopExport' {
     It 'reads name/version from the modern { apps: [...] } shape' {
         $m = ConvertFrom-ScoopExport '{ "apps": [ { "Name": "fzf", "Version": "0.54.0" }, { "Name": "bat", "Version": "0.24.0" } ] }'

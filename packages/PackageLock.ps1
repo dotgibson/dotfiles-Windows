@@ -53,6 +53,33 @@ function Get-LockedVersion {
     $null
 }
 
+# --- Test-PackageVersionMatch -------------------------------------------------
+# Do two version strings name the SAME release? Deliberately not a plain -eq: the
+# lock is captured from `winget export`, which pads to four components, while
+# `winget show` reports the source's own form — so "2.7.10.0" in the lock and
+# "2.7.10" upstream are one build written two ways. A string compare calls that
+# "behind" forever, and the weekly freshness check nags about an update that does
+# not exist (the false positives in issue #140).
+#
+# Compare component-wise with absent trailing components read as 0. Falls back to
+# an exact string compare when either side is not purely numeric-dotted —
+# prereleases ("0.5.0-beta"), scoop's date+hash strings, "nightly" — where there
+# is no safe numeric reading and literal equality is the only claim we can make.
+function Test-PackageVersionMatch {
+    param([string]$A, [string]$B)
+    if ($A -eq $B) { return $true }
+    $numeric = '^[0-9]+(\.[0-9]+)*$'
+    if ($A -notmatch $numeric -or $B -notmatch $numeric) { return $false }
+    $x = @($A -split '\.')
+    $y = @($B -split '\.')
+    for ($i = 0; $i -lt [Math]::Max($x.Count, $y.Count); $i++) {
+        $xi = if ($i -lt $x.Count) { [long]$x[$i] } else { 0 }
+        $yi = if ($i -lt $y.Count) { [long]$y[$i] } else { 0 }
+        if ($xi -ne $yi) { return $false }
+    }
+    return $true
+}
+
 # --- ConvertFrom-ScoopExport --------------------------------------------------
 # `scoop export` (JSON) -> @{ appName = version }. Newer scoop emits
 # { apps: [ { Name, Version, Source } ], buckets: [...] }; older scoop emitted a

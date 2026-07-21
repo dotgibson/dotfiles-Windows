@@ -12,8 +12,10 @@
   when anything is behind; removes the file and exits 0 when everything matches.
 
   Reuses Read-PackageLock / Get-LockedVersion from packages/PackageLock.ps1 so it reads
-  the lock exactly as the rest of the package tooling does. Per-app failures are warned
-  and skipped — a single unresolvable package never fails the run.
+  the lock exactly as the rest of the package tooling does, and Test-PackageVersionMatch
+  to compare so trailing-zero padding ("2.7.10.0" vs "2.7.10") isn't reported as an
+  update. Per-app failures are warned and skipped — a single unresolvable package never
+  fails the run.
 #>
 [CmdletBinding()]
 param(
@@ -103,7 +105,7 @@ if (-not $SkipScoop) {
             if ($manifest) { $avail = (Get-Content $manifest.FullName -Raw | ConvertFrom-Json).version }
         } catch { $avail = $null }
         if (-not $avail) { $skipped.Add("scoop/$name (no manifest version in bucket '$bucket')"); continue }
-        if ("$avail" -ne "$locked") {
+        if (-not (Test-PackageVersionMatch "$avail" "$locked")) {
             $outdated.Add([pscustomobject]@{ Manager = 'scoop'; Name = $name; Locked = $locked; Available = "$avail" })
         }
     }
@@ -126,7 +128,7 @@ if (-not $SkipWinget) {
             if ($m.Success) { $avail = $m.Groups[1].Value.Trim() }
         } catch { $avail = $null }
         if (-not $avail) { $skipped.Add("winget/$id (version not resolved)"); continue }
-        if ($avail -ne $locked) {
+        if (-not (Test-PackageVersionMatch $avail $locked)) {
             $outdated.Add([pscustomobject]@{ Manager = 'winget'; Name = $id; Locked = $locked; Available = $avail })
         }
     }
