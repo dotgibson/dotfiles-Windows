@@ -2,7 +2,7 @@
     RootModule        = 'Dotfiles.psm1'
     ModuleVersion     = '0.1.0'
     GUID              = '30e4fff9-3034-48d1-a718-851d57c8f80a'
-    Author            = 'Gerrrt'
+    Author            = 'dotgibson'
     Description       = 'dotfiles-Windows shared, non-interactive helper surface (pure rendering + logic). Imported by the PowerShell profile; the interactive layer stays global.'
     PowerShellVersion = '7.0'
 
