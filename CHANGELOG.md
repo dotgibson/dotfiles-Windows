@@ -6,6 +6,8 @@ so entries are grouped by theme rather than strict semver releases.
 
 ## [Unreleased]
 
+## [v1.4.0] - 2026-07-23
+
 ### Changed
 
 - **`Dotfiles.psd1` `Author` is now `dotgibson`, not the `Gerrrt` personal account.** The
