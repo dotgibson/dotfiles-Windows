@@ -4,7 +4,7 @@
 # ============================================================================
 
 # --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
-# provides: Get-InitCache, Clear-InitCache, shell-bench, prof-trace, Invoke-DotfilesSessionizer, Invoke-DotLoadPSFzf
+# provides: Get-InitCache, Clear-InitCache, shell-bench, prof-trace, Invoke-DotfilesSessionizer, Invoke-DotLoadPSFzf, Invoke-Starship-PreCommand
 # requires: Get-DotCmdEntry, Get-DotStringSha256, Test-Cmd, Test-InMux, Test-SensitiveHistoryLine, Write-DotErr, Write-DotHost, Write-DotWarn
 
 # --- FAST_START escape hatch --------------------------------------------------
@@ -325,6 +325,44 @@ function global:prof-trace {
         Write-DotHost  'Fallback (loads the profile the plain way, no -Command indirection):' -Color DarkGray
         Write-DotHost  "  `$env:DOTFILES_PROFILE_TRACE='1'; `$env:PSMUX_NO_AUTOLAUNCH='1'; pwsh -NoLogo" -Color DarkGray
     }
+}
+
+# --- OSC 7: announce the cwd to the terminal ---------------------------------
+# OSC 7 is the standard "here is my working directory" handshake. Emitting it is
+# what lets a terminal open a new tab/split in the SAME directory without having
+# to go digging for it, and Windows Terminal, WezTerm, and psmux all consume it.
+#
+# On the host this is load-bearing for psmux's status bar, not just a nicety.
+# psmux resolves #{pane_current_path} in three layers (src/format.rs:1273):
+#   1. a PEB walk of the pane's foreground process — and reaching that process
+#      first costs a FULL CreateToolhelp32Snapshot over every process on the
+#      machine (src/platform.rs:2966), uncached,
+#   2. the OSC 7 value,
+#   3. the server's own cwd.
+# Layer 1 runs FIRST and unconditionally, so #{pane_current_path} pays the
+# snapshot on every status repaint no matter what. #{pane_path} (used in
+# psmux.conf's status-right) is the pure-OSC-7 variable — layer 2 only — so it
+# is nearly free, but it is EMPTY unless the shell announces the path. That is
+# what this hook is for. See psmux.conf's header note for the full story.
+#
+# starship calls Invoke-Starship-PreCommand once per prompt if it exists. Two
+# constraints on what this function may do:
+#   - It must NOT write to the pipeline. starship's `prompt` calls it inline, so
+#     anything returned is concatenated into the prompt STRING. [Console]::Write
+#     goes straight to the console handle and sidesteps that.
+#   - It must stay cheap: it is on the per-prompt path. A [uri] cast and one
+#     write is ~0.05ms; anything heavier belongs somewhere else.
+# The FileSystem-provider guard keeps it quiet on Cert:\ / HKLM:\ / Function:\,
+# where there is no filesystem path to announce.
+function global:Invoke-Starship-PreCommand {
+    if ($PWD.Provider.Name -ne 'FileSystem') { return }
+    try {
+        # [uri] does the percent-encoding for us (spaces, unicode, #, ...) and
+        # yields file:///C:/path or file://server/share for UNC. psmux strips the
+        # scheme+host and percent-decodes (crates/vt100-psmux/src/screen.rs).
+        $u = ([uri]$PWD.ProviderPath).AbsoluteUri
+        [Console]::Write("$([char]27)]7;$u$([char]27)\")
+    } catch { }   # never let a prompt hook throw — it would eat the prompt
 }
 
 # --- starship prompt (cross-shell - same starship.toml as the fleet) ----------
