@@ -509,7 +509,7 @@ if ((Test-Cmd fzf) -and $script:DotAvailModules.Contains('PSFzf') -and -not $glo
         param([ValidateSet('Provider','History')][string]$Action)
         try {
             Import-Module PSFzf -ErrorAction Stop
-            Set-PsFzfOption -PSReadlineChordProvider 'Ctrl+t' -PSReadlineChordReverseHistory 'Ctrl+r'
+            Set-PsFzfOption -PSReadlineChordProvider 'Ctrl+t' -PSReadlineChordReverseHistory 'Ctrl+r' -PSReadlineChordSetLocation 'Alt+c'
         } catch {
             Write-DotWarn "PSFzf lazy init failed: $_" 'reinstall: Install-Module PSFzf -Scope CurrentUser -Force'
             return
@@ -519,11 +519,29 @@ if ((Test-Cmd fzf) -and $script:DotAvailModules.Contains('PSFzf') -and -not $glo
         switch ($Action) {
             'Provider' { Invoke-FzfPsReadlineHandlerProvider }
             'History'  { Invoke-FzfPsReadlineHandlerHistory }
+            # SetLocation is guarded where the other two are not, and the asymmetry is
+            # deliberate. The comment above records that the Invoke-FzfPsReadlineHandler*
+            # names were verified against the pinned 2.4.0 baseline AND 2.7.10 — but that
+            # check covered Provider and History, the two then in use. This one is not
+            # verified, so it is resolved rather than called blind: if the name is absent,
+            # Set-PsFzfOption above has ALREADY bound Alt+C to PSFzf's real handler, so the
+            # next press works. A swallowed first keystroke is a far better failure than a
+            # red error at the prompt, which is what calling a missing cmdlet would give.
+            'SetLocation' {
+                $h = Get-Command Invoke-FzfPsReadlineHandlerSetLocation -ErrorAction SilentlyContinue
+                if ($h) { & $h }
+            }
         }
     }
     # Cheap stubs bound now; the ~260ms import is deferred to first use, off the render path.
     Set-PSReadLineKeyHandler -Chord 'Ctrl+t' -BriefDescription 'PSFzf file picker (lazy load)' -ScriptBlock { Invoke-DotLoadPSFzf -Action Provider }
     Set-PSReadLineKeyHandler -Chord 'Ctrl+r' -BriefDescription 'PSFzf history (lazy load)'      -ScriptBlock { Invoke-DotLoadPSFzf -Action History }
+    # Alt+C — cd into a SUBDIRECTORY of the current one. Distinct from Core's Alt+Z, which is
+    # a frecency jump to anywhere zoxide has seen; these are different intents, not two keys
+    # for one capability (dotgibson/dotfiles-core#808). PARITY.md carried this row as
+    # `aligned` for years while NEITHER shell bound it — #682 deleted the claim rather than
+    # implementing it, and this is the pwsh half of implementing it for real.
+    Set-PSReadLineKeyHandler -Chord 'Alt+c' -BriefDescription 'PSFzf directory picker (lazy load)' -ScriptBlock { Invoke-DotLoadPSFzf -Action SetLocation }
     $global:DotfilesInit.Fzf = $true
 }
 __lap 'fzf/PSFzf'
