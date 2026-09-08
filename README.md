@@ -159,6 +159,7 @@ and review `~/.wslconfig` + `wsl --shutdown` to apply mirrored networking.
 dotfiles-Windows/
 ├── install.ps1                  bootstrap (env var, packages, symlinks)
 ├── uninstall.ps1                remove repo symlinks (optionally restore backups)
+├── task.ps1                     the fleet's make verbs (lint, check, dry-run, test, ...) for a host without make
 ├── .githooks/pre-commit         runs tests/Invoke-Validation.ps1 before commits
 ├── powershell/
 │   ├── profile.ps1              loader (core→os→local)
@@ -209,10 +210,11 @@ the vendored-Core OS repos:
    scheme in `windows-terminal/settings.json` — is rendered from `theme/palette.toml`
    by `gen-theme.ps1`; `gen-theme.ps1 -Check` fails the PR that edits one by hand.
    Picking a colour in Windows Terminal's Settings pane counts.
-4. **Green the gate.** `tests/Invoke-Validation.ps1` is the fast, dependency-free
-   check; `pwsh -NoProfile -File tests/Invoke-Tests.ps1` is the full gated suite
-   (the exact command CI runs). `.githooks/pre-commit`
-   and CI mirror both.
+4. **Green the gate.** `.\task.ps1 lint` is the fast, dependency-free check
+   (`tests/Invoke-Validation.ps1` plus `gen-theme.ps1 -Check`); `.\task.ps1 test` is
+   the full gated suite (`tests/Invoke-Tests.ps1`, the exact command CI runs).
+   `.githooks/pre-commit` and CI mirror both. `task.ps1` speaks the same seven verbs
+   as `make` does in every other repo of the fleet — `.\task.ps1 help` lists them.
 
 Full rules — including the ones that bite (ASCII-only `bootstrap.ps1`, the README
 hash pin, `# provides:`/`# requires:` contracts, app-owned `settings.json`) — are in

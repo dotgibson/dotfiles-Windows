@@ -5,21 +5,33 @@ the rules below are the same ones CI enforces.
 
 ## Before you push
 
-```bash
-pwsh -NoProfile -File tests/Invoke-Tests.ps1
+```powershell
+.\task.ps1 test
 ```
 
-That is the exact command CI runs: the full suite plus the coverage bar, the
-test-file match, and the test-case floor. A bare `Invoke-Pester` skips the gate.
+That runs `tests/Invoke-Tests.ps1`, the exact command CI runs: the full suite plus the
+coverage bar, the test-file match, and the test-case floor. A bare `Invoke-Pester`
+skips the gate. (`.\task.ps1 test -NoGate` for the ungated inner loop.)
 
 For a faster inner loop:
 
-```bash
-pwsh -NoProfile -File tests/Invoke-Validation.ps1
+```powershell
+.\task.ps1 lint
 ```
 
-Dependency-free (no PowerShell Gallery): parser, JSON/manifest, and editorconfig
-checks. This is what `.githooks/pre-commit` runs.
+Dependency-free (no PowerShell Gallery): `tests/Invoke-Validation.ps1` — parser,
+JSON/manifest, and editorconfig checks, which is what `.githooks/pre-commit` runs —
+plus `gen-theme.ps1 -Check`.
+
+`task.ps1` exists so this repo answers to the **same seven verbs** as `make` does in
+every other repo of the fleet (`help lint check dry-run packages-check core-verify
+test`, declared once in [dotfiles-core's `scripts/make-vocabulary.txt`][vocab]); a
+contributor moving between repos re-learns nothing. `.\task.ps1 help` lists them. It
+is a dispatcher over the scripts named above, not a second implementation — every
+verb runs an entry point that already exists, so "passes here" and "passes CI" stay
+one assertion.
+
+[vocab]: https://github.com/dotgibson/dotfiles-core/blob/main/scripts/make-vocabulary.txt
 
 First time on a machine:
 

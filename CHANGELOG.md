@@ -6,6 +6,32 @@ so entries are grouped by theme rather than strict semver releases.
 
 ## [Unreleased]
 
+### Added
+
+- **`task.ps1` — the fleet's `make` verbs, for a host without `make`
+  (dotfiles-core#855).** dotfiles-core declares the seven canonical verbs once
+  (`help lint check dry-run packages-check core-verify test`, its
+  `scripts/make-vocabulary.txt`, dotfiles-core#691) so a contributor moving between
+  repos re-learns nothing — and this repo was the one that still answered to none of
+  them: no Makefile, no runner, only bare scripts, in the fleet's most-tested repo,
+  where "reproduce the CI gate locally" has the most to offer. `make` is not a given on
+  a Windows host and `just` would be a new dependency, so the verbs are spelled in the
+  language the repo is written in: `.\task.ps1 <verb>`.
+  It is a **dispatcher, not a second implementation**: `lint` is
+  `tests/Invoke-Validation.ps1` plus `gen-theme.ps1 -Check` (ci.yml's dependency-free
+  legs), `test` is `tests/Invoke-Tests.ps1` (the gated suite, exactly as CI runs it),
+  `dry-run` is `install.ps1 -DryRun`, `check` is lint plus the links-only bootstrap
+  **previewed** (Windows has no throwaway HOME to run it in), `packages-check` is
+  `packages/Check-PackageFreshness.ps1` and `core-verify` is the three
+  `tests/Assert-*Parity.ps1` gates over the mirrored assets. Each step runs in a child
+  `pwsh -File`, so a script's `exit` ends its own process and the first failing step's
+  code is the verb's. Anything after a single-step verb passes through
+  (`.\task.ps1 test -NoGate`).
+  Core's `fleet-vocabulary.sh` register reads the verb table **statically** — the
+  quoted keys of `Get-TaskVerbs`, and whether `test` names the suite runner by path —
+  so `tests/Task.Tests.ps1` pins that shape, the exact verb set in the contract's order,
+  and that every step names a script that exists.
+
 ## [v1.7.0] - 2026-09-03
 
 ### Added
