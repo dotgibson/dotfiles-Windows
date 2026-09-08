@@ -1,9 +1,20 @@
 /* vanilla-clear — Tokyo Night Storm top bar for Zebar.
    Retuned from Gerrrt/make-windows-pretty to match the fleet's palette
-   (starship / nvim / Windows Terminal all run Tokyo Night Storm). */
+   (starship / nvim / Windows Terminal all run Tokyo Night Storm).
+
+   The --tn-* block below is GENERATED from dotfiles-core's theme/palette.toml
+   (dotgibson/dotfiles-core#857, #926). Change a colour in the palette and run
+   `make gen-theme` there; a hand-edit here fails Core's audit §9d.
+
+   Until #926 this file hand-authored the same eleven values and was kept in step with
+   Core by a comment — the construction dotfiles-core#693 and #682 exist to end. It was
+   the LAST such copy: sketchybar's was generated first, and this one had to wait for
+   Core's marker grammar to learn a second comment syntax, because `#` in CSS begins an
+   id selector and is not a comment at all. */
 @import "https://www.nerdfonts.com/assets/css/webfont.css";
 
 :root {
+  /* core:theme:gen zebar-palette */
   --tn-bg: #24283b;
   --tn-fg: #c0caf5;
   --tn-fg-dim: #a9b1d6;
@@ -15,6 +26,7 @@
   --tn-cyan: #7dcfff;
   --tn-purple: #bb9af7;
   --tn-orange: #ff9e64;
+  /* core:theme:end zebar-palette */
 }
 
 /* ── Tuning knobs ────────────────────────────────────────────────────────────
