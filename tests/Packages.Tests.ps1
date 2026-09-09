@@ -260,6 +260,59 @@ Describe 'Test-PackageVersionMatch' {
     }
 }
 
+Describe 'Compare-PackageVersion' {
+    # -A newer than -B => 1, older => -1, same release => 0, unorderable => $null.
+    It 'orders a lock that runs AHEAD of its source as newer (the #234/#250 TranslucentTB row)' {
+        Compare-PackageVersion '2026.1' '2026.2.0.0' | Should -Be -1
+        Compare-PackageVersion '2026.2.0.0' '2026.1' | Should -Be 1
+    }
+    It 'orders a genuine upstream bump as newer' {
+        Compare-PackageVersion '2026.7.11' '2026.7.7' | Should -Be 1
+        Compare-PackageVersion '0.65.0'    '0.64.1'   | Should -Be 1
+        Compare-PackageVersion '2.7.13'    '2.7.12.0' | Should -Be 1
+    }
+    It 'reads trailing-zero padding as the same release, both ways round' {
+        Compare-PackageVersion '2.7.10.0' '2.7.10'   | Should -Be 0
+        Compare-PackageVersion '2.7.10'   '2.7.10.0' | Should -Be 0
+        Compare-PackageVersion '1.0'      '1.0.0.0'  | Should -Be 0
+        Compare-PackageVersion '1.010'    '1.10'     | Should -Be 0
+    }
+    It 'compares components numerically, not lexically' {
+        Compare-PackageVersion '1.10' '1.9' | Should -Be 1
+        Compare-PackageVersion '1.9' '1.10' | Should -Be -1
+    }
+    It 'orders the scoop suffix shapes the lock actually carries' {
+        Compare-PackageVersion '8.22.0_1'   '8.22.0'    | Should -Be 1    # curl bucket revision
+        Compare-PackageVersion '8.22.0_2'   '8.22.0_1'  | Should -Be 1
+        Compare-PackageVersion '8.23.0'     '8.22.0_1'  | Should -Be 1
+        Compare-PackageVersion '25.0.2-11'  '25.0.2-10' | Should -Be 1    # openjdk build
+        Compare-PackageVersion '25.0.2-10'  '25.0.2-11' | Should -Be -1
+        Compare-PackageVersion '10.0.0.0p2' '10.0.0.0p1' | Should -Be 1   # openssh patch
+        Compare-PackageVersion '10.1.0.0'   '10.0.0.0p2' | Should -Be 1
+    }
+    It 'orders date-style versions' {
+        Compare-PackageVersion '20260901'   '20260812'   | Should -Be 1    # sysinternals
+        Compare-PackageVersion '20260812'   '20260812'   | Should -Be 0
+        Compare-PackageVersion '2026.09.01' '2026.08.19' | Should -Be 1    # yt-dlp
+        Compare-PackageVersion '2026.9.1'   '2026.08.19' | Should -Be 1
+    }
+    It 'orders a pre-release suffix below the bare version' {
+        Compare-PackageVersion '0.5.0-beta' '0.5.0'      | Should -Be -1
+        Compare-PackageVersion '0.5.0'      '0.5.0-beta' | Should -Be 1
+        Compare-PackageVersion '1.0.0-rc.1' '1.0.0-beta.2' | Should -Be 1
+    }
+    It 'returns $null rather than guessing when the shapes cannot be ordered' {
+        Compare-PackageVersion '10.0.0.0p2' '10.0.0.0' | Should -BeNullOrEmpty   # patch or pre-release? no safe reading
+        Compare-PackageVersion '1.0.beta'   '1.0.1'    | Should -BeNullOrEmpty   # word against number
+        Compare-PackageVersion 'nightly'    '1.0'      | Should -BeNullOrEmpty
+        Compare-PackageVersion '1.0'        ''         | Should -BeNullOrEmpty
+    }
+    It 'handles empty/absent versions without throwing' {
+        { Compare-PackageVersion '' '' } | Should -Not -Throw
+        Compare-PackageVersion '' '' | Should -Be 0
+    }
+}
+
 Describe 'ConvertFrom-ScoopExport' {
     It 'reads name/version from the modern { apps: [...] } shape' {
         $m = ConvertFrom-ScoopExport '{ "apps": [ { "Name": "fzf", "Version": "0.54.0" }, { "Name": "bat", "Version": "0.24.0" } ] }'
@@ -530,5 +583,45 @@ Describe 'Get-ScoopBucketFault (Check-PackageFreshness)' {
         $fault = Get-ScoopBucketFault $script:Bucket
         $fault | Should -Match 'dirty'
         $fault | Should -Match 'app\.json'
+    }
+}
+
+Describe 'Get-FreshnessVerdict / Add-FreshnessFinding (Check-PackageFreshness)' {
+    # The checker's one directional decision, driven through the same LIBONLY hook:
+    # no scoop, no winget, no network. `behind` is the only finding; `ahead` is the
+    # #234/#250 TranslucentTB row that used to nag; `unordered` must surface, not hide.
+    BeforeAll {
+        $script:PkgRepoRoot = Split-Path -Parent $PSScriptRoot
+        $env:DOTFILES_PKGFRESH_LIBONLY = '1'
+        . (Join-Path $script:PkgRepoRoot 'packages/Check-PackageFreshness.ps1')
+    }
+    AfterAll { Remove-Item Env:DOTFILES_PKGFRESH_LIBONLY -ErrorAction SilentlyContinue }
+    BeforeEach { $outdated.Clear(); $ahead.Clear(); $unordered.Clear(); $skipped.Clear() }
+
+    It 'calls upstream-newer "behind" — the only real finding' {
+        Get-FreshnessVerdict -Locked '0.64.1' -Available '0.65.0' | Should -Be 'behind'
+    }
+    It 'calls a lock ahead of its source "ahead", not behind (the TranslucentTB row)' {
+        Get-FreshnessVerdict -Locked '2026.2.0.0' -Available '2026.1' | Should -Be 'ahead'
+    }
+    It 'calls padded equality "current"' {
+        Get-FreshnessVerdict -Locked '2.7.13.0' -Available '2.7.13' | Should -Be 'current'
+    }
+    It 'calls a pair it cannot order "unordered" rather than guessing a direction' {
+        Get-FreshnessVerdict -Locked '10.0.0.0' -Available '10.0.0.0p2' | Should -Be 'unordered'
+    }
+    It 'routes each verdict to its own report list, and only behind to the findings' {
+        Add-FreshnessFinding -Manager 'scoop'  -Name 'lazygit'                      -Locked '0.64.1'     -Available '0.65.0'
+        Add-FreshnessFinding -Manager 'winget' -Name 'CharlesMilette.TranslucentTB' -Locked '2026.2.0.0' -Available '2026.1'
+        Add-FreshnessFinding -Manager 'winget' -Name 'Microsoft.WSL'                -Locked '2.7.13.0'   -Available '2.7.13'
+        Add-FreshnessFinding -Manager 'scoop'  -Name 'openssh'                      -Locked '10.0.0.0'   -Available '10.0.0.0p2'
+        @($outdated).Count  | Should -Be 1
+        $outdated[0].Name   | Should -Be 'lazygit'
+        @($ahead).Count     | Should -Be 1
+        $ahead[0].Name      | Should -Be 'CharlesMilette.TranslucentTB'
+        @($unordered).Count | Should -Be 1
+        $unordered[0]       | Should -Match 'scoop/openssh'
+        $unordered[0]       | Should -Match "lock '10\.0\.0\.0' and upstream '10\.0\.0\.0p2'"
+        @($skipped).Count   | Should -Be 0
     }
 }

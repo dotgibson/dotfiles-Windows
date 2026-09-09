@@ -80,6 +80,69 @@ function Test-PackageVersionMatch {
     return $true
 }
 
+# --- Compare-PackageVersion ---------------------------------------------------
+# Which of two version strings is NEWER? Returns -1 (A is older than B), 0 (the
+# same release, by Test-PackageVersionMatch's rules), 1 (A is newer than B) — or
+# $null when the two cannot be ordered, which a caller must read as "differs,
+# direction unknown" and never as either answer.
+#
+# Test-PackageVersionMatch answers "same release?", and that was all the freshness
+# check asked — so a lock that ran AHEAD of what a source advertises (winget still
+# listing TranslucentTB 2026.1 with 2026.2.0.0 installed and locked; #234, #250)
+# was reported as behind every week, and re-pinning could never clear it. This is
+# the directional half.
+#
+# Tokenised rather than [version]-cast, because the lock carries shapes [version]
+# rejects: scoop's "8.22.0_1" (curl, bucket revision), "25.0.2-10" (openjdk build),
+# "10.0.0.0p2" (openssh patch), and the date stamps "20260812" / "2026.08.19".
+# Every separator (. _ - +) and every digit/letter boundary starts a token. Numeric
+# tokens compare as numbers (1.10 > 1.9; "08" reads as 8), alphabetic tokens compare
+# ordinally and case-insensitively (alpha < beta < rc, as semver happens to spell
+# them). A missing trailing numeric token reads as 0 — the padding tolerance above,
+# so 2.7.10.0 == 2.7.10 and 8.22.0_1 > 8.22.0. A trailing alphabetic token is ordered
+# only when it is a known pre-release word (0.5.0-beta < 0.5.0); any other
+# word-vs-nothing or word-vs-number position is unorderable, because "10.0.0.0p2"
+# against "10.0.0.0" has no reading that is safe for both openssh's patch suffix and
+# semver's pre-release suffix.
+function Compare-PackageVersion {
+    param([string]$A, [string]$B)
+    if (Test-PackageVersionMatch $A $B) { return 0 }
+    $tokenize = { param([string]$s) @([regex]::Matches($s, '[0-9]+|[A-Za-z]+') | ForEach-Object { $_.Value }) }
+    $x = @(& $tokenize $A)   # @() again: a one-token version would otherwise unroll to a scalar string
+    $y = @(& $tokenize $B)
+    if ($x.Count -eq 0 -or $y.Count -eq 0) { return $null }
+    $prerelease = @('alpha', 'beta', 'rc', 'pre', 'preview', 'dev', 'nightly', 'snapshot')
+    for ($i = 0; $i -lt [Math]::Max($x.Count, $y.Count); $i++) {
+        $xi = if ($i -lt $x.Count) { $x[$i] } else { $null }
+        $yi = if ($i -lt $y.Count) { $y[$i] } else { $null }
+        if ($null -eq $xi -or $null -eq $yi) {
+            # One side has run out: the extra token decides, if it can.
+            $extra = if ($null -eq $xi) { $yi } else { $xi }
+            $longer = if ($null -eq $xi) { -1 } else { 1 }
+            if ($extra -match '^[0-9]+$') {
+                if ([System.Numerics.BigInteger]::Parse($extra).IsZero) { continue }   # padding
+                return $longer
+            }
+            if ($prerelease -contains $extra.ToLowerInvariant()) { return -$longer }   # "-beta" is older than bare
+            return $null
+        }
+        $xNum = $xi -match '^[0-9]+$'
+        $yNum = $yi -match '^[0-9]+$'
+        if ($xNum -and $yNum) {
+            $c = [System.Numerics.BigInteger]::Parse($xi).CompareTo([System.Numerics.BigInteger]::Parse($yi))
+            if ($c -ne 0) { return [Math]::Sign($c) }
+            continue
+        }
+        if (-not $xNum -and -not $yNum) {
+            $c = [string]::Compare($xi, $yi, [System.StringComparison]::OrdinalIgnoreCase)
+            if ($c -ne 0) { return [Math]::Sign($c) }
+            continue
+        }
+        return $null   # a number against a word at the same position: no safe ordering
+    }
+    return 0
+}
+
 # --- ConvertFrom-ScoopExport --------------------------------------------------
 # `scoop export` (JSON) -> @{ appName = version }. Newer scoop emits
 # { apps: [ { Name, Version, Source } ], buckets: [...] }; older scoop emitted a
