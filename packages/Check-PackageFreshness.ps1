@@ -12,10 +12,13 @@
   when anything is behind; removes the file and exits 0 when everything matches.
 
   Reuses Read-PackageLock / Get-LockedVersion from packages/PackageLock.ps1 so it reads
-  the lock exactly as the rest of the package tooling does, and Test-PackageVersionMatch
-  to compare so trailing-zero padding ("2.7.10.0" vs "2.7.10") isn't reported as an
-  update. Per-app failures are warned and skipped — a single unresolvable package never
-  fails the run.
+  the lock exactly as the rest of the package tooling does, and Compare-PackageVersion
+  to compare DIRECTIONALLY: a row is a finding only when upstream is newer than the
+  lock. Trailing-zero padding ("2.7.10.0" vs "2.7.10") is the same release, a lock that
+  runs AHEAD of its source (winget advertising TranslucentTB 2026.1 with 2026.2.0.0
+  locked, #234/#250) is noted but not a finding, and a pair that cannot be ordered is
+  listed under "Skipped" with both versions rather than guessed either way. Per-app
+  failures are warned and skipped — a single unresolvable package never fails the run.
 #>
 [CmdletBinding()]
 param(
@@ -34,7 +37,9 @@ $lock       = Read-PackageLock (Get-Content (Join-Path $here 'packages.lock.json
 $scoopfile  = Get-Content (Join-Path $here 'scoopfile.json') -Raw | ConvertFrom-Json
 $wingetfile = Get-Content (Join-Path $here 'winget.json')   -Raw | ConvertFrom-Json
 
-$outdated  = [System.Collections.Generic.List[object]]::new()
+$outdated  = [System.Collections.Generic.List[object]]::new()   # upstream newer than the lock: the findings
+$ahead     = [System.Collections.Generic.List[object]]::new()   # lock newer than upstream: noted, not a finding
+$unordered = [System.Collections.Generic.List[string]]::new()   # differ, direction unknown: skipped, but still files
 $skipped   = [System.Collections.Generic.List[string]]::new()
 $unhealthy = [System.Collections.Generic.List[string]]::new()
 
@@ -97,6 +102,40 @@ function Test-ExactVersion {
     # An exact pin we can compare; ranges/constraints like "> 8.12" are skipped.
     param([string]$Value)
     return $Value -match '^[0-9][0-9A-Za-z._+-]*$'
+}
+
+function Get-FreshnessVerdict {
+    <#
+      Where does one managed package stand against its source? One of:
+        behind    — upstream is newer than the lock: the only real finding
+        ahead     — the lock is newer than what the source advertises (a source that
+                    lags an installed build, e.g. winget listing TranslucentTB 2026.1
+                    under a 2026.2.0.0 lock). Nothing to re-pin, so not a finding.
+        current   — same release (Test-PackageVersionMatch's padding rules apply)
+        unordered — the two differ but Compare-PackageVersion cannot say which way.
+                    Neither hidden nor claimed as behind: the report lists it with both
+                    versions and still files, so a shape the comparer does not read
+                    surfaces instead of vanishing.
+      Pure — the one place the checker decides direction, so the scoop and winget
+      loops cannot drift apart, and unit-testable through DOTFILES_PKGFRESH_LIBONLY.
+    #>
+    param([string]$Locked, [string]$Available)
+    $cmp = Compare-PackageVersion -A $Available -B $Locked
+    if ($null -eq $cmp) { return 'unordered' }
+    if ($cmp -gt 0) { return 'behind' }
+    if ($cmp -lt 0) { return 'ahead' }
+    return 'current'
+}
+
+function Add-FreshnessFinding {
+    # Route one resolved (locked, available) pair into the report lists above.
+    param([string]$Manager, [string]$Name, [string]$Locked, [string]$Available)
+    $row = [pscustomobject]@{ Manager = $Manager; Name = $Name; Locked = $Locked; Available = $Available }
+    switch (Get-FreshnessVerdict -Locked $Locked -Available $Available) {
+        'behind'    { $outdated.Add($row) }
+        'ahead'     { $ahead.Add($row) }
+        'unordered' { $unordered.Add("$Manager/$Name (lock '$Locked' and upstream '$Available' differ, but neither reads as newer — check by hand)") }
+    }
 }
 
 # Unit-test hook: dot-source for the pure helpers above without installing scoop or
@@ -174,9 +213,7 @@ if (-not $SkipScoop) {
             if ($manifest) { $avail = (Get-Content $manifest.FullName -Raw | ConvertFrom-Json).version }
         } catch { $avail = $null }
         if (-not $avail) { $skipped.Add("scoop/$name (no manifest version in bucket '$bucket')"); continue }
-        if (-not (Test-PackageVersionMatch "$avail" "$locked")) {
-            $outdated.Add([pscustomobject]@{ Manager = 'scoop'; Name = $name; Locked = $locked; Available = "$avail" })
-        }
+        Add-FreshnessFinding -Manager 'scoop' -Name $name -Locked $locked -Available "$avail"
     }
 }
 
@@ -197,9 +234,7 @@ if (-not $SkipWinget) {
             if ($m.Success) { $avail = $m.Groups[1].Value.Trim() }
         } catch { $avail = $null }
         if (-not $avail) { $skipped.Add("winget/$id (version not resolved)"); continue }
-        if (-not (Test-PackageVersionMatch $avail $locked)) {
-            $outdated.Add([pscustomobject]@{ Manager = 'winget'; Name = $id; Locked = $locked; Available = $avail })
-        }
+        Add-FreshnessFinding -Manager 'winget' -Name $id -Locked $locked -Available $avail
     }
 }
 
@@ -209,8 +244,12 @@ if (Test-Path $ReportPath) { Remove-Item $ReportPath -Force }
 # An unhealthy bucket must file a report even when NOTHING looks outdated — that
 # silent-green case is the entire reason the check exists. Reporting only when
 # $outdated is non-empty would keep the exact failure it is meant to catch invisible.
-if ($outdated.Count -eq 0 -and $unhealthy.Count -eq 0) {
-    Write-Output "All managed scoop/winget packages match packages.lock.json ($($skipped.Count) skipped)."
+# The same goes for a pair the comparer could not order: it is not a finding, but a
+# version shape the comparer does not read must surface, not vanish into a green run.
+# A lock merely AHEAD of its source is fine (nothing to re-pin) and files nothing.
+if ($outdated.Count -eq 0 -and $unhealthy.Count -eq 0 -and $unordered.Count -eq 0) {
+    Write-Output ("All managed scoop/winget packages match packages.lock.json" +
+        " ($($ahead.Count) ahead of source, $($skipped.Count) skipped).")
     exit 0
 }
 
@@ -247,18 +286,31 @@ if ($outdated.Count -gt 0) {
     $lines.Add('')
     $lines.Add('Re-pin from a box with the apps installed: `.\packages\Update-PackageLock.ps1`, then commit `packages.lock.json`.')
 }
-else {
+elseif ($unhealthy.Count -gt 0) {
     $lines.Add('No package was found behind its upstream version — but see the warning above before trusting that.')
 }
-if ($skipped.Count -gt 0) {
+else {
+    $lines.Add('No package was found behind its upstream version, but the row(s) under **Skipped** differ from the lock in a way the comparer could not order.')
+}
+# Visible, not actionable: a lock ahead of its source has nothing to re-pin, so this
+# is a note rather than a table row — the row that nagged in #234/#250 lands here.
+if ($ahead.Count -gt 0) {
+    $lines.Add('')
+    $lines.Add('Lock ahead of source (not a finding — the source lags the installed build; nothing to re-pin):')
+    foreach ($a in ($ahead | Sort-Object Manager, Name)) {
+        $lines.Add("- $($a.Manager)/``$($a.Name)`` locked $($a.Locked), source advertises $($a.Available)")
+    }
+}
+if ($skipped.Count -gt 0 -or $unordered.Count -gt 0) {
     $lines.Add('')
     $lines.Add('<details><summary>Skipped (could not compare)</summary>')
     $lines.Add('')
-    foreach ($s in $skipped) { $lines.Add("- $s") }
+    foreach ($s in $unordered) { $lines.Add("- $s") }
+    foreach ($s in $skipped)   { $lines.Add("- $s") }
     $lines.Add('')
     $lines.Add('</details>')
 }
 Set-Content -Path $ReportPath -Value ($lines -join "`n") -Encoding UTF8
-Write-Output ("$($outdated.Count) package(s) behind upstream, $($unhealthy.Count) unhealthy bucket(s)" +
-    " — report written to $ReportPath")
+Write-Output ("$($outdated.Count) package(s) behind upstream, $($ahead.Count) ahead of source," +
+    " $($unordered.Count) unorderable, $($unhealthy.Count) unhealthy bucket(s) — report written to $ReportPath")
 exit 0

@@ -44,6 +44,26 @@ so entries are grouped by theme rather than strict semver releases.
   this merges, or the mint skips and the showcase stops refreshing with only that warning
   to say so.
 
+### Fixed
+
+- **The package-freshness check now compares *directionally* — a lock that runs ahead
+  of its source is no longer reported as behind (#234, #250).**
+  `Check-PackageFreshness.ps1` gated every row on `Test-PackageVersionMatch`, which
+  answers "same release?" and says nothing about which side is newer. So winget still
+  advertising TranslucentTB 2026.1 under a 2026.2.0.0 lock filed as an update every
+  week, and re-pinning (#241, #254) could never clear it. New pure helper
+  `Compare-PackageVersion` in `packages/PackageLock.ps1` orders the shapes the lock
+  actually carries — dotted numerics, scoop's `8.22.0_1` / `25.0.2-10` / `10.0.0.0p2`
+  suffixes, the `20260812` and `2026.08.19` date stamps, and pre-release words — and
+  returns `$null` rather than guessing when it cannot. The checker's single verdict
+  function (`Get-FreshnessVerdict`) routes each row: **behind** is the only finding;
+  **ahead** becomes a one-line "lock ahead of source" note in the report, visible but
+  not actionable; **unordered** lands under "Skipped (could not compare)" with both
+  versions and *still files a report*, so a shape the comparer does not read surfaces
+  instead of vanishing into a green run. The padding tolerance (`2.7.10.0` == `2.7.10`)
+  is unchanged. (`packages/PackageLock.ps1`, `packages/Check-PackageFreshness.ps1`,
+  `tests/Packages.Tests.ps1`)
+
 ## [v1.7.0] - 2026-09-03
 
 ### Added
