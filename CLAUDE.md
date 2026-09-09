@@ -54,4 +54,8 @@ comment claiming they matched.
 - `docs/` — `TOOLS.md`, `PORTING-NOTES.md`, `ARCHITECTURE-AUDIT.md`
 - `tests/` — Pester test suite
 - `install.ps1`, `bootstrap.ps1`, `uninstall.ps1` — entry points
+- `task.ps1` — the fleet's seven `make` verbs (`help lint check dry-run packages-check
+  core-verify test`, dotfiles-core's `scripts/make-vocabulary.txt`) as `.\task.ps1 <verb>`,
+  since `make` is not a given here; a dispatcher over the existing scripts, read
+  statically by Core's `fleet-vocabulary.sh` register
 - `wsl/` — the WSL bridge
