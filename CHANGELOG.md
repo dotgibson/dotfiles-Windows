@@ -32,6 +32,18 @@ so entries are grouped by theme rather than strict semver releases.
   so `tests/Task.Tests.ps1` pins that shape, the exact verb set in the contract's order,
   and that every step names a script that exists.
 
+### Changed
+
+- **`notify-web.yml` passes `client-id`, not the deprecated `app-id`, and reads the new
+  `FLEET_APP_CLIENT_ID` org variable (#251, dotfiles-core #831).** The pinned
+  `create-github-app-token` (v3.2.0) deprecates `app-id`, and this repo's inline notifier
+  — it does not consume Core's reusable — passed it. The variable is a **new** one because
+  `FLEET_APP_ID` holds the App ID and the new input wants the Client ID, a different value;
+  the `if:` guard and the `::warning::` that is this repo's only signal of a silently
+  skipped refresh move in the same commit. Precondition: the org variable must exist before
+  this merges, or the mint skips and the showcase stops refreshing with only that warning
+  to say so.
+
 ## [v1.7.0] - 2026-09-03
 
 ### Added
