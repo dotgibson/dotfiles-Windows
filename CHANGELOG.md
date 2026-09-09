@@ -8,6 +8,19 @@ so entries are grouped by theme rather than strict semver releases.
 
 ### Added
 
+- **The README opens with a rendered terminal hero** (dotgibson/dotfiles-core#948). Every
+  other public repo in the fleet got one this week from dotfiles-core's shared tape
+  generator, and this repo was the one it could not serve: the host layer is PowerShell and
+  nothing under `core/` is vendored, so there is no zsh to drive and no `.zshrc` to source.
+  `assets/demo.tape` is therefore hand-authored — the same font, palette, framerate and beat
+  rhythm as the nine generated tapes, the same three marquee moments (`ll`, `cat README.md`,
+  `glog -8`), then this repo's own two: `up -n`, the fleet's one verb resolving here to
+  `scoop status` + `winget upgrade`, and `core-version`. It is filmed from a WSL distro with
+  vhs driving the Windows `pwsh.exe` through interop (`assets/README.md` has the recipe and
+  the knobs: `PSMUX_NO_AUTOLAUNCH`, `DOTFILES_UPDATE_CHECK`, PSReadLine predictions off),
+  and `assets/demo.gif` is gifsicle-optimised under the 2 MiB ceiling Core enforces for its
+  own. Re-render after any prompt or tooling change; the gif is committed beside the tape.
+
 - **`task.ps1` — the fleet's `make` verbs, for a host without `make`
   (dotfiles-core#855).** dotfiles-core declares the seven canonical verbs once
   (`help lint check dry-run packages-check core-verify test`, its
