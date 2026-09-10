@@ -62,6 +62,8 @@ continuation_prompt = "[∙](fg:color_comment)" # the > > on multi-line input
 palette = 'tokyonight_storm'
 
 [palettes.tokyonight_storm]
+# GENERATED from theme/palette.toml — edit there, then `make gen-theme`.
+# core:theme:gen starship-palette
 # ── accents — now used as TEXT, not as fills ──────────────────────────────────
 color_fg0 = '#c0caf5'     # fg (brightest text)
 color_fg_dark = '#a9b1d6' # softer text (quiet segments)
@@ -76,6 +78,7 @@ color_comment = '#565f89' # muted / de-emphasized
 # ── surfaces — the two dark segment fills (subtle stepped depth) ──────────────
 color_srf1 = '#24283b' # storm bg, slightly raised above the terminal
 color_srf2 = '#1f2335' # bg_dark, a touch deeper
+# core:theme:end starship-palette
 
 [os]
 disabled = false
@@ -85,6 +88,15 @@ style = "bg:color_srf1 fg:color_blue"
 Windows = "󰍲 "
 Ubuntu = "󰕈 "
 SUSE = " "
+# starship names SLES `SUSE` and Leap/Tumbleweed `openSUSE`; the second was missing, so an
+# openSUSE prompt fell through to starship's own default for it — a lizard emoji that draws
+# as tofu wherever no colour-emoji font is installed, which is every terminal this palette
+# targets. Found by the dotfiles-openSUSE README hero render (#948); same glyph as SUSE.
+openSUSE = " "
+# starship names Kali `Kali`; without a symbol it draws its own default — a dragon emoji,
+# tofu wherever no colour-emoji font is installed. The Offense and Defense role heroes
+# (#948) film on Kali, which is how this one surfaced.
+Kali = " "
 Raspbian = "󰐿 "
 Mint = "󰣭 "
 Macos = "󰀵 "
@@ -357,7 +369,7 @@ format = '[[ $symbol ($environment) ](fg:color_purple bg:color_srf1)]($style)'
 style = "bg:color_srf1"
 format = '[[ $symbol($version) ($environment) ](fg:color_purple bg:color_srf1)]($style)'
 
-# direnv state on the srf1 band — you hook direnv in os/macos.zsh but had no visual
+# direnv state on the srf1 band — Core hooks direnv in zsh/00-tools.zsh but there was no visual
 # feedback that an .envrc was loaded vs. waiting for `direnv allow`. Yellow when allowed
 # & loaded, red when blocked/denied so an un-allowed .envrc is obvious. Only renders in a
 # directory under direnv's control (an .envrc up the tree).
