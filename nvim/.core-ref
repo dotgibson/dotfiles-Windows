@@ -3,7 +3,7 @@
 source = https://github.com/dotgibson/dotfiles-core.git
 branch = main
 pinned = (branch tip)
-commit = 9f23403193759f6e941a5b791a9a05ee76646ee9
-tag    = v7.4.4-15-g9f23403
-date   = 2026-09-14
-synced = 2026-09-14T17:55:01Z
+commit = deb130b7bb9a825f4554f4c801176fa35b4df731
+tag    = v7.9.0-7-gdeb130b
+date   = 2026-09-16
+synced = 2026-09-16T23:36:30Z
