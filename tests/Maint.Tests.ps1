@@ -417,3 +417,174 @@ Describe 'Maintenance runner: a step cannot silently succeed' {
         Get-Content -LiteralPath $script:Log -Raw | Should -Match 'captured-line'
     }
 }
+
+# ============================================================================
+#  Get-DotScoopUpgradeOutcome — the per-app blind spot in `scoop update *`.
+#
+#  Every fixture below is the SHAPE of a real run: the transcript in the first
+#  two tests is the 2026-09-16 13:46 maint.log verbatim (trimmed of progress
+#  bars), the run that upgraded mise, failed tailscale, and logged "ok".
+# ============================================================================
+Describe 'Get-DotScoopUpgradeOutcome' {
+    BeforeAll {
+        . (Join-Path (Split-Path -Parent $PSScriptRoot) 'powershell/Dotfiles/Maint.Helpers.ps1')
+
+        $script:RealRun = @(
+            'mise: 2026.9.9 -> 2026.9.10'
+            'tailscale: 1.102.3 -> 1.102.4'
+            'Updating 2 outdated apps:'
+            "Updating 'mise' (2026.9.9 -> 2026.9.10)"
+            'Downloading new version'
+            'Checking hash of mise-v2026.9.10-windows-x64.zip ... ok.'
+            "Uninstalling 'mise' (2026.9.9)"
+            "Installing 'mise' (2026.9.10) [64bit] from 'main' bucket"
+            'Linking ~\scoop\apps\mise\current => ~\scoop\apps\mise\2026.9.10'
+            "'mise' (2026.9.10) was installed successfully!"
+            'Notes'
+            '-----'
+            'Persistence and environment variables settings of the manifest have been revoked.'
+            "Updating 'tailscale' (1.102.3 -> 1.102.4)"
+            'Downloading new version'
+            'Checking hash of tailscale-setup-1.102.4-amd64.msi ... ok.'
+            'Running pre_uninstall script...'
+            'ERROR Admin rights are required to uninstall'
+        )
+    }
+
+    It 'picks the one failed app out of a run that exited 0' {
+        $rows = Get-DotScoopUpgradeOutcome -OutputLine $script:RealRun
+        @($rows) | Should -HaveCount 2
+        ($rows | Where-Object App -eq 'mise').Status      | Should -Be 'ok'
+        ($rows | Where-Object App -eq 'tailscale').Status | Should -Be 'failed'
+    }
+
+    It 'carries the version it stayed at, which is what makes the log line actionable' {
+        $t = Get-DotScoopUpgradeOutcome -OutputLine $script:RealRun | Where-Object App -eq 'tailscale'
+        $t.From  | Should -Be '1.102.3'
+        $t.To    | Should -Be '1.102.4'
+        $t.Error | Should -Be 'Admin rights are required to uninstall'
+    }
+
+    It 'calls a block that dies with no ERROR line failed too' {
+        # Matching on the word ERROR alone would call this a success. The ABSENCE of
+        # the "installed successfully" line is the signal, not the presence of any
+        # particular error string.
+        $rows = Get-DotScoopUpgradeOutcome -OutputLine @(
+            "Updating 'ghost' (1.0 -> 1.1)"
+            'Downloading new version'
+        )
+        @($rows) | Should -HaveCount 1
+        $rows[0].Status | Should -Be 'failed'
+        $rows[0].Error  | Should -BeExactly ''
+    }
+
+    It 'does not let the success line of one app clear the failure of another' {
+        # scoop prints dependency and note chatter between blocks; attributing the
+        # success line to whatever block is open would mark the wrong app ok.
+        $rows = Get-DotScoopUpgradeOutcome -OutputLine @(
+            "Updating 'alpha' (1 -> 2)"
+            'ERROR alpha exploded'
+            "Updating 'beta' (1 -> 2)"
+            "'beta' (2) was installed successfully!"
+        )
+        ($rows | Where-Object App -eq 'alpha').Status | Should -Be 'failed'
+        ($rows | Where-Object App -eq 'beta').Status  | Should -Be 'ok'
+    }
+
+    It 'keeps the FIRST error for an app, not a later downstream one' {
+        $rows = Get-DotScoopUpgradeOutcome -OutputLine @(
+            "Updating 'alpha' (1 -> 2)"
+            'ERROR the real cause'
+            'ERROR a downstream symptom'
+        )
+        $rows[0].Error | Should -Be 'the real cause'
+    }
+
+    It 'ignores a clean run, a first-time install, and a held app' {
+        # Only `Updating '<app>'` blocks count. A held app never produces one, so it
+        # needs no filtering; neither does a fresh `Installing '<app>'`.
+        Get-DotScoopUpgradeOutcome -OutputLine @(
+            'Latest versions for all apps are installed!'
+            "Installing 'brand-new' (1.0) [64bit] from 'main' bucket"
+            "'brand-new' (1.0) was installed successfully!"
+        ) | Should -BeNullOrEmpty
+    }
+
+    It 'tolerates empty output rather than throwing inside a maint step' {
+        Get-DotScoopUpgradeOutcome -OutputLine @() | Should -BeNullOrEmpty
+    }
+}
+
+Describe 'the scoop upgrade step reports a per-app failure' {
+    BeforeAll {
+        $RepoRoot = Split-Path -Parent $PSScriptRoot
+        . (Join-Path $RepoRoot 'powershell/Dotfiles/Maint.Helpers.ps1')
+        $mAst = [System.Management.Automation.Language.Parser]::ParseFile(
+            (Join-Path $RepoRoot 'maint/Maintenance.ps1'), [ref]$null, [ref]$null)
+
+        # Both the Step function AND the real upgrade step body are lifted from the
+        # runner, so this cannot drift from what actually ships: a body that stopped
+        # setting $LASTEXITCODE would fail here.
+        foreach ($d in @($mAst.FindAll({
+            $args[0] -is [System.Management.Automation.Language.FunctionDefinitionAst]
+        }, $true) | Where-Object { $_.Name -eq 'Step' })) {
+            . ([scriptblock]::Create($d.Extent.Text))
+        }
+
+        $stepCall = @($mAst.FindAll({
+            $args[0] -is [System.Management.Automation.Language.CommandAst] -and
+            $args[0].GetCommandName() -eq 'Step' -and
+            $args[0].CommandElements[1].Value -eq 'scoop upgrade (apps)'
+        }, $true))
+        $stepCall | Should -HaveCount 1 -Because 'the upgrade step must still be a single Step call'
+        $script:UpgradeBody = $stepCall[0].CommandElements[2].Extent.Text
+
+        $script:Logged = [System.Collections.Generic.List[string]]::new()
+        function Write-Log { param([string]$Msg) $script:Logged.Add($Msg) }
+
+        # Runs the SHIPPING step body with `scoop` replaced by a stub emitting
+        # $Lines. Defined in BeforeAll, not at Describe scope: Pester 5 runs It
+        # bodies in their own scope and a bare Describe-level function is not
+        # visible from them.
+        function Invoke-UpgradeStep {
+            param([string[]]$Lines)
+            $stub = $Lines
+            function scoop { $stub }
+            Step 'scoop upgrade (apps)' ([scriptblock]::Create($script:UpgradeBody.Trim('{', '}')))
+        }
+    }
+    BeforeEach {
+        $script:Logged.Clear()
+        $script:Log = Join-Path $TestDrive "maint-$([guid]::NewGuid().ToString('N')).log"
+        Set-Content -LiteralPath $script:Log -Value 'seed'
+        $Log = $script:Log
+    }
+
+    It 'turns a per-app failure into FAIL even though scoop exited 0' {
+        # The regression this exists for: `scoop update *` exits 0, so before this
+        # the step logged `ok` through a month of daily tailscale failures.
+        Invoke-UpgradeStep -Lines @(
+            "Updating 'tailscale' (1.102.3 -> 1.102.4)"
+            'ERROR Admin rights are required to uninstall'
+        )
+        ($script:Logged -join "`n") | Should -Match 'FAIL scoop upgrade \(apps\)'
+        ($script:Logged -join "`n") | Should -Not -Match 'ok scoop upgrade'
+        # The diagnosis is EMITTED, not Write-Log'd, so it reaches the log through
+        # Step's own redirect — one handle on the log file, never two.
+        Get-Content -LiteralPath $script:Log -Raw |
+            Should -Match 'per-app FAILURE: tailscale stayed at 1\.102\.3'
+    }
+
+    It 'still logs ok when every app upgraded' {
+        Invoke-UpgradeStep -Lines @(
+            "Updating 'mise' (2026.9.9 -> 2026.9.10)"
+            "'mise' (2026.9.10) was installed successfully!"
+        )
+        ($script:Logged -join "`n") | Should -Match 'ok scoop upgrade \(apps\)'
+    }
+
+    It 'logs ok on a run with nothing to do' {
+        Invoke-UpgradeStep -Lines @('Latest versions for all apps are installed!')
+        ($script:Logged -join "`n") | Should -Match 'ok scoop upgrade \(apps\)'
+    }
+}

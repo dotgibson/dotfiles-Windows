@@ -11,7 +11,7 @@
 # ============================================================================
 
 # --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
-# provides: Get-DotStablePwshPath, Get-DotMaintTaskHealth
+# provides: Get-DotStablePwshPath, Get-DotMaintTaskHealth, Get-DotScoopUpgradeOutcome
 # requires: (none)
 
 # --- Get-DotStablePwshPath ----------------------------------------------------
@@ -188,4 +188,78 @@ function Get-DotMaintTaskHealth {
         Detail = $detail
         Hint   = $hint
     }
+}
+
+# --- Get-DotScoopUpgradeOutcome -----------------------------------------------
+# Which apps `scoop update *` actually upgraded, and which ones it only tried to.
+#
+# `scoop update *` exits 0 even when an individual app fails, so Step's exit-code
+# check — the thing that catches every OTHER native failure — cannot see a per-app
+# one. Observed live: tailscale failed every single day from 2026-08-20 to
+# 2026-09-16, re-downloading a 36.6 MB MSI each time, and every run logged
+#
+#     Running pre_uninstall script...
+#     ERROR Admin rights are required to uninstall
+#     2026-09-16 13:46:14    ok scoop upgrade (apps)
+#
+# A month of daily failures, reported ok, because the only signal was a line in
+# the middle of the step's own output that nothing read. (The cause is real and
+# permanent, not transient: that manifest's pre_uninstall stops the Tailscale
+# service, which needs admin, and the daily task runs UNELEVATED on purpose —
+# scoop must never be upgraded as admin.)
+#
+# Parsing scoop's output is the only place the per-app result exists, so that is
+# what this reads. It keys on the BLOCK, not on the word ERROR: an app is failed
+# when its `Updating '<app>'` block never reaches that app's "was installed
+# successfully!" line. An ERROR line inside the block is captured as the reason
+# when there is one, but a block that dies silently still counts as failed —
+# matching on ERROR alone would call that a success.
+#
+# Scoped to updates on purpose. A first-time `Installing '<app>'` is not this
+# step's job, and held apps never produce a block at all, so both stay out of the
+# result without needing to be filtered.
+function Get-DotScoopUpgradeOutcome {
+    [OutputType([pscustomobject])]
+    param(
+        # The step's captured stdout+stderr, one element per line.
+        [Parameter(Mandatory)][AllowEmptyCollection()][string[]]$OutputLine
+    )
+
+    $rows    = [System.Collections.Generic.List[object]]::new()
+    $current = $null
+
+    foreach ($line in $OutputLine) {
+        $text = [string]$line
+
+        if ($text -match "^\s*Updating '(?<app>[^']+)' \((?<from>.*?) -> (?<to>.*?)\)\s*$") {
+            $current = [pscustomobject]@{
+                App    = $Matches['app']
+                From   = $Matches['from']
+                To     = $Matches['to']
+                Status = 'failed'
+                Error  = ''
+            }
+            $rows.Add($current)
+            continue
+        }
+
+        if (-not $current) { continue }
+
+        # Attribute the success line by NAME rather than to whatever block is open:
+        # scoop prints notes and persist chatter between apps, and a stray
+        # "was installed successfully!" from a dependency must not clear the app
+        # that is actually failing.
+        if ($text -match "^\s*'(?<app>[^']+)' \(.*\) was installed successfully!") {
+            foreach ($r in $rows) {
+                if ($r.App -eq $Matches['app']) { $r.Status = 'ok'; $r.Error = '' }
+            }
+            continue
+        }
+
+        if ($text -match '^\s*ERROR\s+(?<msg>.+?)\s*$' -and -not $current.Error) {
+            $current.Error = $Matches['msg']
+        }
+    }
+
+    $rows.ToArray()
 }

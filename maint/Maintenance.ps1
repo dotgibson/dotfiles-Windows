@@ -59,6 +59,10 @@ $ErrorActionPreference = 'Continue'
 # where nothing has imported that module and PSModulePath may not even include it.
 # The file is pure and side-effect-free on load, which is what makes that safe.
 . (Join-Path $PSScriptRoot '..\powershell\Dotfiles\Modules.Helpers.ps1')
+# Get-DotScoopUpgradeOutcome, for the scoop upgrade step's per-app failure check.
+# Same reasoning as above: pure, side-effect-free on load, so dot-sourcing it under
+# -NoProfile from a scheduled task is safe.
+. (Join-Path $PSScriptRoot '..\powershell\Dotfiles\Maint.Helpers.ps1')
 
 # --- env knobs ----------------------------------------------------------------
 if (-not $env:MAINT_ENABLED)        { $env:MAINT_ENABLED = '1' }
@@ -175,9 +179,31 @@ try {
     Write-Log "=========== dotfiles-maint start ($([Environment]::MachineName)) ==========="
 
     # --- scoop ----------------------------------------------------------------
+    # The upgrade step captures its own output instead of letting it stream, because
+    # `scoop update *` exits 0 even when an individual app fails — so Step's
+    # exit-code check, which catches every other native failure, is blind to a
+    # per-app one. Get-DotScoopUpgradeOutcome reads the per-app result out of that
+    # output and the body sets $LASTEXITCODE itself, which is what turns a silent
+    # per-app failure into Step's existing "FAIL ... — continuing" line.
+    #
+    # The diagnosis is EMITTED, not Write-Log'd: Step holds $Log open through
+    # `*>> $Log`, and a second handle on the same file (Tee-Object, Add-Content) is
+    # the exact conflict that made the old nvim step fail while still reporting ok.
     if (Have scoop) {
         Step 'scoop update (buckets)' { scoop update }
-        Step 'scoop upgrade (apps)'   { scoop update * }
+        Step 'scoop upgrade (apps)' {
+            $out = @(scoop update * 2>&1 | ForEach-Object { "$_" })
+            $out
+            $failed = @(Get-DotScoopUpgradeOutcome -OutputLine $out |
+                Where-Object { $_.Status -eq 'failed' })
+            if ($failed.Count) {
+                foreach ($f in $failed) {
+                    $why = if ($f.Error) { $f.Error } else { 'no "installed successfully" line for it' }
+                    "  per-app FAILURE: $($f.App) stayed at $($f.From) (wanted $($f.To)) — $why"
+                }
+                $global:LASTEXITCODE = 1
+            }
+        }
         Step 'scoop cleanup'          { scoop cleanup *; scoop cache rm * }
     }
 
