@@ -57,6 +57,7 @@
         'Format-DotWslSshConfig'
         'Get-DotRemoteWiringResult'
         'Get-DotScoopJunctionPlan'
+        'Get-DotSshdServicePlan'
         # doctor: result model, aggregation + pure logic (host probes stay in the fragment)
         'New-DoctorResult'
         'Get-DoctorSummary'

@@ -264,3 +264,163 @@ Describe 'wsl-ssh-config' {
         ($global:DotRemoteOut -join "`n") | Should -Not -Match 'Host '
     }
 }
+
+# ============================================================================
+#  Get-DotSshdServicePlan — making the front door survive its own death.
+#
+#  The host state this decides over (services, sc.exe recovery actions, an admin
+#  token) is exactly what this file does not touch, which is the point of the
+#  split: every case below is a hand-built row.
+# ============================================================================
+Describe 'Get-DotSshdServicePlan' {
+    BeforeAll {
+        # The shape the real prober returns, most-preferred first.
+        $script:Junction = @{
+            Path = 'C:\Users\Garrett\scoop\apps\openssh\current\sshd.exe'
+            Kind = 'scoop current'; Exists = $true; VersionPinned = $false
+        }
+        $script:Pinned = @{
+            Path = 'C:\Users\Garrett\scoop\apps\openssh\10.0.0.0p2\sshd.exe'
+            Kind = 'scoop versioned'; Exists = $true; VersionPinned = $true
+        }
+        # Clone-and-override: PowerShell's hashtable `+` throws on a duplicate key,
+        # so a case that differs by one field cannot just add to the base.
+        function With {
+            param([hashtable]$Base, [hashtable]$Override)
+            $c = $Base.Clone()
+            foreach ($k in $Override.Keys) { $c[$k] = $Override[$k] }
+            $c
+        }
+
+        # A healthy service, for the cases that differ by one field.
+        $script:Healthy = @{
+            Candidate = @($script:Junction); Registered = $true
+            ImagePath = '"C:\Users\Garrett\scoop\apps\openssh\current\sshd.exe"'
+            StartType = 'Automatic'; State = 'Running'
+            RecoveryConfigured = $true; IsElevated = $true; PackageHeld = $true
+        }
+    }
+
+    It 'plans the whole install on a box with nothing registered' {
+        # This host's actual starting state: sshd running as a bare process, no
+        # service, no task, nothing that survives a reboot.
+        $p = Get-DotSshdServicePlan -Candidate @($script:Junction) `
+            -Registered $false -IsElevated $true -PackageHeld $true
+        $p.Action | Should -Be 'register'
+        $p.Steps  | Should -Be @('register', 'set-automatic', 'set-recovery', 'start')
+        $p.Path   | Should -Be $script:Junction.Path
+    }
+
+    It 'calls a registered service with no recovery actions NOT done' {
+        # The trap: scoop's install-sshd.ps1 registers with the default recovery
+        # policy, which is "take no action". Such a service reports Running and
+        # still stays dead the first time it crashes — registration is not health.
+        $a = With $script:Healthy @{ RecoveryConfigured = $false }
+        $p = Get-DotSshdServicePlan @a
+        $p.Action | Should -Be 'reconfigure'
+        $p.Steps  | Should -Be @('set-recovery')
+    }
+
+    It 'reports ok only when registration, start type, recovery and state all hold' {
+        $a = With $script:Healthy @{}
+        $p = Get-DotSshdServicePlan @a
+        $p.Action   | Should -Be 'ok'
+        $p.Steps    | Should -BeNullOrEmpty
+        $p.Warnings | Should -BeNullOrEmpty
+    }
+
+    It 'fixes a Manual start type, which survives a crash but not a reboot' {
+        $a = With $script:Healthy @{ StartType = 'Manual' }
+        $p = Get-DotSshdServicePlan @a
+        $p.Steps | Should -Contain 'set-automatic'
+    }
+
+    It 'starts a service that is registered but stopped' {
+        $a = With $script:Healthy @{ State = 'Stopped' }
+        $p = Get-DotSshdServicePlan @a
+        $p.Steps | Should -Be @('start')
+    }
+
+    It 'sees through a quoted ImagePath rather than calling it drift' {
+        # Win32_Service stores the path quoted when it contains spaces. Comparing the
+        # raw string would re-register the service on every single run.
+        $a = With $script:Healthy @{}
+        $p = Get-DotSshdServicePlan @a
+        $p.Steps | Should -Not -Contain 'reregister-imagepath'
+    }
+
+    It 'ignores trailing service arguments when comparing the ImagePath' {
+        $a = With $script:Healthy @{ ImagePath = '"C:\Users\Garrett\scoop\apps\openssh\current\sshd.exe" -f C:\ProgramData\ssh\sshd_config' }
+        $p = Get-DotSshdServicePlan @a
+        $p.Steps | Should -Not -Contain 'reregister-imagepath'
+    }
+
+    It 're-registers a service still pointing at a version-pinned path' {
+        # The Get-DotStablePwshPath trap, one service over: an ImagePath into the
+        # resolved version dir works until the next `scoop update openssh` deletes
+        # that directory, and then every start fails silently with 0x80070002.
+        $a = With $script:Healthy @{ ImagePath = $script:Pinned.Path }
+        $p = Get-DotSshdServicePlan @a
+        $p.Action | Should -Be 'reconfigure'
+        $p.Steps  | Should -Contain 'reregister-imagepath'
+    }
+
+    It 'prefers the junction path over the version-pinned one when both exist' {
+        $p = Get-DotSshdServicePlan -Candidate @($script:Junction, $script:Pinned) `
+            -Registered $false -IsElevated $true -PackageHeld $true
+        $p.Path     | Should -Be $script:Junction.Path
+        $p.Warnings | Should -BeNullOrEmpty
+    }
+
+    It 'takes a version-pinned path when it is all there is, but says so' {
+        $p = Get-DotSshdServicePlan -Candidate @($script:Pinned) `
+            -Registered $false -IsElevated $true -PackageHeld $true
+        $p.Path                  | Should -Be $script:Pinned.Path
+        ($p.Warnings -join ' ')  | Should -Match '0x80070002'
+    }
+
+    It 'skips a candidate that does not exist rather than registering a dead path' {
+        $missing = @{ Path = 'C:\nope\sshd.exe'; Kind = 'system'; Exists = $false; VersionPinned = $false }
+        $p = Get-DotSshdServicePlan -Candidate @($missing, $script:Junction) `
+            -Registered $false -IsElevated $true -PackageHeld $true
+        $p.Path | Should -Be $script:Junction.Path
+    }
+
+    It 'returns no-binary rather than a plan when nothing is installed' {
+        $p = Get-DotSshdServicePlan -Candidate @() `
+            -Registered $false -IsElevated $true -PackageHeld $true
+        $p.Action | Should -Be 'no-binary'
+        $p.Path   | Should -BeNullOrEmpty
+        $p.Steps  | Should -BeNullOrEmpty
+    }
+
+    It 'blocks without an admin token instead of reporting a false ok' {
+        # Registering a service needs elevation, and UAC cannot be driven from an
+        # agent session — so "blocked" has to stay distinguishable from "done".
+        $p = Get-DotSshdServicePlan -Candidate @($script:Junction) `
+            -Registered $false -IsElevated $false -PackageHeld $true
+        $p.Action | Should -Be 'blocked'
+        $p.Reason | Should -Match 'elevated'
+        # The steps it WOULD take are still reported, so status can show the gap.
+        $p.Steps  | Should -Contain 'register'
+    }
+
+    It 'does not report blocked when there is nothing to do anyway' {
+        # An unelevated status check on a healthy box is 'ok', not 'blocked' —
+        # otherwise every non-admin shell would nag about a service that is fine.
+        $a = With $script:Healthy @{ IsElevated = $false }
+        $p = Get-DotSshdServicePlan @a
+        $p.Action | Should -Be 'ok'
+    }
+
+    It 'warns when openssh is not held, because the daily upgrade will fight the service' {
+        # A running service holds its binaries open, so `scoop update *` fails to
+        # replace them — and since the per-app failure fix reports honestly, that
+        # now fails loudly once a day forever.
+        $a = With $script:Healthy @{ PackageHeld = $false }
+        $p = Get-DotSshdServicePlan @a
+        ($p.Warnings -join ' ') | Should -Match 'scoop hold openssh'
+        # Still ok: an unheld package is a nuisance, not a broken front door.
+        $p.Action | Should -Be 'ok'
+    }
+}
