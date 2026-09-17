@@ -85,7 +85,11 @@ Describe 'a degraded run announces itself (#269)' {
         $block | Should -Match 'BLOCKED'              # the consequence, not just the cause
         $block | Should -Match 'steps\.app\.outcome'  # skipped vs failure, told apart
     }
-    It '<_> never lets the token itself out of the `if:`' -ForEach $Bots {
+    # No backticks in a `<_>` name: Pester 5 expands the placeholder by re-parsing the
+    # name as an EXPANDABLE string, where a backtick is the escape character — "the `if:`
+    # gate" dies with "the string is missing the terminator" before the body ever runs.
+    # Pester 6 does not, so this only shows up against the 5.6.1 CI pins.
+    It '<_> never lets the token itself out of the if: gate' -ForEach $Bots {
         # The minted token is masked in logs, but $GITHUB_STEP_SUMMARY is rendered
         # markdown and leaning on the masker there is not a bet worth taking. One
         # mention in the whole block, and it is the gate.
