@@ -11,7 +11,7 @@
 # ============================================================================
 
 # --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
-# provides: ConvertTo-DotSshAlias, Get-DotWslSshPlan, Format-DotWslSshConfig, Get-DotRemoteWiringResult, Get-DotScoopJunctionPlan
+# provides: ConvertTo-DotSshAlias, Get-DotWslSshPlan, Format-DotWslSshConfig, Get-DotRemoteWiringResult, Get-DotScoopJunctionPlan, Get-DotSshdServicePlan
 # requires: New-DoctorResult
 
 # --- ConvertTo-DotSshAlias ----------------------------------------------------
@@ -238,5 +238,136 @@ function Get-DotScoopJunctionPlan {
         NotJunction = (& $count 'skip-not-junction')
         Unresolved  = (& $count 'skip-unresolved')
         Blocked     = (& $count 'blocked-not-elevated')
+    }
+}
+
+# --- Get-DotSshdServicePlan ---------------------------------------------------
+# What it takes to make the host sshd survive its own death and a reboot.
+#
+# The bug this exists for: for months this host's front door was a bare sshd.exe
+# with NOTHING supervising it — no service, no scheduled task (verified by reading
+# every task XML under System32\Tasks, not just what Get-ScheduledTask would show).
+# So every crash and every reboot needed a human, and "ssh is down again" was a
+# recurring chore rather than an event.
+#
+# A Windows service is the right supervisor here, and the repo's own notes are easy
+# to misread on that point: REMOTE-ACCESS.md lists "run sshd as a real service" under
+# what does NOT fix things, but that table is about REDIRECTION GUARD — a service
+# does not fix the untrusted-junction problem because `services.exe` is 0x105. It is
+# silent on supervision, and on that axis a service is strictly better than the
+# nothing we had. Nor does it make Redirection Guard worse: Task Scheduler's svchost
+# is 0x105 too, so sshd already ran under enforcement whatever started it.
+#
+# Two policies here are load-bearing:
+#
+#   • Prefer the `current` JUNCTION path over the resolved version directory. A
+#     version-pinned ImagePath is the Get-DotStablePwshPath trap again — it works
+#     until the next `scoop update openssh` and then every start fails with
+#     ERROR_FILE_NOT_FOUND, silently, because a service that cannot launch writes
+#     nothing anywhere the user looks. The junction costs a Redirection Guard
+#     traversal, which is exactly what the scoop junction task re-stamps trusted.
+#
+#   • Recovery actions are the whole point and are checked SEPARATELY from
+#     registration. scoop's own install-sshd.ps1 registers the service with the
+#     default recovery policy, which is "take no action" — a registered sshd with no
+#     restart actions looks installed, reports Running, and still stays dead the
+#     first time it crashes. An already-registered service is therefore not
+#     evidence of a healthy one.
+function Get-DotSshdServicePlan {
+    [OutputType([pscustomobject])]
+    param(
+        # One row per sshd.exe the caller probed, ordered MOST PREFERRED FIRST:
+        #   @{ Path = <path>; Kind = <label>; Exists = <bool>; VersionPinned = <bool> }
+        [Parameter(Mandatory)][AllowEmptyCollection()][object[]]$Candidate,
+        [bool]$Registered,
+        # Get-CimInstance Win32_Service PathName, as stored (may be quoted).
+        [string]$ImagePath = '',
+        [ValidateSet('', 'Automatic', 'Manual', 'Disabled')][string]$StartType = '',
+        [ValidateSet('', 'Running', 'Stopped', 'StartPending', 'StopPending')][string]$State = '',
+        # Whether sc.exe qfailure shows restart actions. Registration does NOT imply it.
+        [bool]$RecoveryConfigured,
+        # Registering or reconfiguring a service needs a token; without one there is
+        # nothing to do but say so precisely.
+        [bool]$IsElevated,
+        # `scoop hold openssh`. Unheld, the daily `scoop update *` will try to replace
+        # binaries the running service holds open — which fails, and since the per-app
+        # failure fix now reports honestly, fails LOUDLY once a day forever.
+        [bool]$PackageHeld
+    )
+
+    $steps    = [System.Collections.Generic.List[string]]::new()
+    $warnings = [System.Collections.Generic.List[string]]::new()
+
+    # --- pick the binary ------------------------------------------------------
+    $pick = $null
+    foreach ($c in $Candidate) { if ($c.Exists) { $pick = $c; break } }
+
+    if (-not $pick) {
+        return [pscustomobject]@{
+            Action   = 'no-binary'
+            Path     = $null
+            Steps    = @()
+            Warnings = @('no sshd.exe found — install OpenSSH (scoop install openssh) first')
+            Reason   = 'no sshd.exe found in any probed location'
+        }
+    }
+
+    $path = [string]$pick.Path
+    if ($pick.VersionPinned) {
+        $warnings.Add(
+            ("the only sshd.exe found is a version-pinned path ({0}) — the next openssh " +
+             'upgrade will move it and every service start will fail with 0x80070002') -f $pick.Kind)
+    }
+
+    # --- what is already true -------------------------------------------------
+    # The stored ImagePath is quoted when it contains spaces, and a service may carry
+    # arguments after the exe. Compare the executable only, case-insensitively.
+    $current = ([string]$ImagePath).Trim()
+    if ($current -match '^\s*"(?<exe>[^"]+)"') { $current = $Matches['exe'] }
+    elseif ($current -match '^\s*(?<exe>\S+)')  { $current = $Matches['exe'] }
+    $imageDrifted = $Registered -and $current -and
+                    ($current.TrimEnd('\') -ne $path.TrimEnd('\'))
+
+    if (-not $Registered)            { $steps.Add('register') }
+    elseif ($imageDrifted)           { $steps.Add('reregister-imagepath') }
+    if ($StartType -ne 'Automatic')  { $steps.Add('set-automatic') }
+    if (-not $RecoveryConfigured)    { $steps.Add('set-recovery') }
+    if ($State -ne 'Running')        { $steps.Add('start') }
+
+    if (-not $PackageHeld) {
+        $warnings.Add(
+            'openssh is not held — the daily `scoop update *` will try to replace binaries ' +
+            'the running service holds open, and report a per-app failure every day. ' +
+            'Run `scoop hold openssh` and upgrade it deliberately.')
+    }
+
+    # --- verdict --------------------------------------------------------------
+    if ($steps.Count -eq 0) {
+        return [pscustomobject]@{
+            Action   = 'ok'
+            Path     = $path
+            Steps    = @()
+            Warnings = $warnings.ToArray()
+            Reason   = 'registered, automatic, recovery configured, running'
+        }
+    }
+
+    if (-not $IsElevated) {
+        return [pscustomobject]@{
+            Action   = 'blocked'
+            Path     = $path
+            Steps    = $steps.ToArray()
+            Warnings = $warnings.ToArray()
+            Reason   = 'needs an elevated token to register or reconfigure a service'
+        }
+    }
+
+    $action = if ($steps -contains 'register') { 'register' } else { 'reconfigure' }
+    return [pscustomobject]@{
+        Action   = $action
+        Path     = $path
+        Steps    = $steps.ToArray()
+        Warnings = $warnings.ToArray()
+        Reason   = "$action`: $($steps -join ', ')"
     }
 }

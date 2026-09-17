@@ -68,7 +68,7 @@ evening on them:
 | Setting IFEO `MitigationOptions` to `REDIRECTION_TRUST_ALWAYS_OFF` (`0x2 << 20`) | **ignored** — the policy is inherited and non-relaxable, which is the entire point of it |
 | Changing the **symlink's** owner to `BUILTIN\Administrators` | no effect — ownership is not the discriminator |
 | Changing the junction **target's** owner via `icacls /setowner` | no effect either — ownership of neither the link nor its target is checked |
-| Running sshd as a real Windows service instead of a scheduled task | would not help: `services.exe` is `0x105` too |
+| Running sshd as a real Windows service instead of a scheduled task | would not help **for this**: `services.exe` is `0x105` too. It is still the right way to run sshd, for a different reason — see [Keeping sshd up](#keeping-sshd-up) |
 
 The real discriminator is **who created the reparse point**, not who owns it. NTFS
 stamps a trust level onto every junction/symlink at creation time from the creator's
@@ -344,6 +344,69 @@ is commented out (as it is on a hand-tuned host), `~/.ssh/authorized_keys` is us
 and everything works — but restoring a stock config would silently break key auth.
 The machine-level file is also ignored unless its ACL grants only Administrators
 and SYSTEM.
+
+---
+
+## Keeping sshd up
+
+Redirection Guard is about whether an ssh session can *read your config*. This is the
+separate question of whether sshd is *running at all* — and on a real host it turned out
+to be the one that actually cost time.
+
+**The failure mode.** Stood up by hand, this box ended up with a bare `sshd.exe` and
+nothing supervising it:
+
+```powershell
+sc.exe query sshd                                  # 1060: service does not exist
+Get-ScheduledTask | ? { $_.Actions.Execute -match 'ssh' }   # nothing
+```
+
+No service, no scheduled task. Every crash and every reboot needed a human. Worse, the
+absence is easy to misdiagnose: a SYSTEM-principal task is ACL'd away from an unelevated
+shell, so "I can't see a task" reads the same as "there is no task." Settle it by reading
+the task definitions off disk instead, where a missing file and an unreadable one differ:
+
+```powershell
+Get-ChildItem C:\Windows\System32\Tasks -Recurse -File |
+    Where-Object { (Get-Content $_.FullName -Raw) -match 'ssh' }
+```
+
+**The fix.** A Windows service with recovery actions, which is what `remote-install` sets up:
+
+```powershell
+admin            # the service APIs need a token; remote-install refuses without one
+remote-install
+remote-status    # safe unelevated — reports, changes nothing
+```
+
+Two details it exists to get right, both of which look fine until they don't:
+
+- **Registration is not health.** scoop's `install-sshd.ps1` registers the service with the
+  default recovery policy, which is *take no action*. Such a service reports `Running` and
+  still stays dead the first time it crashes. `remote-install` checks `sc.exe qfailure`
+  separately from registration, and sets `restart/5000/restart/10000/restart/30000` with the
+  failure count reset daily — so a slow drip of crashes never exhausts the actions.
+- **The ImagePath must go through the `current` junction**, not its resolved target. A
+  version-pinned path works until the next `scoop update openssh` removes that directory,
+  and then every start fails with `0x80070002` — silently, because a service that cannot
+  launch writes nothing anywhere you'd look. This is the same trap as
+  `Get-DotStablePwshPath` and the scheduled tasks. Traversing the junction is fine: the
+  scoop junction task re-stamps it admin-trusted, which is what makes it readable under
+  `services.exe`'s `0x105`.
+
+**Hold openssh once the service exists.** A running service holds its binaries open, so the
+daily `scoop update *` cannot replace them — it fails, and since the maintenance runner now
+reports per-app failures honestly, it fails loudly once a day forever. Holding it also stops
+scoop restoring a stock `sshd_config`, which is its own outage (see
+[The key that isn't read](#the-key-that-isnt-read)):
+
+```powershell
+scoop hold openssh
+```
+
+Upgrade it deliberately instead: `Stop-Service sshd`, `scoop unhold openssh`,
+`scoop update openssh`, `scoop hold openssh`, `remote-install` (re-points the ImagePath if
+the junction moved), `Start-Service sshd`.
 
 ---
 
