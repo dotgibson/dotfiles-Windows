@@ -410,6 +410,54 @@ the junction moved), `Start-Service sshd`.
 
 ---
 
+### The shell that isn't there
+
+A healthy service still refuses **every** login if `HKLM\SOFTWARE\OpenSSH\DefaultShell`
+names a shell sshd cannot launch. Measured on this host:
+
+```
+User garrett not allowed because shell
+  c:\program files\windowsapps\microsoft.powershell_7.6.5.0_x64__...\pwsh.exe does not exist
+```
+
+PowerShell had moved 7.6.5.0 -> 7.6.6.0 and Windows deleted the superseded package
+directory. sshd rejects *before authentication completes*, so the client is told only:
+
+```
+Permission denied (publickey,keyboard-interactive).
+```
+
+Every symptom points at keys. Nothing points at the shell. Hours went into
+`authorized_keys` permissions before the server's own log settled it — so check
+`C:\ProgramData\ssh\logs\sshd.log` first, not the keys.
+
+**A DefaultShell target must clear two independent bars**, and the obvious fix for one
+trips the other:
+
+| Disqualifier | Example | Why |
+| --- | --- | --- |
+| **Version-pinned** | `...\WindowsApps\Microsoft.PowerShell_7.6.6.0_x64__...\pwsh.exe` | deleted when that version is superseded — works today, locks you out on the next update |
+| **Reparse point** | `%LOCALAPPDATA%\Microsoft\WindowsApps\pwsh.exe` | version-stable, but an AppExecLink; sshd is `0x105` and reports it as "does not exist" (see [section 1](#1-why-the-profile-is-untrusted-over-ssh)) |
+
+`remote-status` grades it — `ok`, `fragile` (works now, version-pinned) or `broken` — and
+`remote-install` repoints it at the first machine-wide real file it finds, preferring
+`C:\Program Files\PowerShell\7\pwsh.exe`.
+
+**Getting that MSI is its own trap.** winget's `Microsoft.PowerShell` manifest can be
+`Installer Type: msix` only, in which case `winget install` reinstalls the Store build —
+`--force` included — and `C:\Program Files\PowerShell\7\` never appears. Take the MSI
+straight from the release:
+
+```powershell
+gsudo msiexec /i https://github.com/PowerShell/PowerShell/releases/download/v7.6.6/PowerShell-7.6.6-win-x64.msi /qn
+```
+
+A Store-only PowerShell arms this class of failure everywhere an absolute pwsh path is
+stored — scheduled tasks (`Get-DotStablePwshPath`), the sshd service ImagePath, and
+DefaultShell. The MSI retires all three at once.
+
+---
+
 ## 2. Why the Linux boxes stopped answering
 
 ### It is usually not a port collision
