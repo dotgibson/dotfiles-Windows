@@ -78,16 +78,25 @@ Describe 'Get-DotRepoVersionDetail' {
 }
 
 Describe 'Get-NvimVendorDetail' {
-    It 'formats the short sha + commit date' {
-        $d = Get-NvimVendorDetail -Sha 'abcdef1234567' -When '2026-06-16'
-        $d | Should -Match 'core@abcdef1'
-        $d | Should -Match '2026-06-16'
+    It 'leads with the editor release and keeps the short sha' {
+        # Since dotfiles-core#1124 the editor is vendored from dotgibson/dotfiles-nvim's
+        # release line, so 'v1.0.0' answers "which editor is this?" on sight where a
+        # bare sha needed a lookup. The sha stays because it is what the parity gate
+        # re-fetches.
+        $d = Get-NvimVendorDetail -Sha 'abcdef1234567' -Tag 'v1.0.0'
+        $d | Should -Match 'v1\.0\.0'
+        $d | Should -Match 'abcdef1'
+        $d | Should -Not -Match 'core@'
     }
-    It 'omits the date when it is unknown' {
-        (Get-NvimVendorDetail -Sha 'abcdef1' -When 'unknown') | Should -Not -Match '\('
+    It 'says untagged rather than inventing a release' {
+        (Get-NvimVendorDetail -Sha 'abcdef1' -Tag '') | Should -Match 'untagged'
     }
-    It 'reports a missing ref when there is no sha' {
-        (Get-NvimVendorDetail -Sha '' -When '') | Should -Match 'no vendor ref'
+    It 'reports a missing pin when there is no sha' {
+        (Get-NvimVendorDetail -Sha '' -Tag '') | Should -Match 'no vendor pin'
+    }
+    It 'treats an unresolved sha the same as an absent one' {
+        # nvim-sync.ps1 writes nvim_sha=unknown when git could not resolve the source.
+        (Get-NvimVendorDetail -Sha 'unknown' -Tag 'v1.0.0') | Should -Match 'no vendor pin'
     }
 }
 

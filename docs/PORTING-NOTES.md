@@ -133,14 +133,17 @@ its own.
 
 ## Remaining manual steps
 
-- **Keep `nvim/` current with Core.** The full tree
-  (`lua/gerrrt/{config,plugins,servers,utils}`) is authored in Core and vendored
-  here via `nvim-sync.ps1` (a `robocopy /MIR` mirror, no subtree — see the script
-  header). Run it after a Core release and commit the diff; `nvim/.core-ref`
-  records which Core commit the tree came from. The old U16 keymap wart is gone —
-  `config/keymaps.lua`'s `<leader>rc` resolves the config dir at runtime with
-  `vim.fn.stdpath("config")` upstream in Core, so it opens the right `init.lua`
-  on every platform (`%LOCALAPPDATA%\nvim` on the host) and survives the mirror.
+- **Keep `nvim/` current with `dotfiles-nvim`.** The full tree
+  (`lua/gerrrt/{config,plugins,servers,utils}`) is authored in
+  [`dotfiles-nvim`](https://github.com/dotgibson/dotfiles-nvim) and vendored here
+  via `nvim-sync.ps1` (a `robocopy /MIR` mirror, no subtree — see the script
+  header). The weekly bot runs it; by hand, run it after an editor release and
+  commit `nvim/` and `nvim.lock` **together**. `nvim.lock` records which upstream
+  release the tree came from, in the same shape `dotfiles-core` uses for its own
+  copy. The old U16 keymap wart is gone — `config/keymaps.lua`'s `<leader>rc`
+  resolves the config dir at runtime with `vim.fn.stdpath("config")` upstream, so
+  it opens the right `init.lua` on every platform (`%LOCALAPPDATA%\nvim` on the
+  host) and survives the mirror.
 - **Align `psmux/psmux.conf` with Core's tmux config.** The host config is a
   standalone, portable starter that already remaps the prefix to `C-a`
   (`psmux.reset.conf`). When convenient, reconcile the remaining keybinds with

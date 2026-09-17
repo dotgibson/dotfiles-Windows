@@ -202,8 +202,9 @@ try {
 
     # --- record vendoring provenance -> theme/.core-ref -----------------------
     # Stamp WHICH Core commit this palette came from, the moment we copy — the same
-    # marker nvim/.core-ref and starship/.core-ref carry, so dotfiles-doctor can tell
-    # a current file from a stale one. Best-effort: a non-git -CoreLocal yields
+    # marker starship/.core-ref carries, so dotfiles-doctor can tell a current file
+    # from a stale one. (nvim/ carried one too until dotfiles-core#1124 moved it to a
+    # root-level nvim.lock; starship and theme still come from Core.) Best-effort: a non-git -CoreLocal yields
     # 'unknown', still a truthful record.
     $srcRepo  = if ($CoreLocal) { $CoreLocal }  else { $tempClone }
     $srcLabel = if ($CoreLocal) { $CoreLocal }  else { $CoreRemote }

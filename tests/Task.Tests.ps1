@@ -68,7 +68,7 @@ Describe 'task.ps1 verb table (the fleet make vocabulary)' {
         $check[-1] | Should -Match '-DryRun' -Because 'Windows has no throwaway HOME, so the run is previewed, never applied'
     }
 
-    It 'core-verify asserts all three mirrored assets against their .core-ref' {
+    It 'core-verify asserts all three vendored assets against their recorded pins' {
         $steps = @($script:Verbs['core-verify'].Steps)
         foreach ($gate in 'Nvim', 'Starship', 'Theme') {
             $steps | Should -Contain "tests/Assert-${gate}Parity.ps1"

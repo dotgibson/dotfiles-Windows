@@ -1,31 +1,48 @@
 # ============================================================================
-#  tests/Assert-NvimParity.ps1  -  CI gate: nvim/ must match Core (B1)
+#  tests/Assert-NvimParity.ps1  -  CI gate: nvim/ must match its recorded pin
 #
-#  nvim/ is the one tree this standalone repo vendors from dotfiles-core (see
-#  nvim-sync.ps1). The sync stamps nvim/.core-ref with the Core commit it copied
-#  from. This gate clones Core at THAT commit and diffs it against the vendored
-#  nvim/, failing if they diverge — so a hand-edit straight into nvim/ (instead of
-#  editing Core and re-syncing) can't silently fork the vendored tree.
+#  nvim/ is the one tree this standalone repo vendors, and since
+#  dotfiles-core#1124 it is vendored from dotgibson/dotfiles-nvim directly rather
+#  than out of dotfiles-core (see nvim-sync.ps1). The sync stamps nvim.lock with
+#  the upstream commit it copied from. This gate clones that repo at THAT commit
+#  and diffs it against the vendored nvim/, failing if they diverge — so a
+#  hand-edit straight into nvim/ (instead of editing upstream and re-syncing)
+#  can't silently fork the vendored tree.
 #
-#  It diffs against the RECORDED commit, not Core's current HEAD: the vendored
-#  tree is expected to lag Core, so the invariant is "faithful copy of what we
-#  synced", not "up to date with Core". Skips cleanly when .core-ref is absent or
-#  has no resolved commit (e.g. a fresh checkout that hasn't run nvim-sync yet).
+#  It diffs against the RECORDED commit, not upstream's current HEAD: the vendored
+#  tree is expected to lag a release line, so the invariant is "faithful copy of
+#  what we pinned", not "up to date with upstream". Skips cleanly when nvim.lock is
+#  absent or has no resolved commit (e.g. a fresh checkout that hasn't run
+#  nvim-sync yet).
 #
-#  .core-ref (written only into the vendored copy) is excluded from the comparison.
-#  lazy-lock.json is NOT excluded: it's synced from Core (cross-platform plugin
-#  pins, see nvim-sync.ps1) and so must match the recorded Core commit like the
-#  rest of the tree — the gate is what keeps the Windows pin from drifting.
+#  NOTHING IS EXCLUDED FROM THE COMPARISON, and that is new. The provenance marker
+#  used to live at nvim/.core-ref — inside the very tree being compared — so it had
+#  to be excluded by name. Moving the pin out to the repo root (dotfiles-core#1124)
+#  means the vendored nvim/ is now byte-identical to upstream's, and the gate needs
+#  no exclusion set to say so. lazy-lock.json is compared like everything else:
+#  it's vendored too (cross-platform plugin pins, see nvim-sync.ps1), and the gate
+#  is what keeps the Windows copy from drifting off the pinned plugin set.
 #
 #  Pure helpers are exposed for unit tests via DOTFILES_NVIMPARITY_LIBONLY=1.
 # ============================================================================
 [CmdletBinding()]
-param([string]$CoreRemoteFallback = 'https://github.com/dotgibson/dotfiles-core.git')
+param([string]$NvimRepoFallback = 'dotgibson/dotfiles-nvim')
 
-$DefaultExclude = @('.core-ref')
+# Empty on purpose — see the header. Kept as a parameterized default rather than
+# deleted so the helper stays unit-testable against a non-empty set.
+$DefaultExclude = @()
 
 # --- Get-CoreRefField ---------------------------------------------------------
-# Pull one `key = value` field out of .core-ref's lines; $null when absent.
+# Pull one field out of a provenance marker's lines; $null when absent. Tolerates
+# both `key=value` (nvim.lock's spelling, mirroring dotfiles-core's own) and
+# `key = value` (the .core-ref spelling starship/ and theme/ still use), so ONE
+# reader serves all three markers.
+#
+# The name is about the marker FORMAT, not about dotfiles-core: Assert-Starship-
+# Parity.ps1 and Assert-ThemeParity.ps1 dot-source this file for exactly this
+# function (plus Test-DotGitSha and Resolve-CoreRemote), deliberately, so the
+# untrusted-input guards have one copy. Renaming it forks that contract for
+# nothing.
 function Get-CoreRefField {
     param([string[]]$Lines, [string]$Key)
     $line = $Lines | Where-Object { $_ -match "^\s*$([regex]::Escape($Key))\s*=" } | Select-Object -First 1
@@ -41,7 +58,12 @@ function Get-NvimTreeHashes {
     param([string]$Root, [string[]]$Exclude = $DefaultExclude)
     $map = @{}
     if (-not (Test-Path $Root)) { return $map }
-    $rootFull = (Resolve-Path -LiteralPath $Root).Path.TrimEnd('\', '/')
+    # .ProviderPath, not .Path: for a UNC root the latter comes back carrying the
+    # `Microsoft.PowerShell.Core\FileSystem::` provider prefix, which is LONGER than
+    # the FullName it is about to be subtracted from — the Substring below then
+    # throws instead of comparing. Drive-letter roots are unaffected, which is why
+    # CI never saw it; running the gate from a \\wsl.localhost checkout does.
+    $rootFull = (Resolve-Path -LiteralPath $Root).ProviderPath.TrimEnd('\', '/')
     foreach ($f in Get-ChildItem -LiteralPath $rootFull -Recurse -File -Force) {
         if ($Exclude -contains $f.Name) { continue }
         $rel = $f.FullName.Substring($rootFull.Length).TrimStart('\', '/').Replace('\', '/')
@@ -51,13 +73,13 @@ function Get-NvimTreeHashes {
 }
 
 # --- Get-NvimParityDiff -------------------------------------------------------
-# Compare the vendored tree's hash map against Core's: Missing = present in Core
-# but not vendored, Extra = vendored but not in Core, Changed = same path, content
-# differs. Pure.
+# Compare the vendored tree's hash map against upstream's: Missing = present
+# upstream but not vendored, Extra = vendored but not upstream, Changed = same
+# path, content differs. Pure.
 function Get-NvimParityDiff {
-    param([hashtable]$Local, [hashtable]$Core)
+    param([hashtable]$Local, [hashtable]$Upstream)
     $l = if ($Local) { $Local } else { @{} }
-    $c = if ($Core) { $Core } else { @{} }
+    $c = if ($Upstream) { $Upstream } else { @{} }
     $missing = @($c.Keys | Where-Object { -not $l.ContainsKey($_) } | Sort-Object)
     $extra = @($l.Keys | Where-Object { -not $c.ContainsKey($_) } | Sort-Object)
     $changed = @($c.Keys | Where-Object { $l.ContainsKey($_) -and $l[$_] -ne $c[$_] } | Sort-Object)
@@ -70,7 +92,7 @@ function Get-NvimParityDiff {
 }
 
 # --- Test-DotGitSha -----------------------------------------------------------
-# True only for a hex git SHA (7-40 chars). Gates the UNTRUSTED .core-ref commit
+# True only for a hex git SHA (7-40 chars). Gates the UNTRUSTED nvim.lock commit
 # before it reaches git, so a malformed/option-like value can't be misread.
 function Test-DotGitSha {
     param([string]$Value)
@@ -78,12 +100,33 @@ function Test-DotGitSha {
 }
 
 # --- Resolve-CoreRemote -------------------------------------------------------
-# Pick the clone remote: the .core-ref source ONLY when it's an allowlisted Core
-# remote, else the canonical fallback. Keeps CI's outbound target out of
+# Pick the clone remote: the marker's `source` URL ONLY when it's an allowlisted
+# Core remote, else the canonical fallback. Keeps CI's outbound target out of
 # PR-editable content's control.
+#
+# STILL URL-SHAPED, and still here, because starship/ and theme/ are still
+# vendored from dotfiles-core and still record a `source` URL. The nvim gate no
+# longer calls it — see Resolve-NvimRepo below.
 function Resolve-CoreRemote {
     param([string]$Source, [string[]]$Allowed, [string]$Fallback)
     if ($Source -and ($Allowed -contains $Source)) { return $Source }
+    $Fallback
+}
+
+# --- Resolve-NvimRepo ---------------------------------------------------------
+# The nvim gate's own target resolver: nvim.lock's nvim_repo ONLY when it's an
+# allowlisted `owner/name` slug, else the canonical fallback. Same guarantee as
+# Resolve-CoreRemote, against a different shape of value.
+#
+# A SLUG, not a URL, and that is a small hardening win: the allowlist no longer
+# has to enumerate every spelling of the same repo (https, ssh, with and without
+# .git), and the URL CI actually dials is BUILT by the caller from a value that
+# has already been matched against the allowlist — so a `source`-style field can
+# no longer smuggle a host through by dressing itself up as one of the accepted
+# spellings.
+function Resolve-NvimRepo {
+    param([string]$Repo, [string[]]$Allowed, [string]$Fallback)
+    if ($Repo -and ($Allowed -contains $Repo)) { return $Repo }
     $Fallback
 }
 
@@ -93,42 +136,41 @@ if ($env:DOTFILES_NVIMPARITY_LIBONLY -eq '1') { return }
 # --- main --------------------------------------------------------------------
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $nvim = Join-Path $RepoRoot 'nvim'
-$refFile = Join-Path $nvim '.core-ref'
+$lockFile = Join-Path $RepoRoot 'nvim.lock'
 
-if (-not (Test-Path $refFile)) {
-    Write-Host 'nvim parity: no nvim/.core-ref — skipped (run nvim-sync.ps1 to stamp provenance).'
+if (-not (Test-Path $lockFile)) {
+    Write-Host 'nvim parity: no nvim.lock — skipped (run nvim-sync.ps1 to stamp provenance).'
     exit 0
 }
-$refLines = Get-Content $refFile
-$commit = Get-CoreRefField $refLines 'commit'
-$source = Get-CoreRefField $refLines 'source'
+$lockLines = Get-Content $lockFile
+$commit = Get-CoreRefField $lockLines 'nvim_sha'
+$repo = Get-CoreRefField $lockLines 'nvim_repo'
+$tag = Get-CoreRefField $lockLines 'nvim_tag'
 if (-not $commit -or $commit -eq 'unknown') {
-    Write-Host 'nvim parity: .core-ref has no resolved commit — skipped.'
+    Write-Host 'nvim parity: nvim.lock has no resolved commit — skipped.'
     exit 0
 }
-# .core-ref is tracked and PR-editable, so treat its fields as UNTRUSTED input to
+# nvim.lock is tracked and PR-editable, so treat its fields as UNTRUSTED input to
 # git/network:
 #   • the commit must look like a real SHA — otherwise a malformed value (or one
 #     starting with '-') could be taken by git as an option/refspec. This is a HARD
 #     fail (exit 2), distinct from the intentional "unknown => skip" above.
-#   • the clone target is restricted to an allowlist of known Core remotes; anything
-#     else falls back to the canonical remote, so a hostile PR can't point CI's
-#     outbound clone at an attacker-controlled URL.
+#   • the clone target is restricted to an allowlist of known repos; anything else
+#     falls back to the canonical one, so a hostile PR can't point CI's outbound
+#     clone at an attacker-controlled URL.
 if (-not (Test-DotGitSha $commit)) {
-    Write-Error "nvim parity: .core-ref commit '$commit' is not a valid git SHA — refusing to use it."
+    Write-Error "nvim parity: nvim.lock nvim_sha '$commit' is not a valid git SHA — refusing to use it."
     exit 2
 }
-$AllowedRemotes = @(
-    'https://github.com/dotgibson/dotfiles-core.git'
-    'git@github.com:dotgibson/dotfiles-core.git'
-)
-$remote = Resolve-CoreRemote -Source $source -Allowed $AllowedRemotes -Fallback $CoreRemoteFallback
-if ($source -and ($AllowedRemotes -notcontains $source)) {
-    Write-Host "  note: .core-ref source '$source' is not an allowlisted Core remote — using $CoreRemoteFallback."
+$AllowedRepos = @('dotgibson/dotfiles-nvim')
+$slug = Resolve-NvimRepo -Repo $repo -Allowed $AllowedRepos -Fallback $NvimRepoFallback
+if ($repo -and ($AllowedRepos -notcontains $repo)) {
+    Write-Host "  note: nvim.lock nvim_repo '$repo' is not an allowlisted repo — using $NvimRepoFallback."
 }
-Write-Host "nvim parity: checking nvim/ against $remote @ $commit"
+$remote = "https://github.com/$slug.git"
+Write-Host "nvim parity: checking nvim/ against $slug @ $commit$(if ($tag) { " ($tag)" })"
 
-$tmp = Join-Path ([IO.Path]::GetTempPath()) ('core-parity-' + [guid]::NewGuid().ToString('N'))
+$tmp = Join-Path ([IO.Path]::GetTempPath()) ('nvim-parity-' + [guid]::NewGuid().ToString('N'))
 try {
     # Fetch exactly the recorded commit (GitHub allows fetch-by-SHA). Fall back to a
     # full clone + checkout if the server refuses a bare-SHA fetch.
@@ -140,24 +182,26 @@ try {
         Write-Host '  bare-SHA fetch unavailable — falling back to a full clone.'
         Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
         git clone --quiet $remote $tmp
-        if ($LASTEXITCODE -ne 0) { Write-Error "could not clone Core ($remote)"; exit 2 }
+        if ($LASTEXITCODE -ne 0) { Write-Error "could not clone $slug ($remote)"; exit 2 }
         git -C $tmp checkout --quiet $commit
-        if ($LASTEXITCODE -ne 0) { Write-Error "Core has no commit $commit (force-pushed / gone?)"; exit 2 }
+        if ($LASTEXITCODE -ne 0) { Write-Error "$slug has no commit $commit (force-pushed / gone?)"; exit 2 }
     }
 
-    $coreNvim = Join-Path $tmp 'nvim'
-    if (-not (Test-Path $coreNvim)) { Write-Error "Core @ $commit has no nvim/ tree"; exit 2 }
+    # The payload is upstream's nvim/ SUBDIRECTORY: dotfiles-nvim carries its own
+    # gate, CI and docs beside the editor tree, and only the tree is vendored here.
+    $upstreamNvim = Join-Path $tmp 'nvim'
+    if (-not (Test-Path $upstreamNvim)) { Write-Error "$slug @ $commit has no nvim/ tree"; exit 2 }
 
-    $diff = Get-NvimParityDiff -Local (Get-NvimTreeHashes $nvim) -Core (Get-NvimTreeHashes $coreNvim)
+    $diff = Get-NvimParityDiff -Local (Get-NvimTreeHashes $nvim) -Upstream (Get-NvimTreeHashes $upstreamNvim)
     if ($diff.InSync) {
-        Write-Host "nvim parity: OK — nvim/ matches Core @ $($commit.Substring(0,[Math]::Min(7,$commit.Length)))." -ForegroundColor Green
+        Write-Host "nvim parity: OK — nvim/ matches $slug @ $($commit.Substring(0,[Math]::Min(7,$commit.Length)))." -ForegroundColor Green
         exit 0
     }
-    Write-Host 'nvim parity: DRIFT detected between nvim/ and the recorded Core commit.' -ForegroundColor Red
+    Write-Host 'nvim parity: DRIFT detected between nvim/ and the commit nvim.lock records.' -ForegroundColor Red
     foreach ($p in $diff.Changed) { Write-Host "  changed: nvim/$p" -ForegroundColor Yellow }
     foreach ($p in $diff.Extra) { Write-Host "  only in vendored nvim/: $p" -ForegroundColor Yellow }
-    foreach ($p in $diff.Missing) { Write-Host "  missing from vendored nvim/ (in Core): $p" -ForegroundColor Yellow }
-    Write-Host 'Fix by editing Core and re-running nvim-sync.ps1 (do not hand-edit nvim/).'
+    foreach ($p in $diff.Missing) { Write-Host "  missing from vendored nvim/ (upstream has it): $p" -ForegroundColor Yellow }
+    Write-Host "Fix by editing $slug and re-running nvim-sync.ps1 (do not hand-edit nvim/)."
     exit 1
 } finally {
     if (Test-Path $tmp) { Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue }

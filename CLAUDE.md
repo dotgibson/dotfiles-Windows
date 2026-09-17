@@ -21,10 +21,13 @@ This repo does **not** vendor the `dotfiles-core` `git subtree` (the canonical
 fleet is `scripts/os-repos.txt` in dotfiles-core, which deliberately excludes
 Windows). Don't confuse that with this repo's own PowerShell **`powershell/core/`**
 module — same word, different thing: `powershell/core/` is native pwsh config that
-lives and is edited here. Three assets are mirrored *from* dotfiles-core: `nvim/` (via
-`nvim-sync.ps1`), `starship/starship.toml` (via `starship-sync.ps1`, since
-starship.toml is cross-shell) and `theme/palette.toml` (via `theme-sync.ps1`) — sync
-those rather than hand-editing drift.
+lives and is edited here. Three assets are vendored *in*: `nvim/` from
+**dotfiles-nvim** (via `nvim-sync.ps1`, pinned in `nvim.lock`), and
+`starship/starship.toml` (via `starship-sync.ps1`, since starship.toml is
+cross-shell) plus `theme/palette.toml` (via `theme-sync.ps1`) from **dotfiles-core**
+— sync those rather than hand-editing drift. The editor moved to its own repo in
+dotfiles-core's `NVIM-SPLIT-PROPOSAL.md`; Core vendors it behind the same lock
+shape, so the two are peers on one release line, not a mirror and its source.
 
 The palette is the odd one out and the one to understand: it is an **input**, not a
 leaf config. `gen-theme.ps1` renders it into nine marked `# core:theme:gen <id>` blocks
@@ -44,7 +47,7 @@ comment claiming they matched.
 - `packages/` — scoop/winget manifests
 - `psmux/` — native tmux-alike
 - `desktop/` — **opt-in** tiling-desktop layer: GlazeWM config + Zebar bar (symlinked into `~/.glzr`), plus the `desktop` winget group (GlazeWM/Zebar/PowerToys/TranslucentTB). Off the critical path — the host is shell-first; this is for ricing the desktop too. See `desktop/README.md`.
-- `nvim/` — Neovim config mirrored from dotfiles-core via `nvim-sync.ps1`
+- `nvim/` — Neovim config vendored from dotfiles-nvim via `nvim-sync.ps1`; the pin is `nvim.lock` at the repo root
 - `starship/` — cross-shell prompt config mirrored from dotfiles-core via `starship-sync.ps1`
 - `theme/` — `palette.toml`, the fleet's single colour source, mirrored via `theme-sync.ps1`; rendered into the terminal layer by `gen-theme.ps1`
 - `git/` — `.gitconfig` / `.gitignore_global`

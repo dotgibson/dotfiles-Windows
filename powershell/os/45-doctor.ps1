@@ -199,20 +199,25 @@ function script:Get-DoctorResults {
         $r.Add((New-DoctorResult 'Repo version' 'ok' 'not a git checkout (copy install — unversioned)'))
     }
 
-    # nvim vendor provenance (B1): which Core commit the vendored nvim/ tree came
-    # from. Informational — a host whose nvim/ predates the provenance marker (or
-    # that never ran nvim-sync) simply has no ref yet, which the formatter says.
-    # Gated on Test-Path (not just $root non-empty) so a bad DOTFILES_WIN doesn't
-    # add a misleading 'ok' row while 'Repo root' is already failing above.
+    # nvim vendor provenance (B1): which dotfiles-nvim release the vendored nvim/
+    # tree came from. Informational — a host that never ran nvim-sync simply has no
+    # lock yet, which the formatter says. Gated on Test-Path (not just $root
+    # non-empty) so a bad DOTFILES_WIN doesn't add a misleading 'ok' row while
+    # 'Repo root' is already failing above.
+    #
+    # nvim.lock at the REPO ROOT, not nvim/.core-ref: the editor is vendored from
+    # dotgibson/dotfiles-nvim rather than from Core, and its pin moved out of the
+    # tree it describes (dotfiles-core#1124). The two siblings below still read
+    # their own .core-ref — starship/ and theme/ do still come from Core.
     if ($root -and (Test-Path $root)) {
-        $refFile = Join-Path $root 'nvim\.core-ref'
-        $sha = ''; $when = ''
-        if (Test-Path $refFile) {
-            $ref  = Get-Content $refFile -ErrorAction SilentlyContinue
-            $sha  = (($ref | Where-Object { $_ -match '^commit\s*=' } | Select-Object -First 1) -replace '^commit\s*=\s*', '')
-            $when = (($ref | Where-Object { $_ -match '^date\s*='   } | Select-Object -First 1) -replace '^date\s*=\s*', '')
+        $lockFile = Join-Path $root 'nvim.lock'
+        $sha = ''; $tag = ''
+        if (Test-Path $lockFile) {
+            $lock = Get-Content $lockFile -ErrorAction SilentlyContinue
+            $sha  = (($lock | Where-Object { $_ -match '^nvim_sha\s*=' } | Select-Object -First 1) -replace '^nvim_sha\s*=\s*', '')
+            $tag  = (($lock | Where-Object { $_ -match '^nvim_tag\s*=' } | Select-Object -First 1) -replace '^nvim_tag\s*=\s*', '')
         }
-        $r.Add((New-DoctorResult 'nvim vendor' 'ok' (Get-NvimVendorDetail -Sha "$sha" -When "$when")))
+        $r.Add((New-DoctorResult 'nvim vendor' 'ok' (Get-NvimVendorDetail -Sha "$sha" -Tag "$tag")))
 
         # starship vendor provenance — the sibling marker for the other mirrored
         # asset. Reported alongside nvim's so a stale (or silently un-pinned)
