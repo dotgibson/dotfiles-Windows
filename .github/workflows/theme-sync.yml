@@ -5,8 +5,20 @@ name: theme-sync
 # this host renders it into ten blocks across seven files via gen-theme.ps1. The bot
 # runs weekly and opens a PR when Core's palette has ACTUALLY changed, so a fleet-wide
 # restyle reaches this repo instead of leaving it the one that still types the numbers
-# (#228). First-party (GITHUB_TOKEN + gh, no third-party action); workflow_dispatch
-# syncs on demand. Sibling of starship-sync.yml and nvim-sync.yml.
+# (#228). workflow_dispatch syncs on demand. Sibling of starship-sync.yml and
+# nvim-sync.yml.
+#
+# AUTH — why this mints a GitHub App token instead of just using GITHUB_TOKEN. GitHub
+# deliberately starts NO workflow run from an event created by the default GITHUB_TOKEN
+# (its recursion guard), so a PR opened with it never fires ci.yml's `pull_request`
+# trigger, never collects the required contexts, and sits BLOCKED until a human closes
+# and reopens it — a manual step this bot was paying every week (#265). Pushing and
+# opening the PR with a short-lived, repo-scoped token minted from the fleet App (the
+# FLEET_APP_CLIENT_ID variable + FLEET_APP_PRIVATE_KEY secret, dotfiles-core's
+# GITHUB-APP-AUTH.md) makes the PR App-authored, and its CI then runs unattended. Same
+# problem, same fix, as dotfiles-core's freshness.yml. It DEGRADES rather than fails:
+# with no App configured the mint is skipped and the bot falls back to GITHUB_TOKEN, so
+# the PR still opens — it just needs the manual nudge again.
 
 on:
   schedule:
@@ -37,10 +49,37 @@ jobs:
       pull-requests: write # open/update the PR
     env:
       BRANCH: automation/theme-sync
-      GH_TOKEN: ${{ github.token }}
       DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+      # Presence flag for the App private key (value 'true'/'false', never the key):
+      # secrets cannot be tested in a step `if:`, but an env derived from a secret
+      # comparison can. Same idiom, same reason, as notify-web.yml's.
+      HAS_APP_KEY: ${{ secrets.FLEET_APP_PRIVATE_KEY != '' }}
     steps:
+      # Mint a token scoped to THIS repo so the PR is opened as the App bot rather than
+      # GITHUB_TOKEN — the one thing that lets its CI run without a human close+reopen.
+      # continue-on-error: a repo without the App (a fork, or the install pulled) falls
+      # back to GITHUB_TOKEN below; the PR still opens, it just stays BLOCKED as before.
+      - name: Mint a scoped installation token (if the App is installed here)
+        id: app
+        if: vars.FLEET_APP_CLIENT_ID != '' && env.HAS_APP_KEY == 'true'
+        continue-on-error: true
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          # client-id rather than app-id, which is deprecated at this pin (dotfiles-core
+          # #831). The variable holds the App's Client ID — not its App ID.
+          client-id: ${{ vars.FLEET_APP_CLIENT_ID }}
+          private-key: ${{ secrets.FLEET_APP_PRIVATE_KEY }}
+          # Neither `owner:` nor `repositories:` is set, which already scopes the token to
+          # THIS repository; these two bound the VERBS on it. Deliberately NOT
+          # `workflows: write` — this bot never touches .github/workflows/, and if that
+          # ever changes the push fails loudly rather than the token having quietly been
+          # able to rewrite CI all along.
+          permission-contents: write
+          permission-pull-requests: write
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: true # the bot pushes its branch before opening the PR
+          token: ${{ steps.app.outputs.token || github.token }}
       - name: Sync palette.toml from dotfiles-core
         shell: pwsh
         run: ./theme-sync.ps1
@@ -53,6 +92,10 @@ jobs:
         run: ./gen-theme.ps1
       - name: Open a PR if the palette drifted
         shell: bash
+        env:
+          # Step scope, not job scope: a job-level `env:` cannot read the `steps`
+          # context, so this is the only place the minted token resolves.
+          GH_TOKEN: ${{ steps.app.outputs.token || github.token }}
         run: |
           set -euo pipefail
           # theme/.core-ref carries a per-run `synced` timestamp, so judge drift on the

@@ -59,6 +59,36 @@ so entries are grouped by theme rather than strict semver releases.
 
 ### Fixed
 
+- **The three sync bots open their PRs as the fleet App, so CI actually runs on them
+  (#265).** `nvim-sync`, `starship-sync` and `theme-sync` all pushed the branch and opened
+  the PR with `GH_TOKEN: ${{ github.token }}`, and GitHub deliberately starts **no**
+  workflow run from an event the default `GITHUB_TOKEN` created. So `ci.yml`'s
+  `pull_request` trigger never fired, not one of the six contexts the `main` ruleset
+  requires ever arrived, and every sync PR sat `BLOCKED` indefinitely — #260 and #264 were
+  each unblocked by a human closing and reopening them, which re-fires `pull_request`, and
+  both merged minutes later. That manual step was being paid weekly, and it was not merely
+  an annoyance: Core's `fleet-drift.yml` sweeps Mondays while these bots run Tue/Wed/Thu,
+  so a sync PR waiting on a human reads as a Core drift red that is nothing of the kind
+  (dotgibson/dotfiles-core#1058). Each bot now mints a short-lived, **repo-scoped** token
+  from the `dotgibson-fleet-sync` App (`actions/create-github-app-token`, at the same SHA
+  pin `notify-web.yml` already carries) and both pushes and opens the PR with it, so the PR
+  is App-authored and its CI runs unattended — the same problem, and the same fix, as
+  dotfiles-core's `freshness.yml` on its own self-PRs. Narrow on both axes: no
+  `owner:`/`repositories:`, which is what scopes the token to *this* repository, and only
+  `contents` + `pull-requests: write` — deliberately **not** `workflows: write`, so a bot
+  that ever tried to rewrite CI fails loudly instead of having quietly been able to all
+  along. It **degrades rather than fails**: with no App configured the mint is skipped and
+  the bot falls back to `GITHUB_TOKEN`, so the PR still opens and merely needs the old
+  manual nudge. `GH_TOKEN` moves from the job `env:` to the PR step's, because a job-level
+  `env:` cannot read the `steps` context. The two App-free options weighed in #265 do not
+  actually work — the recursion guard covers a `push` and a bot's own close+reopen exactly
+  as it covers `pull_request`, so neither would have produced a single check.
+  **Depends on live infrastructure:** the App is installed on this repo today, but Core's
+  `GITHUB-APP-AUTH.md` still lists it under "does not need installing" and
+  `scripts/fleet-app-scope.sh` reports it as an install nothing writes to; a Core-side
+  issue moves it to a justified entry beside `dotfiles-core`'s own.
+  (`.github/workflows/nvim-sync.yml`, `starship-sync.yml`, `theme-sync.yml`)
+
 - **The package-freshness check now compares *directionally* — a lock that runs ahead
   of its source is no longer reported as behind (#234, #250).**
   `Check-PackageFreshness.ps1` gated every row on `Test-PackageVersionMatch`, which
