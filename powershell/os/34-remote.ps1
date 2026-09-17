@@ -12,7 +12,8 @@
 #  here would put it on the wrong box.
 #
 #    remote-status            what the host sshd is, and what it is missing
-#    remote-install           register it as a service that restarts itself
+#    remote-install           register it as a service that restarts itself, and
+#                             point DefaultShell at a shell that survives an update
 #
 #  Those two NARROW an older decision rather than reversing it. The rule was that
 #  standing sshd up — the service, the firewall rules, the HKLM DefaultShell key,
@@ -40,7 +41,7 @@
 
 # --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
 # provides: Get-WslDistroNames, wsl-ssh-config, remote-status, remote-install
-# requires: Format-DotWslSshConfig, Get-DotSshdServicePlan, Get-DotWslSshPlan, Test-Cmd, Write-DotErr, Write-DotHost, Write-DotOk, Write-DotWarn, hostip
+# requires: Format-DotWslSshConfig, Get-DotSshdServicePlan, Get-DotSshdShellVerdict, Get-DotWslSshPlan, Test-Cmd, Write-DotErr, Write-DotHost, Write-DotOk, Write-DotWarn, hostip
 
 # --- the installed distros ----------------------------------------------------
 # `wsl --list --quiet` emits UTF-16LE by default, which lands in PowerShell as a
@@ -165,6 +166,44 @@ function script:Test-DotAdmin {
         [Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 
+# The three registry/filesystem reads behind Get-DotSshdShellVerdict. HKLM's
+# OpenSSH key is world-readable, so status works from any shell.
+function script:Get-DotSshdShellState {
+    $value = ''
+    try { $value = [string](Get-ItemProperty 'HKLM:\SOFTWARE\OpenSSH' -ErrorAction Stop).DefaultShell } catch { }
+
+    $exists  = $false
+    $reparse = $false
+    if ($value) {
+        $exists = Test-Path -LiteralPath $value -ErrorAction SilentlyContinue
+        if ($exists) {
+            try {
+                $attrs   = (Get-Item -LiteralPath $value -Force -ErrorAction Stop).Attributes
+                $reparse = ($attrs -band [IO.FileAttributes]::ReparsePoint) -ne 0
+            } catch { }
+        }
+    }
+    Get-DotSshdShellVerdict -Path $value -Exists $exists -IsReparsePoint $reparse
+}
+
+# A shell sshd can still launch after the next PowerShell update, MOST PREFERRED
+# FIRST. Machine-wide real files only: the per-user app alias is version-stable but
+# a reparse point, which sshd cannot traverse — see Get-DotSshdShellVerdict.
+function script:Get-DotSshdShellCandidate {
+    @(
+        @{ Path = 'C:\Program Files\PowerShell\7\pwsh.exe';                    Kind = 'pwsh 7 (MSI)' }
+        @{ Path = 'C:\Program Files\PowerShell\7-preview\pwsh.exe';            Kind = 'pwsh 7 preview (MSI)' }
+        @{ Path = (Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe'); Kind = 'Windows PowerShell 5.1' }
+    ) | ForEach-Object {
+        $exists  = Test-Path -LiteralPath $_.Path -ErrorAction SilentlyContinue
+        $reparse = $false
+        if ($exists) {
+            try { $reparse = ((Get-Item -LiteralPath $_.Path -Force -ErrorAction Stop).Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0 } catch { }
+        }
+        [pscustomobject]@{ Path = $_.Path; Kind = $_.Kind; Exists = $exists; IsReparsePoint = $reparse }
+    }
+}
+
 # Report what the front door is, without touching anything.
 function remote-status {
     $plan = Get-DotSshdPlan
@@ -180,6 +219,16 @@ function remote-status {
         default     { Write-DotWarn "  $($plan.Reason)" 'run `admin`, then remote-install' }
     }
     foreach ($w in $plan.Warnings) { Write-DotWarn "  $w" }
+
+    # Reported separately from the service because it fails separately, and far more
+    # confusingly: a perfectly healthy service still refuses every login when this is
+    # wrong, and tells the client only "Permission denied (publickey,...)".
+    $shell = Get-DotSshdShellState
+    switch ($shell.Status) {
+        'ok'     { Write-DotOk   "  login shell — $($shell.Path)" }
+        'unset'  { Write-DotHost "  login shell — $($shell.Detail)" -Color DarkGray }
+        default  { Write-DotWarn "  login shell $($shell.Status.ToUpperInvariant()): $($shell.Path)`n     $($shell.Detail)" $shell.Hint }
+    }
 }
 
 # Make the front door survive a crash and a reboot. Elevated, explicit, idempotent.
@@ -191,13 +240,26 @@ function remote-install {
     if ($plan.Path) { Write-DotHost "  binary: $($plan.Path)" -Color DarkGray }
     foreach ($w in $plan.Warnings) { Write-DotWarn "  $w" }
 
+    $shell = Get-DotSshdShellState
+    if ($shell.NeedsFix) { Write-DotWarn "  login shell $($shell.Status): $($shell.Detail)" }
+
     if ($plan.Action -eq 'no-binary') { Write-DotErr 'no sshd.exe found' 'scoop install openssh'; return }
-    if ($plan.Action -eq 'ok')        { Write-DotOk 'nothing to do — sshd is already self-healing'; return }
     if ($plan.Action -eq 'blocked')   {
         Write-DotErr 'remote-install needs an elevated shell' 'run `admin`, then re-run remote-install'
         return
     }
-    if ($DryRun) { Write-DotHost "  would run: $($plan.Steps -join ', ')" -Color DarkGray; return }
+    # NOT an early return when the service is 'ok': DefaultShell fails on its own
+    # terms, and a healthy service with a dead shell refuses every login while
+    # looking perfect. That combination is exactly what locked this host out.
+    if ($plan.Action -eq 'ok' -and -not $shell.NeedsFix) {
+        Write-DotOk 'nothing to do — sshd is already self-healing'
+        return
+    }
+    if ($DryRun) {
+        if ($plan.Steps.Count) { Write-DotHost "  would run: $($plan.Steps -join ', ')" -Color DarkGray }
+        if ($shell.NeedsFix)   { Write-DotHost '  would repoint DefaultShell at a version-stable shell' -Color DarkGray }
+        return
+    }
 
     foreach ($step in $plan.Steps) {
         try {
@@ -235,6 +297,26 @@ function remote-install {
         } catch {
             Write-DotErr "  step '$step' failed: $_"
             return
+        }
+    }
+
+    if ($shell.NeedsFix) {
+        $pick = @(Get-DotSshdShellCandidate | Where-Object { $_.Exists -and -not $_.IsReparsePoint })[0]
+        if (-not $pick) {
+            Write-DotErr '  no version-stable shell found to point DefaultShell at' `
+                'install the MSI PowerShell: msiexec /i https://github.com/PowerShell/PowerShell/releases/latest'
+        } else {
+            try {
+                Set-ItemProperty -Path 'HKLM:\SOFTWARE\OpenSSH' -Name DefaultShell -Value $pick.Path -ErrorAction Stop
+                Set-ItemProperty -Path 'HKLM:\SOFTWARE\OpenSSH' -Name DefaultShellCommandOption -Value '-Command' -ErrorAction Stop
+                Write-DotOk "  DefaultShell -> $($pick.Path)  [$($pick.Kind)]"
+                if ($pick.Kind -like 'Windows PowerShell*') {
+                    Write-DotWarn '  that is Windows PowerShell 5.1, not pwsh 7 — ssh works but your profile will not load.' `
+                        'install the MSI pwsh build, then re-run remote-install'
+                }
+            } catch {
+                Write-DotErr "  DefaultShell could not be set: $_"
+            }
         }
     }
 
