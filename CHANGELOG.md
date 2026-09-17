@@ -47,6 +47,43 @@ so entries are grouped by theme rather than strict semver releases.
 
 ### Changed
 
+- **`nvim/` is vendored from `dotfiles-nvim` directly, and its pin is a root-level
+  `nvim.lock`** (dotgibson/dotfiles-core#1124). `dotfiles-core`'s
+  `NVIM-SPLIT-PROPOSAL.md` extracted the editor into its own repo with its own gate —
+  headless startup, `:checkhealth`, luacheck against a real Neovim, none of which
+  Core's runners could do — and its own release line. This repo had always consumed
+  the editor alone through a bespoke mirror, pinned to a Core ref that had nothing to
+  do with when the editor changed; §3.1 called that "the tell". So `nvim-sync.ps1` now
+  points at `dotgibson/dotfiles-nvim`, and the side channel becomes the front door: a
+  first-class second consumer of a real release line, on the same pin shape Core uses
+  for its own copy. The re-point moved **no editor bytes** — the vendored tree at
+  `dotfiles-nvim` `v1.0.0` is byte-identical to the Core tree it replaced, which is
+  what the extraction promised.
+  - A **bare `nvim-sync.ps1` run now pins the newest `vX.Y.Z` release** rather than
+    tracking a branch tip. Releases are the unit the upstream gate signs off on, and
+    they are what makes the Windows and Core pins comparable. `-FollowBranch` keeps the
+    old behaviour, `-Ref` pins an exact revision, and the release picker orders
+    numerically (so `v1.10.0` beats `v1.9.0`) while dropping prereleases and the moving
+    `v1` major alias — a pin must never name a tag that moves.
+  - **The marker moved out of the tree it describes**, from `nvim/.core-ref` to
+    `nvim.lock` at the repo root, and that retires three workarounds: the parity gate
+    compares `nvim/` with **no exclusion set** (so it is byte-identical to upstream's),
+    the sync bot judges drift on a plain `git status -- nvim`, and `auto-tag.yml`'s
+    `nvim/**` trigger cannot see a pin-only change, so a re-pin that moves no editor
+    bytes cuts no release tag. `nvim.lock` carries `dotfiles-core`'s field names on
+    purpose, so `fleet-drift.sh` can compare the two pins directly.
+  - The gate's clone target is now an `owner/name` **slug** rather than a URL. The
+    allowlist no longer has to enumerate every spelling of the same repo, and the URL
+    CI dials is built from a value already matched against it.
+  - `dotfiles-doctor`'s `nvim vendor` row leads with the editor release
+    (`vendored nvim v1.0.0 (7ba9457)`), because a tag answers "which editor is this?"
+    on sight where a bare sha needed a lookup. `starship/` and `theme/` are unchanged:
+    they are still vendored from `dotfiles-core` and still record a `.core-ref`.
+  - The CI job keeps the name `nvim Core parity` deliberately, though the editor no
+    longer comes from Core. It is one of the seven contexts the `main` ruleset
+    requires; renaming it without editing branch protection first would leave every PR
+    `BLOCKED`. That rename is its own change.
+
 - **`notify-web.yml` passes `client-id`, not the deprecated `app-id`, and reads the new
   `FLEET_APP_CLIENT_ID` org variable (#251, dotfiles-core #831).** The pinned
   `create-github-app-token` (v3.2.0) deprecates `app-id`, and this repo's inline notifier

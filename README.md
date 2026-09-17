@@ -70,10 +70,15 @@ and the bridge into Linux distros running under WSL2.
 Unlike every OS repo, **Windows does _not_ vendor Core as a `git subtree`.** The
 shared config is replicated natively in PowerShell — the `powershell/core/`
 fragments mirror the feel of the zsh loader — so only three cross-shell assets are
-synced from [`dotfiles-core`](https://github.com/dotgibson/dotfiles-core):
-`nvim/` (via `nvim-sync.ps1`), `starship/starship.toml` (via
-`starship-sync.ps1`) and `theme/palette.toml` (via `theme-sync.ps1`, then rendered
-into the terminal layer by `gen-theme.ps1`). It also deliberately does **not** configure WSL distros —
+vendored: `nvim/` from
+[`dotfiles-nvim`](https://github.com/dotgibson/dotfiles-nvim) (via `nvim-sync.ps1`,
+pinned in `nvim.lock`), and `starship/starship.toml` plus `theme/palette.toml` from
+[`dotfiles-core`](https://github.com/dotgibson/dotfiles-core) (via
+`starship-sync.ps1` and `theme-sync.ps1`, the latter then rendered into the
+terminal layer by `gen-theme.ps1`). The editor comes from its own repo because
+that is where it is authored — `dotfiles-core` vendors the very same release, so
+this host is a first-class consumer of the editor's release line rather than a
+mirror of somebody else's copy of it. It also deliberately does **not** configure WSL distros —
 Core, `dotfiles-Debian` and `dotfiles-Offense` configure themselves from their own repos _inside_ WSL. This repo
 makes the host excellent, then gets out of the way. Full docs live on the
 [documentation site][docs].
@@ -179,7 +184,7 @@ dotfiles-Windows/
 ├── psmux/psmux.conf             native host tmux (psmux), symlinked to ~/.config/psmux/
 │       psmux.reset.conf  scripts/   (keybinds split out + popup helper scripts)
 ├── desktop/                     opt-in tiling desktop (GlazeWM + Zebar), symlinked to ~/.glzr
-├── nvim/                        symlinked to %LOCALAPPDATA%\nvim (mirrors Core)
+├── nvim/                        symlinked to %LOCALAPPDATA%\nvim (vendored; nvim.lock)
 ├── wsl/windows.wslconfig.example  canonical host WSL2 config (mirrored net)
 ├── packages/ (scoopfile.json, winget.json, Install-Packages.ps1)
 ├── docs/ (TOOLS.md, PORTING-NOTES.md, ARCHITECTURE-AUDIT.md, PACKAGE-OWNERSHIP.md, REMOTE-ACCESS.md)
@@ -187,7 +192,8 @@ dotfiles-Windows/
 ```
 
 `powershell/core/` is native pwsh config (**not** a vendored subtree); `nvim/`,
-`starship/` and `theme/` are the three assets mirrored from `dotfiles-core`. The deep detail — the
+`starship/` and `theme/` are the three vendored assets — the editor from
+`dotfiles-nvim`, the other two from `dotfiles-core`. The deep detail — the
 fragment loader and coverage gate, the supply-chain-gated bootstrap, and the WSL
 bridge — is written up on the hub, alongside the **[Windows architecture audit][audit]**:
 
@@ -203,10 +209,10 @@ the vendored-Core OS repos:
 
 1. **Host config lives here — edit it here.** There is no vendored `core/` to
    avoid; `powershell/core/` is native pwsh config authored in this repo.
-2. **Don't hand-edit the mirrored assets.** `nvim/`, `starship/starship.toml` and
-   `theme/palette.toml` are synced from `dotfiles-core` (`nvim-sync.ps1` /
-   `starship-sync.ps1` / `theme-sync.ps1`) — fix drift **upstream**, then re-sync,
-   so the parity gate stays green.
+2. **Don't hand-edit the vendored assets.** `nvim/` is vendored from
+   `dotfiles-nvim` and `starship/starship.toml` / `theme/palette.toml` from
+   `dotfiles-core` (`nvim-sync.ps1` / `starship-sync.ps1` / `theme-sync.ps1`) — fix
+   drift **upstream**, then re-sync, so the parity gate stays green.
 3. **Don't hand-edit a colour.** Every hex in `powershell/core/` and `psmux/` that
    sits inside a `# core:theme:gen` marker — and every colour in the `Tokyo Night`
    scheme in `windows-terminal/settings.json` — is rendered from `theme/palette.toml`

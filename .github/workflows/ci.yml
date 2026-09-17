@@ -77,7 +77,12 @@ jobs:
           fi
           # lua=true when any Neovim Lua config (or its luacheck config) changed,
           # so the Lua lint only spins up when it can actually find something.
-          if printf '%s\n' "$changed" | grep -qE '(^nvim/|\.lua$|\.luacheckrc$)'; then
+          # nvim.lock is in the set even though it holds no Lua: it is the vendored
+          # tree's pin, and the `nvim Core parity` job below re-clones at the commit it
+          # records. Leave it out and a PIN-ONLY bump — exactly what the nvim-sync bot
+          # opens when upstream cuts a release with no file changes — skips the one gate
+          # that could catch it pointing somewhere wrong.
+          if printf '%s\n' "$changed" | grep -qE '(^nvim/|^nvim\.lock$|\.lua$|\.luacheckrc$)'; then
             echo 'lua=true' >> "$GITHUB_OUTPUT"
           else
             echo 'lua=false' >> "$GITHUB_OUTPUT"
@@ -176,13 +181,21 @@ jobs:
         run: luacheck .
         working-directory: nvim
 
-  # --- nvim <-> Core parity (B1) ----------------------------------------------
-  # nvim/ is vendored from dotfiles-core; this fails if the vendored tree drifts
-  # from the Core commit recorded in nvim/.core-ref (clone Core @ that commit and
-  # diff). Self-skips until a sync stamps the ref. Same nvim-only gate as luacheck.
+  # --- nvim <-> upstream parity (B1) ------------------------------------------
+  # nvim/ is vendored from dotgibson/dotfiles-nvim; this fails if the vendored tree
+  # drifts from the commit recorded in nvim.lock (clone that repo @ that commit and
+  # diff). Self-skips until a sync stamps the lock. Same nvim-only gate as luacheck.
+  #
   # NB: job `name:` values are ASCII on purpose. The check-run name is what you type
   # into a required-status-check ruleset, and a unicode arrow there is a copy-paste
   # trap that silently never matches.
+  #
+  # `nvim Core parity` IS DELIBERATELY UNCHANGED, though the editor no longer comes
+  # from Core (dotfiles-core#1124). The string is one of the seven contexts the main
+  # ruleset requires: rename the job and the old context can never arrive again, so
+  # every PR sits BLOCKED until someone edits branch protection to match. Renaming it
+  # is a two-step change — ruleset first, job second — and worth doing on its own,
+  # not smuggled into a PR whose merge depends on it.
   nvim-parity:
     name: nvim Core parity
     runs-on: ubuntu-latest
@@ -190,7 +203,7 @@ jobs:
     if: needs.detect-changes.outputs.lua == 'true'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Assert nvim/ matches Core at the recorded ref
+      - name: Assert nvim/ matches dotfiles-nvim at the recorded ref
         shell: pwsh
         run: ./tests/Assert-NvimParity.ps1
 

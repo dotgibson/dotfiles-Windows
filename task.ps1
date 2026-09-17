@@ -89,7 +89,7 @@ function Get-TaskVerbs {
             )
         }
         'core-verify'    = @{
-            Meaning = 'the three assets mirrored from dotfiles-core (nvim/, starship, theme) against their recorded .core-ref'
+            Meaning = 'the three vendored assets (nvim/ from dotfiles-nvim, starship and theme from dotfiles-core) against their recorded pins'
             Steps   = @(
                 'tests/Assert-NvimParity.ps1'
                 'tests/Assert-StarshipParity.ps1'

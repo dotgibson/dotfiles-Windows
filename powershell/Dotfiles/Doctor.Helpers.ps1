@@ -78,17 +78,21 @@ function Get-DotRepoVersionDetail {
 }
 
 # --- pure nvim-vendor formatter -----------------------------------------------
-# Render nvim/.core-ref (written by nvim-sync.ps1) into a one-line detail: the
-# short Core commit the vendored nvim/ tree came from, plus the commit date when
-# known. Pure (the file read lives in the probe), so the formatting is unit-tested.
+# Render nvim.lock (written by nvim-sync.ps1) into a one-line detail: the editor
+# RELEASE the vendored nvim/ tree came from, plus the short commit. Pure (the file
+# read lives in the probe), so the formatting is unit-tested.
+#
+# It leads with the tag, not the sha, because the editor is now vendored from
+# dotgibson/dotfiles-nvim's release line (dotfiles-core#1124) and 'v1.0.0' answers
+# "which editor is this?" on sight, where a sha needs a lookup. The sha stays in
+# the line as the thing the parity gate actually re-fetches.
 function Get-NvimVendorDetail {
     [OutputType([string])]
-    param([string]$Sha, [string]$When)
-    if (-not $Sha) { return 'no vendor ref recorded (run nvim-sync.ps1)' }
+    param([string]$Sha, [string]$Tag)
+    if (-not $Sha -or $Sha -eq 'unknown') { return 'no vendor pin recorded (run nvim-sync.ps1)' }
     $short = if ($Sha.Length -ge 7) { $Sha.Substring(0, 7) } else { $Sha }
-    $detail = "vendored from core@$short"
-    if ($When -and $When -ne 'unknown') { $detail += "  ($When)" }
-    return $detail
+    $detail = "vendored nvim $(if ($Tag) { $Tag } else { 'untagged' })"
+    return "$detail  ($short)"
 }
 
 # --- pure starship-vendor formatter -------------------------------------------

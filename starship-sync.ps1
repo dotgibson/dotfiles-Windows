@@ -210,9 +210,11 @@ try {
     Copy-Item -Path $srcToml -Destination $Target -Force
 
     # --- record vendoring provenance -> starship/.core-ref --------------------
-    # Stamp WHICH Core commit this toml came from, the moment we copy — same B1
-    # marker nvim/.core-ref carries, so dotfiles-doctor / fleet-drift can tell a
-    # current file from a stale one. Best-effort: a non-git -CoreLocal yields
+    # Stamp WHICH Core commit this toml came from, the moment we copy — the same B1
+    # marker theme/.core-ref carries, so dotfiles-doctor / fleet-drift can tell a
+    # current file from a stale one. (nvim/ carried one too until dotfiles-core#1124
+    # moved it to a root-level nvim.lock; starship and theme still come from Core and
+    # keep this shape.) Best-effort: a non-git -CoreLocal yields
     # 'unknown', still a truthful record.
     $srcRepo  = if ($CoreLocal) { $CoreLocal }  else { $tempClone }
     $srcLabel = if ($CoreLocal) { $CoreLocal }  else { $CoreRemote }
@@ -232,7 +234,7 @@ try {
         # --unshallow errors on an already-complete repo; fall back to a tag fetch.
         if ($LASTEXITCODE -ne 0) { git -C $srcRepo fetch --tags --quiet 2>$null }
     }
-    # Same release-tag stamp as nvim/.core-ref's, same shape filter, same reasons (#202)
+    # Same release-tag stamp as theme/.core-ref's, same shape filter, same reasons (#202)
     # — see Get-CoreDescribeTag above. Describe HEAD rather than $sha, and don't reorder
     # this with the `git show` below it (that show resets $LASTEXITCODE, which the
     # `shell: pwsh` workflow epilogue exits with).

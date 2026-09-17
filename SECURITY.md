@@ -23,11 +23,14 @@ the **install path**, not the shell aliases:
   `$HOME`, set the CurrentUser execution policy, and install packages. The scoop
   installer is fetched to a string and can be hash-gated via
   `DOTFILES_SCOOP_SHA256` before execution.
-- **`nvim-sync.ps1` / `starship-sync.ps1`** — mirror content from
-  [`dotfiles-core`](https://github.com/dotgibson/dotfiles-core). Both provenance
-  markers (`.core-ref`) are treated as untrusted, PR-editable input: the recorded
-  commit must be a valid git SHA, and the clone remote is restricted to an
-  allowlist, so a hostile PR cannot redirect CI's outbound fetch.
+- **`nvim-sync.ps1` / `starship-sync.ps1`** — vendor content from
+  [`dotfiles-nvim`](https://github.com/dotgibson/dotfiles-nvim) and
+  [`dotfiles-core`](https://github.com/dotgibson/dotfiles-core) respectively. Both
+  provenance markers (`nvim.lock`, `.core-ref`) are treated as untrusted,
+  PR-editable input: the recorded commit must be a valid git SHA, and the clone
+  target is restricted to an allowlist, so a hostile PR cannot redirect CI's
+  outbound fetch. `nvim.lock` names its source as an `owner/name` slug and the gate
+  builds the URL itself, so only an exact allowlisted slug can steer the fetch.
 - **GitHub Actions workflows** — every third-party action is pinned to a full
   40-character commit SHA.
 

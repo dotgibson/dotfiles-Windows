@@ -1,0 +1,21 @@
+# dotfiles-Windows :: vendored editor provenance (written by nvim-sync.ps1)
+# ---------------------------------------------------------------------------
+# nvim/ IS NOT AUTHORED HERE. It is a vendored copy of dotgibson/dotfiles-nvim,
+# which owns the editor: its own gate (headless startup, :checkhealth, luacheck
+# against a real Neovim), its own release line, its own plugin-pin cadence. This
+# repo vendors no core/ at all, so the editor is the one shared asset it carries
+# and this file records WHICH revision of it.
+#
+# Field names are dotfiles-core/nvim.lock's on purpose: Core vendors the same
+# repo behind the same shape, and scripts/fleet-drift.sh compares the two pins
+# directly. Do NOT hand-edit this file or the tree - tests/Assert-NvimParity.ps1
+# re-clones at nvim_sha and fails on any difference. Re-run nvim-sync.ps1, and
+# commit nvim/ and this file TOGETHER: a window where one moved and the other
+# did not is indistinguishable from a hand-edit.
+# ---------------------------------------------------------------------------
+nvim_repo=dotgibson/dotfiles-nvim
+nvim_branch=main
+nvim_sha=7ba9457f0a1b795d9fe67870ba4fc7cab779f64e
+nvim_version=1.0.0
+nvim_tag=v1.0.0
+synced=2026-09-17T23:14:57Z

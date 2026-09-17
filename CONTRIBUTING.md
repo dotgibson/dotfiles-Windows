@@ -46,10 +46,14 @@ otherwise run different code than CI.
 ## The rules that bite
 
 - **Don't hand-edit `nvim/`, `starship/starship.toml` or `theme/palette.toml`.** They
-  are mirrored from [`dotfiles-core`](https://github.com/dotgibson/dotfiles-core) and
-  CI diffs them against the commit recorded in `.core-ref`. Fix it in Core, then re-run
-  `nvim-sync.ps1` / `starship-sync.ps1` / `theme-sync.ps1`. A local edit will fail the
-  parity gate, and `robocopy /MIR` would purge nvim's on the next sync anyway.
+  are vendored — `nvim/` from
+  [`dotfiles-nvim`](https://github.com/dotgibson/dotfiles-nvim), the other two from
+  [`dotfiles-core`](https://github.com/dotgibson/dotfiles-core) — and CI diffs them
+  against the commit recorded in `nvim.lock` and in each `.core-ref`. Fix it
+  **upstream**, then re-run `nvim-sync.ps1` / `starship-sync.ps1` /
+  `theme-sync.ps1`. A local edit will fail the parity gate, and `robocopy /MIR`
+  would purge nvim's on the next sync anyway. Commit `nvim/` and `nvim.lock`
+  together: a window where one moved and the other did not reads as drift.
 - **Don't hand-edit a colour.** Every hex inside a `# core:theme:gen <id>` marker in
   `powershell/core/` and `psmux/`, and every colour in the `Tokyo Night` scheme in
   `windows-terminal/settings.json`, is rendered from `theme/palette.toml` by
