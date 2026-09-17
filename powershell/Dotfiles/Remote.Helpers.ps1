@@ -11,7 +11,7 @@
 # ============================================================================
 
 # --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
-# provides: ConvertTo-DotSshAlias, Get-DotWslSshPlan, Format-DotWslSshConfig, Get-DotRemoteWiringResult, Get-DotScoopJunctionPlan, Get-DotSshdServicePlan
+# provides: ConvertTo-DotSshAlias, Get-DotWslSshPlan, Format-DotWslSshConfig, Get-DotRemoteWiringResult, Get-DotScoopJunctionPlan, Get-DotSshdServicePlan, Get-DotSshdShellVerdict
 # requires: New-DoctorResult
 
 # --- ConvertTo-DotSshAlias ----------------------------------------------------
@@ -369,5 +369,103 @@ function Get-DotSshdServicePlan {
         Steps    = $steps.ToArray()
         Warnings = $warnings.ToArray()
         Reason   = "$action`: $($steps -join ', ')"
+    }
+}
+
+# --- Get-DotSshdShellVerdict --------------------------------------------------
+# Is HKLM\SOFTWARE\OpenSSH\DefaultShell a shell sshd can actually launch — today,
+# and after the next PowerShell update?
+#
+# This is the bug that cost the most and read as something else entirely. The key
+# was never wrong; DefaultShell pointed at
+#     C:\Program Files\WindowsApps\Microsoft.PowerShell_7.6.5.0_x64__...\pwsh.exe
+# and PowerShell had moved to 7.6.6.0, so Windows had deleted that directory. sshd
+# refuses the login BEFORE authentication completes —
+#     User garrett not allowed because shell ...pwsh.exe does not exist
+# — and the client is told only `Permission denied (publickey,keyboard-interactive)`.
+# Every symptom points at keys. Nothing points at the shell.
+#
+# Two INDEPENDENT disqualifiers, and a path has to clear both:
+#
+#   • VERSION-PINNED. A Store/MSIX pwsh resolves to a directory whose name carries
+#     the version, and that directory is removed once superseded. Same trap
+#     Get-DotStablePwshPath exists for on scheduled tasks — DefaultShell is simply
+#     the third consumer, and the one whose failure locks you out of the box.
+#
+#   • REPARSE POINT. The obvious escape, the per-user app alias at
+#     %LOCALAPPDATA%\Microsoft\WindowsApps\pwsh.exe, is version-stable — and an
+#     AppExecLink. sshd runs in the services.exe lineage (0x105), which refuses to
+#     traverse a reparse point created by a non-admin, so it reports "does not
+#     exist" exactly as if the file were missing. Swapping one for the other looks
+#     like a fix and changes nothing.
+#
+# Pure, as with everything else here: the caller does the registry read, the
+# Test-Path and the attribute check, and this says what they mean.
+function Get-DotSshdShellVerdict {
+    [OutputType([pscustomobject])]
+    param(
+        # HKLM\SOFTWARE\OpenSSH\DefaultShell, or '' when the value is not set.
+        [string]$Path = '',
+        [bool]$Exists,
+        # (Get-Item -Force).Attributes carries ReparsePoint.
+        [bool]$IsReparsePoint
+    )
+
+    # Unset is legitimate: sshd falls back to cmd.exe, which always exists. Worth
+    # reporting, never worth "fixing" behind someone's back.
+    if (-not $Path.Trim()) {
+        return [pscustomobject]@{
+            Status     = 'unset'
+            Path       = ''
+            Detail     = 'not set — sshd falls back to cmd.exe'
+            Hint       = 'remote-install points it at a version-stable pwsh'
+            NeedsFix   = $false
+        }
+    }
+
+    # A version-stamped MSIX package directory. Matched on the package-dir shape
+    # rather than on 'pwsh', so a Store-installed anything is caught.
+    $versionPinned = $Path -match '(?i)\\WindowsApps\\[^\\]+_\d+(\.\d+)+_'
+
+    if (-not $Exists) {
+        $why = if ($versionPinned) {
+            'the version-pinned package directory it names is GONE — a PowerShell update deleted it'
+        } else { 'the file it names does not exist' }
+        return [pscustomobject]@{
+            Status   = 'broken'
+            Path     = $Path
+            Detail   = "every ssh login is refused before auth: $why"
+            Hint     = 'remote-install — repoint it at a version-stable pwsh'
+            NeedsFix = $true
+        }
+    }
+
+    if ($IsReparsePoint) {
+        return [pscustomobject]@{
+            Status   = 'broken'
+            Path     = $Path
+            Detail   = 'it is a reparse point, and sshd (services.exe lineage, 0x105) cannot traverse one — it reads as "does not exist"'
+            Hint     = 'remote-install — repoint it at a real file, not an app-execution alias'
+            NeedsFix = $true
+        }
+    }
+
+    # Exists today, but carries its own expiry date.
+    if ($versionPinned) {
+        return [pscustomobject]@{
+            Status   = 'fragile'
+            Path     = $Path
+            Detail   = 'version-pinned — it works now and breaks on the next PowerShell update, locking ssh out'
+            Hint     = 'install the MSI build and re-run remote-install'
+            NeedsFix = $true
+        }
+    }
+
+    return [pscustomobject]@{
+        Status   = 'ok'
+        Path     = $Path
+        Detail   = 'real file, not version-pinned, not a reparse point'
+        Hint     = ''
+        NeedsFix = $false
     }
 }

@@ -424,3 +424,108 @@ Describe 'Get-DotSshdServicePlan' {
         $p.Action | Should -Be 'ok'
     }
 }
+
+# ============================================================================
+#  Get-DotSshdShellVerdict — the lockout that read as a key problem.
+#
+#  Every path below is a real one off this host. The first case is the actual
+#  failure: DefaultShell naming a Store pwsh directory that a PowerShell update
+#  had already deleted, which sshd reports to the client only as
+#  "Permission denied (publickey,keyboard-interactive)".
+# ============================================================================
+Describe 'Get-DotSshdShellVerdict' {
+    BeforeAll {
+        $script:Deleted  = 'C:\Program Files\WindowsApps\Microsoft.PowerShell_7.6.5.0_x64__8wekyb3d8bbwe\pwsh.exe'
+        $script:Current  = 'C:\Program Files\WindowsApps\Microsoft.PowerShell_7.6.6.0_x64__8wekyb3d8bbwe\pwsh.exe'
+        $script:Alias    = 'C:\Users\Garrett\AppData\Local\Microsoft\WindowsApps\pwsh.exe'
+        $script:Msi      = 'C:\Program Files\PowerShell\7\pwsh.exe'
+        $script:Win51    = 'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe'
+    }
+
+    It 'calls the real lockout broken, and names the update as the cause' {
+        $v = Get-DotSshdShellVerdict -Path $script:Deleted -Exists $false -IsReparsePoint $false
+        $v.Status   | Should -Be 'broken'
+        $v.NeedsFix | Should -BeTrue
+        $v.Detail   | Should -Match 'version-pinned package directory it names is GONE'
+    }
+
+    It 'calls a version-pinned path that still exists FRAGILE, not ok' {
+        # The trap in the trap: this works today. Grading it ok would leave the box
+        # armed to lock itself out on the next PowerShell update.
+        $v = Get-DotSshdShellVerdict -Path $script:Current -Exists $true -IsReparsePoint $false
+        $v.Status   | Should -Be 'fragile'
+        $v.NeedsFix | Should -BeTrue
+        $v.Detail   | Should -Match 'next PowerShell update'
+    }
+
+    It 'rejects the per-user app alias even though it exists and never moves' {
+        # The obvious escape from version-pinning, and it does not work: an
+        # AppExecLink is a reparse point, and sshd (services.exe lineage, 0x105)
+        # reports it as "does not exist" exactly like the deleted directory.
+        $v = Get-DotSshdShellVerdict -Path $script:Alias -Exists $true -IsReparsePoint $true
+        $v.Status   | Should -Be 'broken'
+        $v.NeedsFix | Should -BeTrue
+        $v.Detail   | Should -Match '0x105'
+    }
+
+    It 'accepts the MSI pwsh, which is what actually fixed the host' {
+        $v = Get-DotSshdShellVerdict -Path $script:Msi -Exists $true -IsReparsePoint $false
+        $v.Status   | Should -Be 'ok'
+        $v.NeedsFix | Should -BeFalse
+    }
+
+    It 'accepts Windows PowerShell 5.1 as a real, never-moving path' {
+        $v = Get-DotSshdShellVerdict -Path $script:Win51 -Exists $true -IsReparsePoint $false
+        $v.Status | Should -Be 'ok'
+    }
+
+    It 'treats an unset value as reportable, not broken' {
+        # sshd falls back to cmd.exe. Worth showing; never worth "fixing" silently.
+        $v = Get-DotSshdShellVerdict -Path '' -Exists $false -IsReparsePoint $false
+        $v.Status   | Should -Be 'unset'
+        $v.NeedsFix | Should -BeFalse
+    }
+
+    It 'treats whitespace like unset rather than as a missing file' {
+        (Get-DotSshdShellVerdict -Path '   ' -Exists $false -IsReparsePoint $false).Status |
+            Should -Be 'unset'
+    }
+
+    It 'reports a plain missing path without blaming a version pin' {
+        $v = Get-DotSshdShellVerdict -Path 'C:\tools\myshell.exe' -Exists $false -IsReparsePoint $false
+        $v.Status | Should -Be 'broken'
+        $v.Detail | Should -Not -Match 'version-pinned'
+    }
+
+    It 'matches the package-dir SHAPE, so any Store package is caught, not just pwsh' {
+        $v = Get-DotSshdShellVerdict -Path 'C:\Program Files\WindowsApps\Contoso.Shell_1.2.3.4_x64__abc\sh.exe' `
+            -Exists $true -IsReparsePoint $false
+        $v.Status | Should -Be 'fragile'
+    }
+
+    It 'does not call an ordinary WindowsApps path version-pinned without a version' {
+        # The machine-wide alias has no version segment and is a legitimate target.
+        $v = Get-DotSshdShellVerdict -Path 'C:\Program Files\WindowsApps\pwsh.exe' `
+            -Exists $true -IsReparsePoint $false
+        $v.Status | Should -Be 'ok'
+    }
+
+    It 'prefers the reparse verdict over fragility when a path is both' {
+        # Both disqualify; the reparse one is reported because it fails NOW rather
+        # than at the next update.
+        $v = Get-DotSshdShellVerdict -Path $script:Current -Exists $true -IsReparsePoint $true
+        $v.Status | Should -Be 'broken'
+        $v.Detail | Should -Match 'reparse'
+    }
+
+    It 'always carries a hint when it needs a fix, so status is actionable' {
+        foreach ($case in @(
+            @{ P = $script:Deleted; E = $false; R = $false }
+            @{ P = $script:Current; E = $true;  R = $false }
+            @{ P = $script:Alias;   E = $true;  R = $true  }
+        )) {
+            $v = Get-DotSshdShellVerdict -Path $case.P -Exists $case.E -IsReparsePoint $case.R
+            $v.Hint | Should -Not -BeNullOrEmpty
+        }
+    }
+}

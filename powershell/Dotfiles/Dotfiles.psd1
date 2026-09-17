@@ -58,6 +58,7 @@
         'Get-DotRemoteWiringResult'
         'Get-DotScoopJunctionPlan'
         'Get-DotSshdServicePlan'
+        'Get-DotSshdShellVerdict'
         # doctor: result model, aggregation + pure logic (host probes stay in the fragment)
         'New-DoctorResult'
         'Get-DoctorSummary'
