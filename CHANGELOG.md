@@ -59,6 +59,35 @@ so entries are grouped by theme rather than strict semver releases.
 
 ### Fixed
 
+- **A sync bot that loses its App token now says so, instead of quietly reverting to a PR
+  nobody can merge (#269).** The mint step added in #268 carries `continue-on-error: true`,
+  which is right — a fork, or a repo the App was never installed on, must not go red — and
+  was also silent. When the mint *failed* rather than being skipped (the installation
+  pulled, so `create-github-app-token` 404s on `/installation`) the token came back empty,
+  `${{ steps.app.outputs.token || github.token }}` fell back to `GITHUB_TOKEN`, and the job
+  still concluded **success**. That is the #265 failure re-entering through its own
+  fallback: the PR opens, `ci.yml` never fires on it, no required context arrives, and it
+  sits `BLOCKED` until a human closes and reopens it. It happened the day #268 landed —
+  `theme-sync` run 35223874896, all three bots degraded for most of a day — and what
+  noticed was a *different* repo's weekly sweep (dotgibson/dotfiles-core#1116), not this
+  one's own green run. All three bots now carry an identical step between the mint and the
+  checkout, gated on `steps.app.outputs.token == ''`, which is the one test that covers
+  **both** branches: a skipped step and a `continue-on-error` failure leave the output
+  empty for the same reason, where `steps.app.outcome == 'failure'` would miss the skip and
+  `steps.app.conclusion` is `success` in both. It raises a `::warning::` and a
+  `$GITHUB_STEP_SUMMARY` note that name the *consequence* rather than the cause — the cause
+  is the part a reader can already see — and pass `steps.app.outcome` through, so `skipped`
+  (no variable or secret reached the run) reads differently from `failure` (the App could
+  not mint for this repo; go look at the installation). Deliberately **still not a
+  failure**: a fork must not go red, and a real drift from Core is worth landing behind a
+  manual nudge rather than not landing at all. New `tests/SyncWorkflows.Tests.ps1` pins the
+  block byte-identical across the three files and ordered *before* the checkout (a bare
+  `if:` implicitly ANDs `success()`, so after it a checkout failure would swallow the
+  warning) — nothing else read these workflows at all, which is how a fix applied to two of
+  three would have shipped green.
+  (`.github/workflows/nvim-sync.yml`, `starship-sync.yml`, `theme-sync.yml`,
+  `tests/SyncWorkflows.Tests.ps1`)
+
 - **The three sync bots open their PRs as the fleet App, so CI actually runs on them
   (#265).** `nvim-sync`, `starship-sync` and `theme-sync` all pushed the branch and opened
   the PR with `GH_TOKEN: ${{ github.token }}`, and GitHub deliberately starts **no**
