@@ -17,8 +17,12 @@ name: theme-sync
 # FLEET_APP_CLIENT_ID variable + FLEET_APP_PRIVATE_KEY secret, dotfiles-core's
 # GITHUB-APP-AUTH.md) makes the PR App-authored, and its CI then runs unattended. Same
 # problem, same fix, as dotfiles-core's freshness.yml. It DEGRADES rather than fails:
-# with no App configured the mint is skipped and the bot falls back to GITHUB_TOKEN, so
-# the PR still opens — it just needs the manual nudge again.
+# with no App token the bot falls back to GITHUB_TOKEN, so the PR still opens — it just
+# needs the manual nudge again. That degraded run is now LOUD (#269): an empty token,
+# whether the mint was SKIPPED (no App configured here) or ATTEMPTED AND FAILED (the
+# install pulled — continue-on-error swallowed the 404 and the job still went green, run
+# 35223874896), raises a ::warning:: and a step-summary note naming the consequence, so a
+# degraded run can no longer read as a clean one.
 
 on:
   schedule:
@@ -58,7 +62,8 @@ jobs:
       # Mint a token scoped to THIS repo so the PR is opened as the App bot rather than
       # GITHUB_TOKEN — the one thing that lets its CI run without a human close+reopen.
       # continue-on-error: a repo without the App (a fork, or the install pulled) falls
-      # back to GITHUB_TOKEN below; the PR still opens, it just stays BLOCKED as before.
+      # back to GITHUB_TOKEN below; the PR still opens, it just stays BLOCKED as before —
+      # and the step after this one says so out loud instead of letting it pass as green.
       - name: Mint a scoped installation token (if the App is installed here)
         id: app
         if: vars.FLEET_APP_CLIENT_ID != '' && env.HAS_APP_KEY == 'true'
@@ -76,6 +81,50 @@ jobs:
           # able to rewrite CI all along.
           permission-contents: write
           permission-pull-requests: write
+      # #268 stopped one step short of this. `continue-on-error` on the mint above means a
+      # mint that FAILS — the App installation pulled, so create-github-app-token 404s on
+      # /installation — is indistinguishable from one that was never attempted: both leave
+      # the output empty, `|| github.token` quietly takes over, and the run still concludes
+      # SUCCESS. That is the #265 failure re-entering through its own fallback, and it did:
+      # theme-sync run 35223874896 opened a PR that sat BLOCKED, and a DIFFERENT repo's
+      # weekly sweep caught it a day later — this repo's own green run said nothing. So say
+      # it out loud. Gate on the TOKEN, not on steps.app.outcome: the token is empty in BOTH
+      # branches, where `outcome == 'failure'` would miss the skip and `conclusion` is
+      # `success` in both. Still a warning and not an `exit 1`, deliberately — a fork must
+      # not go red, and a real drift from Core is worth landing behind a manual nudge rather
+      # than not landing at all (#269).
+      - name: Warn if no App token was minted (the PR will open BLOCKED)
+        if: steps.app.outputs.token == ''
+        # Explicit because this block is identical in all three sync bots and nvim-sync runs
+        # on windows-latest, where the default shell is pwsh, not bash.
+        shell: bash
+        env:
+          # Through `env:`, not spliced into the body — the house rule for every context
+          # value a run block reads. `skipped` = no FLEET_APP_CLIENT_ID variable or
+          # FLEET_APP_PRIVATE_KEY secret reached this run; `failure` = the mint WAS attempted
+          # and returned no token. Only `outcome` separates them: `conclusion` is `success`
+          # in both, which is the useless signal.
+          MINT: ${{ steps.app.outcome }}
+        run: |
+          set -euo pipefail
+          # One line: an annotation does not wrap, and a newline inside one needs %0A.
+          echo "::warning::The fleet App token was not minted (mint step: ${MINT:-unknown}), so any PR this run opens is opened by GITHUB_TOKEN. GitHub's recursion guard means ci.yml will not fire on it, no required context will arrive, and the PR will sit BLOCKED until someone closes and reopens it (#265). Check that dotgibson-fleet-sync is still installed on this repo (dotfiles-core's GITHUB-APP-AUTH.md)."
+          {
+            echo "### ⚠️ No fleet App token — any PR this run opens will sit BLOCKED"
+            echo
+            echo "The mint step was \`${MINT:-unknown}\`, so the branch is pushed and the PR"
+            echo "opened with \`GITHUB_TOKEN\`. GitHub starts **no** workflow run from an event"
+            echo "that token created, so \`ci.yml\` never fires on the PR, not one of the"
+            echo "contexts the \`main\` ruleset requires ever arrives, and it stays \`BLOCKED\`"
+            echo "until a human closes and reopens it (#265)."
+            echo
+            echo "\`skipped\` means no \`FLEET_APP_CLIENT_ID\` variable or"
+            echo "\`FLEET_APP_PRIVATE_KEY\` secret reached this run; \`failure\` means the mint"
+            echo "was attempted and returned nothing. This job only runs on the canonical repo,"
+            echo "so either way it is actionable here: check that \`dotgibson-fleet-sync\` is"
+            echo "still installed on this repo, and that the variable and the secret still"
+            echo "exist (dotfiles-core's \`GITHUB-APP-AUTH.md\`)."
+          } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: true # the bot pushes its branch before opening the PR
