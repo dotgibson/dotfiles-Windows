@@ -1,4 +1,4 @@
-<!-- desktop-parity:gen -->
+<!-- core:desktop-parity:gen parity -->
 <!-- ============================================================================
      GENERATED BLOCK — do not edit this text in dotfiles-Windows or dotfiles-MacBook.
      Canonical source : dotfiles-core/desktop/PARITY.shared.md
@@ -161,7 +161,7 @@ Nerd Fonts webfont. Same icon on both.
 - **clock + battery** also appear here even though the macOS tmux status bar shows
   them too — a deliberate choice for cross-host parity.
 
-<!-- desktop-parity:end -->
+<!-- core:desktop-parity:end parity -->
 
 ## Host-specific addenda (Windows) — `deliberate`
 
