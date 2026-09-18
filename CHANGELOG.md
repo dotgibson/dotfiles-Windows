@@ -47,6 +47,25 @@ so entries are grouped by theme rather than strict semver releases.
 
 ### Changed
 
+- **`desktop/PARITY.md`'s generated block takes the canonical marker, and the marker now
+  says who writes it** (dotgibson/dotfiles-core#1129). The pair became
+  `<!-- core:desktop-parity:gen parity -->` … `<!-- core:desktop-parity:end parity -->`,
+  matching the `core:<ns>:gen <id>` grammar every other generated region in the fleet uses.
+  **Not a tidy-up.** `core:` is *provenance* — it names the repo whose generator owns the
+  region — and this file is precisely where that matters: nothing in this repo writes the
+  block, nothing here gates it, and until now its only clue that `dotfiles-core` rewrites it
+  was a marker that did not say so. The block id is the other half; the old pair carried
+  none, so the file format could hold exactly one generated region, forever.
+
+  **The bytes between the markers did not move.** Core renders whichever marker form the
+  target file carries, echoed back verbatim, so this repo and `dotfiles-MacBook` can be
+  renamed in separate commits without the weekly `parity-check` sweep reding in between —
+  which is the whole reason Core learned to accept both forms first
+  (dotgibson/dotfiles-core#1143) rather than changing the string in one place and breaking
+  two others. Core drops the legacy arm once both copies carry the new pair. Nothing here
+  reads these markers — no Pester test, no workflow, no gate — so this is a two-line change
+  in one file.
+
 - **`nvim/` is vendored from `dotfiles-nvim` directly, and its pin is a root-level
   `nvim.lock`** (dotgibson/dotfiles-core#1124). `dotfiles-core`'s
   `NVIM-SPLIT-PROPOSAL.md` extracted the editor into its own repo with its own gate —
