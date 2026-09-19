@@ -270,9 +270,9 @@ Project Link: [dotgibson](https://github.com/dotgibson/)
 [license-shield]: https://img.shields.io/github/license/dotgibson/dotfiles-Windows.svg?style=plastic
 [license-url]: https://github.com/dotgibson/dotfiles-Windows/blob/main/LICENSE
 [docs]: https://dotgibson.github.io/dotfiles-web/docs
-[powershell-shield]: https://img.shields.io/github/v/release/PowerShell/PowerShell?style=plastic&logo=powershell&logoColor=white&label=PowerShell&labelColor=5391FE&color=3D59A1
+[powershell-shield]: https://img.shields.io/github/v/release/PowerShell/PowerShell?style=plastic&label=PowerShell&labelColor=5391FE&color=3D59A1
 [powershell-url]: https://github.com/PowerShell/PowerShell
-[wt-shield]: https://img.shields.io/github/v/release/microsoft/terminal?style=plastic&logo=windowsterminal&logoColor=white&label=Windows%20Terminal&labelColor=4D4D4D&color=3D59A1
+[wt-shield]: https://img.shields.io/github/v/release/microsoft/terminal?style=plastic&label=Windows%20Terminal&labelColor=4D4D4D&color=3D59A1
 [wt-url]: https://github.com/microsoft/terminal
 [scoop-shield]: https://img.shields.io/badge/Scoop-555555?style=plastic
 [scoop-url]: https://scoop.sh
