@@ -6,6 +6,15 @@ so entries are grouped by theme rather than strict semver releases.
 
 ## [Unreleased]
 
+### Security
+
+- **CI refuses a `pull_request_target` trigger.** That trigger runs a fork's pull request
+  with this repo's secrets and a write-capable token. The new `ci-floor.yml` workflow
+  checks out `dotfiles-core@v7` and runs its `check-modern.sh --banned-triggers` over this
+  repo's workflows, the same rule the OS repos get through Core's `lint-call.yml`
+  (dotgibson/dotfiles-core#1215). Nothing here uses the trigger today. The check passes
+  with a warning until the Core release that ships the mode moves the `v7` tag.
+
 ## [v1.8.0] - 2026-09-29
 
 ### Added
