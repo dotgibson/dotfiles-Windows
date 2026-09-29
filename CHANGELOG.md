@@ -6,6 +6,8 @@ so entries are grouped by theme rather than strict semver releases.
 
 ## [Unreleased]
 
+## [v1.8.0] - 2026-09-29
+
 ### Added
 
 - **The README opens with a rendered terminal hero** (dotgibson/dotfiles-core#948). Every
@@ -44,6 +46,32 @@ so entries are grouped by theme rather than strict semver releases.
   quoted keys of `Get-TaskVerbs`, and whether `test` names the suite runner by path —
   so `tests/Task.Tests.ps1` pins that shape, the exact verb set in the contract's order,
   and that every step names a script that exists.
+
+- **`remote-install` runs the host sshd as a service that restarts itself (#266).** The
+  box's front door was a bare `sshd.exe` with nothing supervising it (`sc.exe query sshd`
+  returned 1060), so every crash and every reboot needed a human. `remote-install` now
+  registers sshd as an Automatic service with recovery actions (restart after 5s / 10s /
+  30s, failure count reset daily), and `remote-status` reports the same plan while
+  changing nothing. Two traps the planner exists for: **registration is not health** —
+  scoop's `install-sshd.ps1` registers with "take no action" recovery, so recovery is
+  probed separately via `sc.exe qfailure` — and the ImagePath goes through scoop's
+  `current` **junction**, never its resolved target, because a version-pinned path dies
+  silently on the next `scoop update openssh` (the `Get-DotStablePwshPath` trap). It also
+  warns when `openssh` is not held, since a running service keeps the daily `scoop update *`
+  from replacing its binaries. This narrows `34-remote.ps1`'s standing rule rather than
+  reversing it: ports, keys, firewall rules and `DefaultShell` still belong to the
+  runbook; only *supervision* moved into the verbs, which stay explicit and refuse without
+  a token. (`powershell/os/34-remote.ps1`, `powershell/Dotfiles/Remote.Helpers.ps1`,
+  `tests/Remote.Tests.ps1`, `docs/REMOTE-ACCESS.md`)
+
+- **Alt+C opens PSFzf's directory picker (#246).** `PARITY.md` listed Alt+C as `aligned`
+  for years while neither shell bound it. It is not a second key for Alt+Z: Alt+Z is a
+  zoxide frecency jump to anywhere, Alt+C is "cd into a subdirectory of here". It follows
+  the lazy-load shape of the Ctrl+T and Ctrl+R stubs, so PSFzf's import stays off the
+  render path. The loader resolves `Invoke-FzfPsReadlineHandlerSetLocation` with
+  `Get-Command` rather than calling it blind, because that name was never verified
+  against the pinned PSFzf. If it is missing, the first press is swallowed and the next
+  one works, rather than printing an error at the prompt. (`powershell/core/10-tools.ps1`)
 
 ### Changed
 
@@ -114,6 +142,40 @@ so entries are grouped by theme rather than strict semver releases.
   to say so.
 
 ### Fixed
+
+- **`remote-status` / `remote-install` guard sshd's `DefaultShell`, which could lock you
+  out of the box (#267).** A healthy sshd refuses *every* login when
+  `HKLM\SOFTWARE\OpenSSH\DefaultShell` names a shell it cannot launch, and it rejects
+  before authentication completes, so the client sees only `Permission denied
+  (publickey,keyboard-interactive)` — every symptom points at keys. It happened here when
+  the Store pwsh moved 7.6.5.0 → 7.6.6.0 and Windows deleted the old package directory.
+  This is the third consumer of a version-pinned pwsh, after scheduled tasks and the sshd
+  ImagePath (#266). `Get-DotSshdShellVerdict` grades the value against two independent
+  disqualifiers, because the obvious fix for one trips the other:
+  - A **version-pinned** Store directory is graded `fragile` while it still exists.
+  - The per-user app alias is version-stable, but it is a **reparse point**, which sshd
+    (0x105 lineage) reports as "does not exist" exactly like the deleted directory.
+
+  `remote-status` reports the value next to the service. `remote-install` repoints it at
+  the first machine-wide real file it finds, preferring the MSI pwsh, and says so plainly
+  when it has to fall back to Windows PowerShell 5.1. The docs note that winget's
+  `Microsoft.PowerShell` manifest can be msix-only: the MSI has to come from the GitHub
+  release, and installing it retires this failure for all three consumers.
+  (`powershell/os/34-remote.ps1`, `powershell/Dotfiles/Remote.Helpers.ps1`,
+  `tests/Remote.Tests.ps1`, `docs/REMOTE-ACCESS.md`)
+
+- **The daily maintenance run reports a per-app scoop upgrade failure instead of logging
+  `ok` (#263).** `scoop update *` exits 0 even when one app fails, so the step's exit-code
+  check could not see it. tailscale failed every day from 2026-08-20 to 2026-09-16,
+  re-downloading a 36.6 MB MSI each time, while the log said `ok scoop upgrade (apps)`.
+  `Get-DotScoopUpgradeOutcome` reads the result per app out of the step's output. It keys
+  on the *block*: an app has failed when its `Updating '<app>'` block never reaches "was
+  installed successfully!", and an `ERROR` line inside the block is kept as the reason. The
+  step sets `$LASTEXITCODE` itself, so the runner's existing "FAIL … — continuing" path
+  makes one bad app visible without aborting the run. The root cause is not fixed here:
+  tailscale's `pre_uninstall` needs admin and the daily task runs unelevated, so it needs a
+  `scoop hold` or the elevated-task route. (`powershell/Dotfiles/Maint.Helpers.ps1`,
+  `tests/Maint.Tests.ps1`)
 
 - **A sync bot that loses its App token now says so, instead of quietly reverting to a PR
   nobody can merge (#269).** The mint step added in #268 carries `continue-on-error: true`,
