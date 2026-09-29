@@ -1,0 +1,43 @@
+name: ci-floor
+
+# Rule 10 of dotfiles-core's CI floor (scripts/modern-baseline.yml): no workflow in this
+# repo may declare `pull_request_target`. That trigger runs a fork's pull request with this
+# repo's secrets and a write-capable token, which is the precondition for a "pwn request".
+# The OS repos get the same check from Core's reusable lint-call.yml@v7. This repo does not
+# call that workflow, so it runs the check directly (dotgibson/dotfiles-core#1215).
+#
+# Core owns the walker, so every repo applies one definition of "declares the trigger":
+# dotfiles-core@v7 is checked out at the root and `check-modern.sh --banned-triggers` runs
+# over this repo, checked out into `caller/`. A name in a comment, a branch filter or an
+# `env:` value does not fire; only a first-level entry under `on:` does. Until the Core
+# release that ships the mode moves the v7 tag, the probe warns and passes.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  banned-triggers:
+    name: banned workflow triggers (Core floor rule 10)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          repository: dotgibson/dotfiles-core
+          ref: v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          path: caller
+      - name: "No pull_request_target under on:"
+        run: |
+          if ! grep -q -- '^--banned-triggers)' scripts/check-modern.sh 2>/dev/null; then
+            echo "::warning::dotfiles-core@v7 predates check-modern.sh --banned-triggers; skipping this run"
+            exit 0
+          fi
+          bash scripts/check-modern.sh --banned-triggers caller
