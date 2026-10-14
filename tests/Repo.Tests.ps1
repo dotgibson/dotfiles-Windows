@@ -128,6 +128,13 @@ Describe 'repo hygiene' {
         $t = Get-Content (Join-Path $RepoRoot 'powershell/core/10-tools.ps1') -Raw
         $t | Should -Not -Match '(?m)^\s*Import-Module PSReadLine\s*$'
         $t | Should -Match '-not \(Get-Module PSReadLine\)'
+        # ...and a session with NO PSReadLine must not die later either: every key
+        # binding outside the main block is gated on the recorded outcome, so the
+        # tool inits (fzf, atuin, zoxide, sessionizer) still run without it.
+        $t | Should -Match '\$script:DotPsrl = \[bool\]\(Get-Module PSReadLine\)'
+        ([regex]::Matches($t, [regex]::Escape('if ($script:DotPsrl)'))).Count |
+            Should -BeGreaterOrEqual 4 -Because 'the main block plus the fzf, atuin and sessionizer bindings'
+        $t | Should -Match '\(Test-Cmd zoxide\) -and \$script:DotPsrl' -Because 'the Alt+z binding is gated inline'
     }
     It 'Install-Packages.ps1 skips a managed module the host already ships at or above its pin (#286)' {
         # The pin is a floor the host must meet, compared with the shared helper
