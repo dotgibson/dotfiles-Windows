@@ -6,6 +6,28 @@ so entries are grouped by theme rather than strict semver releases.
 
 ## [Unreleased]
 
+### Fixed
+
+- **A contended init-cache write no longer prints at the prompt or hands back a file it
+  never wrote** (#287). Two shells starting together — the psmux `__warm__` pool filling
+  plus the session's first pane, right after `init-cache-clear` or a recipe edit — both
+  regenerated `mise-shims.ps1`, and `Get-InitCache` (`core/10-tools.ps1`) published it with
+  a bare `Set-Content` on the shared path. Under a second writer `Set-Content` retries its
+  open with a different access and share mode (PowerShell/PowerShell#27947, #24774): the
+  loser surfaced a non-terminating error its `catch` never saw, returned the path anyway,
+  and could leak a write-only handle that kept the file locked for the next shell. The
+  function now writes a per-process `<name>.<pid>.tmp` beside the target and renames it
+  over with `[IO.File]::Move`, so no two writers share a path, a reader never sees a
+  half-written file, and every failure is a real exception the `catch` swallows; when the
+  rename loses to a sibling mid dot-source it serves that sibling's complete, identical
+  file instead of spawning the tool again, and `init-cache-clear` sweeps stray `*.tmp`.
+  Two riders. `mise-shims` is a cache-name-only key with no binary to stat, so it was
+  regenerated on every start that missed the pane fast path; `Get-InitCache -Tool mise`
+  now keys it on the real `mise.exe` mtime. And `Export-DotCmdCache` (`core/00-aliases.ps1`),
+  which flushes `cmd-cache.txt` at the end of every load, had the same unguarded
+  `Set-Content`; it now passes `-ErrorAction Stop` so its own `catch` works. New
+  `tests/InitCache.Tests.ps1` lifts the function out of the fragment and pins all of it.
+
 ### Security
 
 - **CI refuses a `pull_request_target` trigger.** That trigger runs a fork's pull request

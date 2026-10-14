@@ -214,8 +214,13 @@ $global:DotfilesInitCacheDir = Join-Path $env:LOCALAPPDATA 'dotfiles\init-cache'
 function global:Get-InitCache {
     param(
         [Parameter(Mandatory)][string]$Name,
-        [Parameter(Mandatory)][scriptblock]$Generate
+        [Parameter(Mandatory)][scriptblock]$Generate,
+        # The binary whose mtime keys the cache, when it isn't $Name. A cache-name-only
+        # key ('mise-shims' is a second recipe for the mise binary) has nothing on PATH
+        # to stat, so without this it would regenerate on every start (#287).
+        [string]$Tool
     )
+    if (-not $Tool) { $Tool = $Name }
     $cacheFile = Join-Path $global:DotfilesInitCacheDir "$Name.ps1"
 
     # The cache key has TWO inputs, so a full hit means BOTH the tool and the recipe
@@ -235,7 +240,7 @@ function global:Get-InitCache {
     } else { $null }
     $marker = "# initcache-hash: $genHash"
     $hashOk = if ($null -eq $genHash) { $true }
-              else { (Get-Content $cacheFile -TotalCount 1 -ErrorAction SilentlyContinue) -eq $marker }
+              else { (Get-Content $cacheFile -TotalCount 1 -ErrorAction Ignore) -eq $marker }
 
     # --- psmux fast-path: skip the EXPENSIVE half of validation --------------------
     # A psmux split inherits its parent shell's env, so re-resolving the tool exe on
@@ -254,10 +259,12 @@ function global:Get-InitCache {
 
     # Reuse the resolution Test-Cmd already did (P3): each caller gates on `Test-Cmd
     # <tool>` right before calling us, so Get-DotCmdEntry returns the cached {Found,
-    # Source} record — no second Get-Command PATH scan per tool. (Cache-name-only keys
-    # like 'mise-shims', which are never a real command, resolve to Source=$null here
-    # just as the old Get-Command did, so the mtime check below is skipped for them.)
-    $src = (Get-DotCmdEntry $Name).Source
+    # Source} record — no second Get-Command PATH scan per tool. A cache-name-only key
+    # names its real binary via -Tool ('mise-shims' → mise); before #287 it was looked
+    # up under its own name, which never resolves, so Source was $null, the mtime check
+    # below never ran, and the file was regenerated on every start that got this far —
+    # plus a wasted negative Get-Command probe persisted into cmd-cache.txt.
+    $src = (Get-DotCmdEntry $Tool).Source
 
     $stale = $true
     if ((Test-Path $cacheFile) -and $src -and (Test-Path $src)) {
@@ -268,25 +275,45 @@ function global:Get-InitCache {
         $stale = -not ($mtimeOk -and $hashOk)
     }
     if ($stale) {
+        # Atomic publish (#287): write beside the target under a per-process name, then
+        # rename over it. Two shells starting together — the psmux __warm__ pool filling
+        # plus the session's first pane, right after init-cache-clear or a recipe edit —
+        # used to Set-Content the SAME path; the loser's sharing violation surfaced at
+        # the prompt, and we still returned a path to a file we never wrote. Now no two
+        # writers share a path, the rename is all-or-nothing (a reader never sees a
+        # half-written file), and every step is a .NET call that THROWS — no cmdlet
+        # WriteError path exists here for $ErrorActionPreference to leave uncaught.
+        $tmp = Join-Path $global:DotfilesInitCacheDir "$Name.$PID.tmp"
         try {
             if (-not (Test-Path $global:DotfilesInitCacheDir)) {
-                New-Item -ItemType Directory -Force -Path $global:DotfilesInitCacheDir | Out-Null
+                New-Item -ItemType Directory -Force -Path $global:DotfilesInitCacheDir -ErrorAction Stop | Out-Null
             }
             $out = (& $Generate | Out-String)
             if ([string]::IsNullOrWhiteSpace($out)) { return $null }
             # Prepend the marker (a PowerShell comment, so dot-sourcing ignores it).
             $payload = if ($genHash) { $marker + "`n" + $out } else { $out }
-            Set-Content -Path $cacheFile -Value $payload -Encoding utf8
-        } catch { return $null }
+            [System.IO.File]::WriteAllText($tmp, $payload, [System.Text.UTF8Encoding]::new($false))
+            [System.IO.File]::Move($tmp, $cacheFile, $true)
+        } catch {
+            Remove-Item -LiteralPath $tmp -Force -ErrorAction Ignore
+            # The rename fails only while a sibling holds the target open (mid dot-source,
+            # or mid-publish of its own). Renames are atomic, so whatever is there is
+            # complete; if it carries OUR marker it is the same recipe — serve it rather
+            # than spawn the tool again. Otherwise the caller's live fallback runs.
+            if ($genHash -and (Test-Path $cacheFile) -and
+                ((Get-Content $cacheFile -TotalCount 1 -ErrorAction Ignore) -eq $marker)) { return $cacheFile }
+            return $null
+        }
     }
     return $cacheFile
 }
 
 # init-cache-clear: drop every cached init script (they regenerate on next start).
-# Use after changing a tool's flags here, or if an init ever caches badly.
+# Use after changing a tool's flags here, or if an init ever caches badly. Also sweeps
+# any *.tmp a shell killed between write and rename left behind (#287).
 function global:Clear-InitCache {
     if (Test-Path $global:DotfilesInitCacheDir) {
-        Remove-Item (Join-Path $global:DotfilesInitCacheDir '*.ps1') -Force -ErrorAction SilentlyContinue
+        Remove-Item (Join-Path $global:DotfilesInitCacheDir '*.ps1'), (Join-Path $global:DotfilesInitCacheDir '*.tmp') -Force -ErrorAction SilentlyContinue
     }
     Write-DotHost 'init cache cleared (regenerates on next shell start)' -Color Green
 }
@@ -574,7 +601,7 @@ __lap 'fzf/PSFzf'
 # split and a top-level shell from busting each other's cache on the shared mise.ps1.
 if ((Test-Cmd mise) -and -not $global:DotfilesInit.Mise) {
     if (($env:DOTFILES_MISE_SHIMS -eq '1') -or (Test-InMux)) {
-        $cf = Get-InitCache -Name mise-shims -Generate { mise activate pwsh --shims }
+        $cf = Get-InitCache -Name mise-shims -Tool mise -Generate { mise activate pwsh --shims }
         if ($cf) { . $cf } else { Invoke-Expression (& { (mise activate pwsh --shims | Out-String) }) }
     } else {
         $cf = Get-InitCache -Name mise -Generate { mise activate pwsh }

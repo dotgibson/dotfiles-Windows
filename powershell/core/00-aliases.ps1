@@ -123,7 +123,10 @@ function Export-DotCmdCache {
             $e = $global:DotfilesCmdCache[$k]
             $out.Add(("{0}`t{1}`t{2}" -f $(if ($e.Found) { '1' } else { '0' }), $k, $e.Source))
         }
-        Set-Content -Path $global:DotfilesCmdCacheFile -Value $out -Encoding utf8
+        # -ErrorAction Stop so a sharing violation (two shells flushing at once, #287) is a
+        # terminating error the catch below swallows; Dirty stays set, so the next load
+        # retries. The reader above tolerates a partial file (fingerprint-gated).
+        Set-Content -Path $global:DotfilesCmdCacheFile -Value $out -Encoding utf8 -ErrorAction Stop
         $global:DotfilesCmdCacheDirty = $false
     } catch { }
 }
