@@ -492,6 +492,93 @@ Describe 'configuration.dsc.yaml and winget.json' {
     }
 }
 
+# --- the directive typo that stopped a fresh box at its first assertion (#285) --
+# Every unit in configuration.dsc.yaml said `allowPrerequisites: true` from the day
+# it was written and nothing noticed, because winget's 0.2 schema declares `directives` with
+# additionalProperties: true -- an unknown key is simply ignored, and validating the
+# file against its own $schema line passes it. What the typo cost: the directive
+# winget DOES know is `allowPrerelease`, and Microsoft.Windows.Developer (the module
+# behind OsVersion and DeveloperMode) has only ever been published to the PowerShell
+# Gallery as a prerelease (0.x-alpha). Without the real directive winget cannot
+# resolve it, so `winget configure` stopped at the os-version assertion with "The
+# configuration unit could not be found" on every real install. The schema cannot be
+# the gate, so this is.
+#
+# Same dependency-free parse as the Describe above: split on `- resource:` so each
+# unit is its own block, then read the 8-space-indented `key: value` children of
+# its `directives:` line. The key pattern is deliberately loose (anything up to the
+# first colon): a stricter `\w+` would let a punctuated unknown key such as
+# `allow-prerelease` drop out of the block unparsed -- the same silent ignore this
+# gate exists to catch.
+Describe 'configuration.dsc.yaml directives (#285)' {
+    BeforeAll {
+        $RepoRoot = Split-Path -Parent $PSScriptRoot
+        $raw = Get-Content (Join-Path $RepoRoot 'configuration.dsc.yaml') -Raw
+        # Everything before the first unit is the header comment and `properties:`.
+        $script:DscUnits = @(($raw -split '(?m)^\s*- resource:[ \t]*') | Select-Object -Skip 1 | ForEach-Object {
+            $lines = $_ -split '\r?\n'
+            $dirs = [ordered]@{}
+            $inDirectives = $false
+            foreach ($line in $lines) {
+                if ($line -match '^ {6}directives:\s*$') { $inDirectives = $true; continue }
+                if ($inDirectives) {
+                    if ($line -match '^ {8}(\S[^:]*?):\s*(.*?)\s*$') { $dirs[$Matches[1].Trim()] = $Matches[2]; continue }
+                    $inDirectives = $false
+                }
+            }
+            [pscustomobject]@{ Resource = $lines[0].Trim(); Directives = $dirs }
+        })
+    }
+
+    It 'finds the units (guards the parser itself)' {
+        $script:DscUnits.Count | Should -BeGreaterThan 0
+        $script:DscUnits.Resource | Should -Contain 'Microsoft.Windows.Developer/OsVersion'
+        # Every unit carries at least a description, so an empty directives map means
+        # the indentation assumption broke, not that a unit has none.
+        foreach ($u in $script:DscUnits) {
+            $u.Directives.Count | Should -BeGreaterThan 0 -Because "unit '$($u.Resource)' should have parsed directives"
+        }
+    }
+
+    It 'uses only the directive keys the 0.2 schema defines' {
+        # https://aka.ms/configuration-dsc-schema/0.2 -> $defs.resource.properties.directives
+        $known = @('module', 'description', 'allowPrerelease', 'securityContext')
+        foreach ($u in $script:DscUnits) {
+            foreach ($key in @($u.Directives.Keys)) {
+                $known | Should -Contain $key -Because "unit '$($u.Resource)' sets directive '$key', which winget ignores silently -- the schema allows unknown keys, so this allowlist is the only gate"
+            }
+        }
+    }
+
+    It 'allows prerelease on every Microsoft.Windows.Developer unit' {
+        $dev = @($script:DscUnits | Where-Object Resource -like 'Microsoft.Windows.Developer/*')
+        $dev.Count | Should -BeGreaterThan 0
+        foreach ($u in $dev) {
+            $u.Directives['allowPrerelease'] | Should -Be 'true' -Because "'$($u.Resource)' comes from a module the Gallery has only ever shipped as -alpha; without allowPrerelease winget reports 'The configuration unit could not be found'"
+        }
+    }
+
+    It 'README and bootstrap.ps1 enable winget configure before every run of it' {
+        # `winget configure` ships switched off, so the documented recipe has to turn
+        # it on before the configure line -- in both places the recipe lives, and for
+        # EVERY recipe: bootstrap.ps1 prints two (with and without the clone), so a
+        # first-occurrence check would miss the second one losing its --enable. Walk
+        # the configure commands in order and require an --enable since the last run.
+        foreach ($rel in 'README.md', 'bootstrap.ps1') {
+            $text = Get-Content (Join-Path $RepoRoot $rel) -Raw
+            $cmds = [regex]::Matches($text, 'winget configure (--enable|-f configuration\.dsc\.yaml)')
+            $runs = @($cmds | Where-Object { $_.Groups[1].Value -ne '--enable' })
+            $runs.Count | Should -BeGreaterThan 0 -Because "$rel should carry the configure command"
+            $enabled = $false
+            foreach ($m in $cmds) {
+                if ($m.Groups[1].Value -eq '--enable') { $enabled = $true; continue }
+                $enabled | Should -BeTrue -Because "$rel runs 'winget configure -f configuration.dsc.yaml' at offset $($m.Index) without a 'winget configure --enable' since the previous run"
+                $enabled = $false
+            }
+        }
+    }
+}
+
 Describe 'winget-import.json drift' {
     # The committed packages/winget-import.json is a GENERATED projection of
     # winget.json (Export-WingetImport.ps1). It went stale silently before — a winget
