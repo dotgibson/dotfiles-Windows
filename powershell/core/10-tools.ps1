@@ -226,8 +226,10 @@ __lap 'Terminal-Icons'
 # binary is newer than the cache (i.e. after a scoop upgrade). The cache file is
 # dot-sourced by the CALLER at global scope (this fragment runs global), so prompt
 # hooks / key handlers register exactly as they did with Invoke-Expression.
-#   Get-InitCache returns the path to a ready-to-source file (or $null on failure,
-#   so each call site can fall back). Bust the whole cache with `init-cache-clear`.
+#   Get-InitCache returns the path to a ready-to-source file, or $null when there is
+#   NOTHING to source — the tool printed no init, or the cache could not be written at
+#   all — and it has already warned about that (#294), so a call site is just
+#   `if ($cf) { . $cf }`. Bust the whole cache with `init-cache-clear`.
 $global:DotfilesInitCacheDir = Join-Path $env:LOCALAPPDATA 'dotfiles\init-cache'
 function global:Get-InitCache {
     param(
@@ -306,27 +308,55 @@ function global:Get-InitCache {
             if (-not (Test-Path $global:DotfilesInitCacheDir)) {
                 New-Item -ItemType Directory -Force -Path $global:DotfilesInitCacheDir -ErrorAction Stop | Out-Null
             }
+            # Sweep this tool's per-process leftovers (see the catch below). One is only
+            # needed until its shell dot-sources it, moments after it is returned, so any
+            # older than a minute is an orphan from a shell killed in between. Only on
+            # this regenerate path, which is rare — never on a cache hit.
+            Get-ChildItem -LiteralPath $global:DotfilesInitCacheDir -Filter "$Name.*.ps1" -ErrorAction Ignore |
+                Where-Object { $_.LastWriteTimeUtc -lt [DateTime]::UtcNow.AddMinutes(-1) } |
+                Remove-Item -Force -ErrorAction Ignore
             $out = (& $Generate | Out-String)
-            if ([string]::IsNullOrWhiteSpace($out)) { return $null }
+            if ([string]::IsNullOrWhiteSpace($out)) {
+                # A tool that prints nothing has no init to source. Say so and stop: the
+                # callers used to re-spawn the tool and hand the (still empty) output to
+                # Invoke-Expression, which throws on an empty string and took the whole
+                # fragment down (#294 — a scoop shim that resolves on PATH but cannot
+                # launch its target is the everyday way to get here).
+                Write-DotWarn "$Name printed no shell init — its integration is skipped this session" 'a shim that resolves on PATH but cannot launch looks like this: run dotfiles-doctor'
+                return $null
+            }
             # Prepend the marker (a PowerShell comment, so dot-sourcing ignores it).
             $payload = if ($genHash) { $marker + "`n" + $out } else { $out }
             [System.IO.File]::WriteAllText($tmp, $payload, [System.Text.UTF8Encoding]::new($false))
             [System.IO.File]::Move($tmp, $cacheFile, $true)
         } catch {
-            Remove-Item -LiteralPath $tmp -Force -ErrorAction Ignore
             # The rename fails only while a sibling holds the target open (mid dot-source,
             # or mid-publish of its own). Renames are atomic, so whatever is there is
             # complete; if it passes the SAME two-key check as a cache hit — our marker,
             # and not older than the binary — it is the recipe we just produced, so serve
             # it rather than spawn the tool again. A same-marker file that predates a tool
-            # upgrade is exactly what we were replacing, so that one is NOT served: the
-            # caller's live fallback runs instead.
+            # upgrade is exactly what we were replacing, so that one is NOT served.
             $existing = Get-Item -LiteralPath $cacheFile -ErrorAction Ignore
             if ($genHash -and $existing -and
                 ((Get-Content -LiteralPath $cacheFile -TotalCount 1 -ErrorAction Ignore) -eq $marker)) {
                 $srcItem = if ($src) { Get-Item -LiteralPath $src -ErrorAction Ignore } else { $null }
-                if (-not $srcItem -or $existing.LastWriteTimeUtc -ge $srcItem.LastWriteTimeUtc) { return $cacheFile }
+                if (-not $srcItem -or $existing.LastWriteTimeUtc -ge $srcItem.LastWriteTimeUtc) {
+                    Remove-Item -LiteralPath $tmp -Force -ErrorAction Ignore
+                    return $cacheFile
+                }
             }
+            # Nothing current to serve. If our payload reached the temp file, the init is
+            # already in hand: keep it under a per-process name and source THAT, so a lost
+            # publish costs neither a second spawn (the Invoke-Expression fallback every
+            # caller used to carry, #294) nor the integration. init-cache-clear sweeps it
+            # with the other *.ps1 here.
+            if (Test-Path -LiteralPath $tmp) {
+                $mine = Join-Path $global:DotfilesInitCacheDir "$Name.$PID.ps1"
+                try { [System.IO.File]::Move($tmp, $mine, $true); return $mine }
+                catch { Remove-Item -LiteralPath $tmp -Force -ErrorAction Ignore }
+            }
+            # The generator threw, or the cache dir is unwritable: nothing to source.
+            Write-DotWarn "$Name init could not be cached: $($_.Exception.Message)" "its integration is skipped this session; check that $global:DotfilesInitCacheDir is writable"
             return $null
         }
     }
@@ -486,9 +516,10 @@ if ((Test-Cmd starship) -and -not $global:DotfilesInit.Starship) {
         # so the cached file is self-contained and a warm shell does the load-time init
         # with zero starship spawns. (starship.exe still runs once per PROMPT RENDER after
         # that — that's how the prompt works; this only removes the load-time init spawn.)
-        # The fallback mirrors the stub's own behaviour so a cache miss never loses the prompt.
+        # A lost cache write or a starship that prints nothing is handled (and warned
+        # about) inside Get-InitCache (#294); this try covers the dot-source itself.
         $cf = Get-InitCache -Name starship -Generate { starship init powershell --print-full-init }
-        if ($cf) { . $cf } else { Invoke-Expression (& starship init powershell --print-full-init | Out-String) }
+        if ($cf) { . $cf }
         $global:DotfilesInit.Starship = $true
     } catch { Write-DotWarn "starship init failed: $_" }
 }
@@ -497,7 +528,7 @@ __lap 'starship'
 # --- zoxide (smarter cd; `z foo`, `zi` for interactive) -----------------------
 if ((Test-Cmd zoxide) -and -not $global:DotfilesInit.Zoxide) {
     $cf = Get-InitCache -Name zoxide -Generate { zoxide init powershell --cmd cd }
-    if ($cf) { . $cf } else { Invoke-Expression (& { (zoxide init powershell --cmd cd | Out-String) }) }
+    if ($cf) { . $cf }
     $global:DotfilesInit.Zoxide = $true
 }
 __lap 'zoxide'
@@ -630,10 +661,10 @@ __lap 'fzf/PSFzf'
 if ((Test-Cmd mise) -and -not $global:DotfilesInit.Mise) {
     if (($env:DOTFILES_MISE_SHIMS -eq '1') -or (Test-InMux)) {
         $cf = Get-InitCache -Name mise-shims -Tool mise -Generate { mise activate pwsh --shims }
-        if ($cf) { . $cf } else { Invoke-Expression (& { (mise activate pwsh --shims | Out-String) }) }
+        if ($cf) { . $cf }
     } else {
         $cf = Get-InitCache -Name mise -Generate { mise activate pwsh }
-        if ($cf) { . $cf } else { Invoke-Expression (& { (mise activate pwsh | Out-String) }) }
+        if ($cf) { . $cf }
     }
     $global:DotfilesInit.Mise = $true
 }
@@ -642,7 +673,7 @@ __lap 'mise'
 # --- atuin (shell history sync/search; optional, if installed) ----------------
 if ((Test-Cmd atuin) -and -not $global:DotfilesInit.Atuin) {
     $cf = Get-InitCache -Name atuin -Generate { atuin init powershell }
-    if ($cf) { . $cf } else { Invoke-Expression (& { (atuin init powershell | Out-String) }) }
+    if ($cf) { . $cf }
     # atuin's pwsh module ignores ATUIN_NOBIND and seizes Ctrl+R + Up/Down on init. For
     # cross-shell parity (PARITY.md: Ctrl+E = atuin TUI, Ctrl+R = quick history, arrows =
     # prefix search), move atuin's interactive search to Ctrl+E and hand the rest back.
@@ -682,7 +713,7 @@ __lap 'atuin'
 if ($env:DOTFILES_CARAPACE -eq '1' -and (Test-Cmd carapace) -and -not $global:DotfilesInit.Carapace) {
     $env:CARAPACE_BRIDGES = 'powershell'
     $cf = Get-InitCache -Name carapace -Generate { carapace _carapace powershell }
-    if ($cf) { . $cf } else { Invoke-Expression (& { (carapace _carapace powershell | Out-String) }) }
+    if ($cf) { . $cf }
     $global:DotfilesInit.Carapace = $true
 }
 __lap 'carapace'

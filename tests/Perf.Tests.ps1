@@ -32,9 +32,14 @@ Describe 'cold-start invariants' {
         }
     }
 
-    It 'gives each cached init a non-cached fallback (never loses the integration)' {
-        # The pattern is: $cf = Get-InitCache ...; if ($cf) { . $cf } else { <fallback> }
+    It 'dot-sources each cached init and carries no live Invoke-Expression fallback' {
+        # The pattern is: $cf = Get-InitCache ...; if ($cf) { . $cf }. The fallback for a
+        # lost cache write lives INSIDE Get-InitCache since #294 (a per-process file, or a
+        # warning when the tool printed nothing), so no call site re-spawns the tool or
+        # hands possibly-empty output to Invoke-Expression, which throws on '' and took
+        # the whole fragment down.
         ([regex]::Matches($script:Tools, 'if \(\$cf\) \{ \. \$cf \}')).Count | Should -BeGreaterOrEqual 5
+        $script:Tools | Should -Not -Match 'else \{ Invoke-Expression'
     }
 }
 
