@@ -64,10 +64,24 @@ __lap 'module-scan'
 # paste the block is replayed keystroke-by-keystroke and Vi interprets `:`/`d`/
 # `i`/`a`/`o`/`Esc` as commands — the classic "paste switches modes / reorders
 # text / runs vim commands" bug. Bracketed paste needs PSReadLine >= 2.2.0
-# (Windows Terminal already sends it), so packages/modules.ps1 pins a recent
-# PSReadLine and the version guard below self-diagnoses a stale in-box build.
-if ($script:DotAvailModules.Contains('PSReadLine')) {
-    Import-Module PSReadLine
+# (Windows Terminal already sends it); every supported pwsh ships newer in-box, and
+# the version guard below self-diagnoses a stale host.
+#
+# The console host imports its OWN PSReadLine (the in-box copy, or one under
+# Documents\PowerShell\Modules) BEFORE any profile runs, and that instance is the one
+# editing the command line. Importing a second copy — older OR newer — fails with
+# "A cmdlet named 'Get-PSReadLineKeyHandler' already exists" and used to take this
+# whole fragment with it (#286: pwsh 7.6 ships 2.4.5, packages/modules.ps1 pinned
+# 2.3.6 into the local module dir, and profile.ps1 puts that dir first on
+# PSModulePath, so a bare Import-Module picked the stale local copy). So: import only
+# when nothing is loaded yet (a host that doesn't preload — e.g. a non-interactive
+# run that still loads the profile), never let that import kill the configuration
+# below, and configure whichever copy IS loaded.
+if ($script:DotAvailModules.Contains('PSReadLine') -and -not (Get-Module PSReadLine)) {
+    try { Import-Module PSReadLine -ErrorAction Stop }
+    catch { Write-DotWarn "PSReadLine import failed: $($_.Exception.Message)" 'the host keeps its own copy, so line editing still works; see #286' }
+}
+if (Get-Module PSReadLine) {
     # Self-diagnose a paste-unsafe PSReadLine instead of misbehaving silently. The
     # check is one cheap [version] compare on the already-loaded module, and the
     # warning routes through the repo's Write-DotWarn (honours NO_COLOR/quiet) so a

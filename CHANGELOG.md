@@ -6,6 +6,24 @@ so entries are grouped by theme rather than strict semver releases.
 
 ## [Unreleased]
 
+### Fixed
+
+- **`core/10-tools.ps1` no longer fails to load on PowerShell 7.6** (#286). The console
+  host imports its own PSReadLine before any profile runs; pwsh 7.6 ships 2.4.5 in-box,
+  `packages/modules.ps1` pinned 2.3.6 into the local module dir, and that dir is first on
+  `PSModulePath`, so the fragment's bare `Import-Module PSReadLine` loaded the stale local
+  copy next to the host's and died on "A cmdlet named 'Get-PSReadLineKeyHandler' already
+  exists" — taking Vi mode, history, prediction, every key handler, PSFzf and Terminal-Icons
+  with it on every fresh 7.6 install. A second copy fails in both directions (older over
+  newer too), so the pin never could have raised an old in-box build through the profile.
+  The fragment now imports only when nothing is loaded, wraps that import so it can never
+  take the configuration down, and configures whichever copy the host loaded. The pin is
+  now a floor: `Install-Packages.ps1` reads the in-box manifest and saves nothing when the
+  host already ships at or above it, the maintenance runner counts the in-box copy as
+  installed, and the pin moves to 2.4.5 (the current gallery release). A stale local
+  `PSReadLine\2.3.6` on an existing box is inert after this and can be removed by hand.
+  Thanks to the fresh-VM test bed from #285 for surfacing it.
+
 ### Security
 
 - **CI refuses a `pull_request_target` trigger.** That trigger runs a fork's pull request

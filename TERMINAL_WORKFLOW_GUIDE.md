@@ -381,7 +381,8 @@ the active pane stays the key-press target (used by `psmux-url.ps1`'s `capture-p
 | PSReadLine | `F2` | `SwitchPredictionView` | Flip Inline ↔ List prediction |
 
 Prediction is `HistoryAndPlugin`, **InlineView by default** (`DOTFILES_PSRL_LISTVIEW=1` for List),
-Tokyo Night colours. A version guard warns if PSReadLine < 2.2.0 (bracketed-paste safety).
+Tokyo Night colours. The fragment configures the PSReadLine the console host preloaded and
+never imports a second copy (#286); a version guard warns if it is < 2.2.0 (bracketed-paste safety).
 
 ### 4.5 psmux — prefix bindings (`C-a`)
 
@@ -540,7 +541,8 @@ sync refresh; `DOTFILES_UPDATE_CHECK=0` disables it. Scoop/winget convenience ve
 
 - **Declaration**: `scoopfile.json` (buckets + ~52 apps, optional `Version`/`group`), `winget.json`
   (core ids always installed; `gui`/`desktop` grouped), `modules.ps1` (PS modules pinned exactly:
-  PSReadLine 2.3.6, Terminal-Icons 0.10.0, PSFzf 2.4.0, CompletionPredictor 0.1.0).
+  PSReadLine 2.4.5, Terminal-Icons 0.10.0, PSFzf 2.4.0, CompletionPredictor 0.1.0; a module the
+  host already ships in-box at or above its pin is skipped, #286).
 - **Install** (`Install-Packages.ps1`, resilient/idempotent): bootstraps scoop (optional
   `DOTFILES_SCOOP_SHA256` gate), installs missing apps, `Save-Module` into the off-OneDrive module
   dir. Optional groups resolved via `DOTFILES_PKG_GROUPS` env > `gum` multi-select > install-all.

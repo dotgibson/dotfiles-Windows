@@ -82,6 +82,9 @@ Describe 'Managed module pins' {
         # Below 2.2.0 PSReadLine has no bracketed-paste support, so a multi-line
         # paste under our EditMode Vi (core/10-tools.ps1) replays as keystrokes and
         # runs as Vi commands. Keep the floor at/above the first release that fixes it.
+        # The pin is the paste-safe baseline the installer saves when the host's own
+        # copy is below it; it cannot raise the copy the console host preloads (#286),
+        # so this guards what we ship, and 10-tools.ps1's version guard reports the rest.
         [version]$script:MaintModulePins['PSReadLine'] | Should -BeGreaterOrEqual ([version]'2.2.0')
     }
 }
@@ -116,6 +119,26 @@ Describe 'repo hygiene' {
             ([regex]::Matches($t, [regex]::Escape("$needle -ViMode Command"))).Count |
                 Should -Be 1 -Because 'Core binds word nav in vicmd as well as viins'
         }
+    }
+    It '10-tools.ps1 never imports PSReadLine over a loaded copy (#286)' {
+        # The console host preloads its own PSReadLine before the profile runs; a
+        # second import — older or newer — throws "cmdlet already exists" and took the
+        # whole fragment down on pwsh 7.6 (in-box 2.4.5 vs the pinned 2.3.6 first on
+        # PSModulePath). The import must be guarded, and never bare.
+        $t = Get-Content (Join-Path $RepoRoot 'powershell/core/10-tools.ps1') -Raw
+        $t | Should -Not -Match '(?m)^\s*Import-Module PSReadLine\s*$'
+        $t | Should -Match '-not \(Get-Module PSReadLine\)'
+    }
+    It 'Install-Packages.ps1 skips a managed module the host already ships at or above its pin (#286)' {
+        # The pin is a floor the host must meet, compared with the shared helper
+        # against the in-box manifest (no version subfolder, so no directory scan).
+        $i = Get-Content (Join-Path $RepoRoot 'packages/Install-Packages.ps1') -Raw
+        $i | Should -Match 'Test-DotModuleUpToDate -InstalledVersions \$inbox'
+        $i | Should -Match 'Import-PowerShellDataFile \$inboxManifest'
+    }
+    It 'Maintenance.ps1 counts the in-box module copy as installed (#286)' {
+        $m = Get-Content (Join-Path $RepoRoot 'maint/Maintenance.ps1') -Raw
+        $m | Should -Match 'Join-Path \$PSHOME "Modules\\\$m\\\$m\.psd1"'
     }
     It 'Maintenance.ps1 has no garbled nested-hash comment' {
         $m = Get-Content (Join-Path $RepoRoot 'maint/Maintenance.ps1') -Raw
