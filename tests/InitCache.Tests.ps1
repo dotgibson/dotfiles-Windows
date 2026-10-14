@@ -144,5 +144,72 @@ Describe 'Get-InitCache (lifted from core/10-tools.ps1)' {
             $script:Calls | Should -Be 1
             @(Get-Content -LiteralPath $script:Target)[1] | Should -Be 'regen'
         }
+
+        It 'after a tool upgrade, a same-marker cache a sibling is still reading is NOT served' -Skip:(-not $IsWindows) {
+            # The rename-lost fallback must apply the same two-key check as a hit. The
+            # marker still matches (same recipe) but the binary is now NEWER than the file,
+            # so the file is the stale output we were replacing: regenerate, and when the
+            # publish loses to the reader, return $null so the live fallback runs.
+            (Get-Item -LiteralPath $script:MiseExe).LastWriteTimeUtc = (Get-Date).ToUniversalTime().AddMinutes(5)
+            $h = [System.IO.File]::Open($script:Target, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::Read)
+            try   { $res = @(Get-InitCache -Name mise-shims -Tool mise -Generate $script:Gen 2>&1) }
+            finally { $h.Dispose() }
+            $script:Calls | Should -Be 1
+            @($res | Where-Object { $_ -is [System.Management.Automation.ErrorRecord] }) | Should -HaveCount 0
+            @($res | Where-Object { $_ -isnot [System.Management.Automation.ErrorRecord] -and $null -ne $_ }) | Should -HaveCount 0
+            @(Get-Content -LiteralPath $script:Target)[1] | Should -Be 'seed'
+            Get-TempFiles | Should -HaveCount 0
+        }
+    }
+}
+
+Describe 'Export-DotCmdCache (lifted from core/00-aliases.ps1)' {
+    BeforeAll {
+        $RepoRoot = Split-Path -Parent $PSScriptRoot
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile(
+            (Join-Path $RepoRoot 'powershell/core/00-aliases.ps1'), [ref]$null, [ref]$null)
+        $defs = @($ast.FindAll({
+            $args[0] -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
+            $args[0].Name -eq 'Export-DotCmdCache'
+        }, $true))
+        if ($defs.Count -ne 1) { throw "expected exactly one Export-DotCmdCache definition, found $($defs.Count)" }
+        . ([scriptblock]::Create($defs[0].Extent.Text))
+
+        $script:Saved = @{}
+        foreach ($n in 'DotfilesCmdCache', 'DotfilesCmdCacheDirty', 'DotfilesCmdCacheFile', 'DotfilesCmdCacheFp') {
+            $script:Saved[$n] = Get-Variable -Name $n -Scope Global -ValueOnly -ErrorAction Ignore
+        }
+    }
+    AfterAll {
+        foreach ($n in $script:Saved.Keys) { Set-Variable -Name $n -Scope Global -Value $script:Saved[$n] }
+    }
+    BeforeEach {
+        $dir = Join-Path $TestDrive "cc-$([guid]::NewGuid().ToString('N'))"
+        $global:DotfilesCmdCacheFile  = Join-Path $dir 'cmd-cache.txt'
+        $global:DotfilesCmdCacheFp    = 'fp-test'
+        $global:DotfilesCmdCacheDirty = $true
+        $global:DotfilesCmdCache      = @{ rg = [pscustomobject]@{ Found = $true; Source = 'C:\tools\rg.exe' } }
+    }
+
+    It 'writes the fingerprint line and one row per entry, clears Dirty, leaves no temp file' {
+        Export-DotCmdCache
+        $global:DotfilesCmdCacheDirty | Should -BeFalse
+        $lines = @(Get-Content -LiteralPath $global:DotfilesCmdCacheFile)
+        $lines[0] | Should -Be '# fp: fp-test'
+        $lines[1] | Should -Be "1`trg`tC:\tools\rg.exe"
+        @(Get-ChildItem -LiteralPath (Split-Path -Parent $global:DotfilesCmdCacheFile) -Filter '*.tmp') | Should -HaveCount 0
+    }
+
+    It 'a flush that loses to another shell is silent, keeps Dirty set, and leaks no handle' -Skip:(-not $IsWindows) {
+        $ErrorActionPreference = 'Continue'   # see the Get-InitCache lock tests
+        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $global:DotfilesCmdCacheFile) | Out-Null
+        $h = [System.IO.File]::Open($global:DotfilesCmdCacheFile, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write, [System.IO.FileShare]::Write)
+        try   { $res = @(Export-DotCmdCache 2>&1) }
+        finally { $h.Dispose() }
+        @($res | Where-Object { $_ -is [System.Management.Automation.ErrorRecord] }) | Should -HaveCount 0
+        $global:DotfilesCmdCacheDirty | Should -BeTrue
+        @(Get-ChildItem -LiteralPath (Split-Path -Parent $global:DotfilesCmdCacheFile) -Filter '*.tmp') | Should -HaveCount 0
+        $probe = [System.IO.File]::Open($global:DotfilesCmdCacheFile, [System.IO.FileMode]::Open, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
+        $probe.Dispose()
     }
 }

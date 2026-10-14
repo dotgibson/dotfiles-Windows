@@ -114,21 +114,29 @@ function Export-DotCmdCache {
     # Skip when nothing new was probed (full on-disk hit) or the on-disk tier is
     # disabled ($global:DotfilesCmdCacheFile is $null — no LOCALAPPDATA on this host).
     if (-not $global:DotfilesCmdCacheDirty -or -not $global:DotfilesCmdCacheFile) { return }
+    # Published the same way as Get-InitCache's files (#287): a per-process temp beside
+    # the target, then an atomic rename over it. Two shells flushing at once used to
+    # Set-Content the same path, and under that contention Set-Content retries its open
+    # with a different share mode, can interleave the two writers' output, and can leak a
+    # write-only stream that keeps the file locked for every later flush
+    # (PowerShell/PowerShell#27947, #24774). .NET calls throw, so the catch always runs;
+    # Dirty stays set on failure, so the next load retries.
+    $tmp = "$global:DotfilesCmdCacheFile.$PID.tmp"
     try {
         $dir = Split-Path -Parent $global:DotfilesCmdCacheFile
-        if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
+        if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Force -Path $dir -ErrorAction Stop | Out-Null }
         $out = [System.Collections.Generic.List[string]]::new()
         $out.Add("# fp: $global:DotfilesCmdCacheFp")
         foreach ($k in $global:DotfilesCmdCache.Keys) {
             $e = $global:DotfilesCmdCache[$k]
             $out.Add(("{0}`t{1}`t{2}" -f $(if ($e.Found) { '1' } else { '0' }), $k, $e.Source))
         }
-        # -ErrorAction Stop so a sharing violation (two shells flushing at once, #287) is a
-        # terminating error the catch below swallows; Dirty stays set, so the next load
-        # retries. The reader above tolerates a partial file (fingerprint-gated).
-        Set-Content -Path $global:DotfilesCmdCacheFile -Value $out -Encoding utf8 -ErrorAction Stop
+        [System.IO.File]::WriteAllText($tmp, (($out -join "`n") + "`n"), [System.Text.UTF8Encoding]::new($false))
+        [System.IO.File]::Move($tmp, $global:DotfilesCmdCacheFile, $true)
         $global:DotfilesCmdCacheDirty = $false
-    } catch { }
+    } catch {
+        Remove-Item -LiteralPath $tmp -Force -ErrorAction Ignore
+    }
 }
 
 # --- helper: does a command RESOLVE *and* actually launch? ---------------------

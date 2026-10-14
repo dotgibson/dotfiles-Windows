@@ -19,14 +19,16 @@ so entries are grouped by theme rather than strict semver releases.
   function now writes a per-process `<name>.<pid>.tmp` beside the target and renames it
   over with `[IO.File]::Move`, so no two writers share a path, a reader never sees a
   half-written file, and every failure is a real exception the `catch` swallows; when the
-  rename loses to a sibling mid dot-source it serves that sibling's complete, identical
-  file instead of spawning the tool again, and `init-cache-clear` sweeps stray `*.tmp`.
-  Two riders. `mise-shims` is a cache-name-only key with no binary to stat, so it was
-  regenerated on every start that missed the pane fast path; `Get-InitCache -Tool mise`
-  now keys it on the real `mise.exe` mtime. And `Export-DotCmdCache` (`core/00-aliases.ps1`),
-  which flushes `cmd-cache.txt` at the end of every load, had the same unguarded
-  `Set-Content`; it now passes `-ErrorAction Stop` so its own `catch` works. New
-  `tests/InitCache.Tests.ps1` lifts the function out of the fragment and pins all of it.
+  rename loses to a sibling mid dot-source it serves that sibling's complete file when it
+  passes the same two-key check as a hit (our marker, not older than the binary) instead
+  of spawning the tool again, and `init-cache-clear` sweeps stray `*.tmp`. Two riders.
+  `mise-shims` is a cache-name-only key with no binary to stat, so it was regenerated on
+  every start that missed the pane fast path; `Get-InitCache -Tool mise` now keys it on
+  the real `mise.exe` mtime. And `Export-DotCmdCache` (`core/00-aliases.ps1`), which
+  flushes `cmd-cache.txt` at the end of every load, had the same bare `Set-Content` on a
+  shared path; it now publishes the same way, so a second shell's flush can neither
+  interleave with it nor leave a leaked handle behind. New `tests/InitCache.Tests.ps1`
+  lifts both functions out of their fragments and pins all of it.
 
 ### Security
 

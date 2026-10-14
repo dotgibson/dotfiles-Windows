@@ -298,10 +298,17 @@ function global:Get-InitCache {
             Remove-Item -LiteralPath $tmp -Force -ErrorAction Ignore
             # The rename fails only while a sibling holds the target open (mid dot-source,
             # or mid-publish of its own). Renames are atomic, so whatever is there is
-            # complete; if it carries OUR marker it is the same recipe — serve it rather
-            # than spawn the tool again. Otherwise the caller's live fallback runs.
-            if ($genHash -and (Test-Path $cacheFile) -and
-                ((Get-Content $cacheFile -TotalCount 1 -ErrorAction Ignore) -eq $marker)) { return $cacheFile }
+            # complete; if it passes the SAME two-key check as a cache hit — our marker,
+            # and not older than the binary — it is the recipe we just produced, so serve
+            # it rather than spawn the tool again. A same-marker file that predates a tool
+            # upgrade is exactly what we were replacing, so that one is NOT served: the
+            # caller's live fallback runs instead.
+            $existing = Get-Item -LiteralPath $cacheFile -ErrorAction Ignore
+            if ($genHash -and $existing -and
+                ((Get-Content -LiteralPath $cacheFile -TotalCount 1 -ErrorAction Ignore) -eq $marker)) {
+                $srcItem = if ($src) { Get-Item -LiteralPath $src -ErrorAction Ignore } else { $null }
+                if (-not $srcItem -or $existing.LastWriteTimeUtc -ge $srcItem.LastWriteTimeUtc) { return $cacheFile }
+            }
             return $null
         }
     }
