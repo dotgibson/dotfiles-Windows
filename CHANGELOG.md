@@ -33,6 +33,36 @@ so entries are grouped by theme rather than strict semver releases.
   (dotgibson/dotfiles-core#1215). Nothing here uses the trigger today. The check passes
   with a warning until the Core release that ships the mode moves the `v7` tag.
 
+### Fixed
+
+- **`configuration.dsc.yaml` stopped a fresh box at its first assertion** (#285). Every unit
+  said `allowPrerequisites: true`, a directive winget's configuration schema does not have;
+  the real one is `allowPrerelease`. Nothing noticed since #109 wrote it in July, because
+  the 0.2 schema declares `directives` with `additionalProperties: true` — an unknown key is ignored, and
+  validating the file against its own `$schema` line passes it. What the typo cost:
+  `Microsoft.Windows.Developer`, the module behind `OsVersion` and `DeveloperMode`, has only
+  ever been published to the PowerShell Gallery as a prerelease (`0.1.1-alpha` through
+  `0.4.0-alpha`), so without the real directive winget cannot resolve it and
+  `winget configure` died at `os-version` with "The configuration unit could not be found"
+  on every real install. The two `Microsoft.Windows.Developer` units now carry
+  `allowPrerelease: true`; the six `WinGetPackage` units drop the directive instead of
+  renaming it, since `Microsoft.WinGet.DSC` has stable releases and opting them into
+  prereleases would only loosen reproducibility. `tests/Packages.Tests.ps1` gains the gate
+  the schema cannot be: an allowlist of the four directive keys the schema defines, and a
+  check that every `Microsoft.Windows.Developer` unit allows prerelease.
+
+### Docs
+
+- **Step 0 enables `winget configure` first, and opens a new terminal after
+  `winget install`** (#285). `winget configure` ships switched off and the README never said
+  so, so the documented command failed with "Configuration is not enabled" before it could
+  even reach the directive bug; `winget configure --enable` (elevated, and Store access too
+  on winget 1.11) now precedes it in the README and in the recipe `bootstrap.ps1` prints.
+  The same recipe ran `git clone` in the session that had just installed git, where it is
+  not on PATH yet — the block now says to open a new terminal between the two. Also noted: a
+  UAC prompt per machine-scope install, and that Step 0 has to run at the console, not over
+  SSH. A new test holds the README and the bootstrap hint to the same order.
+
 ## [v1.8.0] - 2026-09-29
 
 ### Added

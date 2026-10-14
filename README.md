@@ -115,10 +115,16 @@ cannot run on a brand-new machine until you lay the foundation. Do that first:
 
 ```powershell
 winget install Git.Git Microsoft.PowerShell
+# open a NEW terminal here: this session's PATH does not see git or pwsh yet
 git clone https://github.com/dotgibson/dotfiles-Windows.git ~/dotfiles-Windows
 cd ~/dotfiles-Windows
+winget configure --enable      # once per machine; needs an elevated shell
 winget configure -f configuration.dsc.yaml --accept-configuration-agreements
 ```
+
+`winget configure` itself ships switched off: `winget configure --enable` turns it on
+once per machine, needs an elevated shell, and on winget 1.11 also needs Store access.
+The configure run then raises a UAC prompt per machine-scope install, so expect a few.
 
 `configuration.dsc.yaml` is idempotent and reconciling: it installs Windows
 Terminal, PowerShell 7, WSL and Git, **and enables Developer Mode** — which is what
@@ -127,6 +133,10 @@ lets `install.ps1` create real symlinks instead of degrading to copies.
 > Enable Developer Mode rather than running elevated. Scoop's installer refuses to
 > run from an administrator shell, so elevating to win symlinks costs you the
 > entire package phase.
+
+Run Step 0 at the console, not over SSH: winget is not registered for an account that
+has never logged on interactively, MSIX installs fail from a network logon, and scoop
+cannot traverse its own `current` junctions there either.
 
 Then **reopen PowerShell 7** (`pwsh`) and continue below.
 
@@ -155,7 +165,7 @@ cd ~/dotfiles-Windows
 Then open a **new** PowerShell window, set your name/email in `~/.gitconfig.local`,
 and review `~/.wslconfig` + `wsl --shutdown` to apply mirrored networking.
 
-<!-- bootstrap.ps1 SHA-256 (LF-normalized): 09b31819217ce71a0ae241fa41ac206f48b148e49bb98b5adc1af0f6775745e5 -->
+<!-- bootstrap.ps1 SHA-256 (LF-normalized): bf8f57ed0f61aa7bb0871fc0fa44ce0fcd6378fc97ce2612c4637bd522d92830 -->
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
