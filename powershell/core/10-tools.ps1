@@ -64,10 +64,28 @@ __lap 'module-scan'
 # paste the block is replayed keystroke-by-keystroke and Vi interprets `:`/`d`/
 # `i`/`a`/`o`/`Esc` as commands — the classic "paste switches modes / reorders
 # text / runs vim commands" bug. Bracketed paste needs PSReadLine >= 2.2.0
-# (Windows Terminal already sends it), so packages/modules.ps1 pins a recent
-# PSReadLine and the version guard below self-diagnoses a stale in-box build.
-if ($script:DotAvailModules.Contains('PSReadLine')) {
-    Import-Module PSReadLine
+# (Windows Terminal already sends it); every supported pwsh ships newer in-box, and
+# the version guard below self-diagnoses a stale host.
+#
+# The console host imports its OWN PSReadLine (the in-box copy, or one under
+# Documents\PowerShell\Modules) BEFORE any profile runs, and that instance is the one
+# editing the command line. Importing a second copy — older OR newer — fails with
+# "A cmdlet named 'Get-PSReadLineKeyHandler' already exists" and used to take this
+# whole fragment with it (#286: pwsh 7.6 ships 2.4.5, packages/modules.ps1 pinned
+# 2.3.6 into the local module dir, and profile.ps1 puts that dir first on
+# PSModulePath, so a bare Import-Module picked the stale local copy). So: import only
+# when nothing is loaded yet (a host that doesn't preload — e.g. a non-interactive
+# run that still loads the profile), never let that import kill the configuration
+# below, and configure whichever copy IS loaded. $script:DotPsrl records the
+# outcome once: every Set-PSReadLineKeyHandler in this fragment — here and in the
+# fzf/atuin/sessionizer/zoxide blocks further down — is gated on it, so a session
+# with no PSReadLine at all skips the bindings and still gets the tool inits.
+if ($script:DotAvailModules.Contains('PSReadLine') -and -not (Get-Module PSReadLine)) {
+    try { Import-Module PSReadLine -ErrorAction Stop }
+    catch { Write-DotWarn "PSReadLine import failed: $($_.Exception.Message)" 'no PSReadLine in this session: Vi mode, history and key bindings are skipped; see #286' }
+}
+$script:DotPsrl = [bool](Get-Module PSReadLine)
+if ($script:DotPsrl) {
     # Self-diagnose a paste-unsafe PSReadLine instead of misbehaving silently. The
     # check is one cheap [version] compare on the already-loaded module, and the
     # warning routes through the repo's Write-DotWarn (honours NO_COLOR/quiet) so a
@@ -534,14 +552,17 @@ if ((Test-Cmd fzf) -and $script:DotAvailModules.Contains('PSFzf') -and -not $glo
         }
     }
     # Cheap stubs bound now; the ~260ms import is deferred to first use, off the render path.
-    Set-PSReadLineKeyHandler -Chord 'Ctrl+t' -BriefDescription 'PSFzf file picker (lazy load)' -ScriptBlock { Invoke-DotLoadPSFzf -Action Provider }
-    Set-PSReadLineKeyHandler -Chord 'Ctrl+r' -BriefDescription 'PSFzf history (lazy load)'      -ScriptBlock { Invoke-DotLoadPSFzf -Action History }
-    # Alt+C — cd into a SUBDIRECTORY of the current one. Distinct from Core's Alt+Z, which is
-    # a frecency jump to anywhere zoxide has seen; these are different intents, not two keys
-    # for one capability (dotgibson/dotfiles-core#808). PARITY.md carried this row as
-    # `aligned` for years while NEITHER shell bound it — #682 deleted the claim rather than
-    # implementing it, and this is the pwsh half of implementing it for real.
-    Set-PSReadLineKeyHandler -Chord 'Alt+c' -BriefDescription 'PSFzf directory picker (lazy load)' -ScriptBlock { Invoke-DotLoadPSFzf -Action SetLocation }
+    # (Gated on $script:DotPsrl: no PSReadLine, no bindings — the loader above still exists.)
+    if ($script:DotPsrl) {
+        Set-PSReadLineKeyHandler -Chord 'Ctrl+t' -BriefDescription 'PSFzf file picker (lazy load)' -ScriptBlock { Invoke-DotLoadPSFzf -Action Provider }
+        Set-PSReadLineKeyHandler -Chord 'Ctrl+r' -BriefDescription 'PSFzf history (lazy load)'      -ScriptBlock { Invoke-DotLoadPSFzf -Action History }
+        # Alt+C — cd into a SUBDIRECTORY of the current one. Distinct from Core's Alt+Z, which is
+        # a frecency jump to anywhere zoxide has seen; these are different intents, not two keys
+        # for one capability (dotgibson/dotfiles-core#808). PARITY.md carried this row as
+        # `aligned` for years while NEITHER shell bound it — #682 deleted the claim rather than
+        # implementing it, and this is the pwsh half of implementing it for real.
+        Set-PSReadLineKeyHandler -Chord 'Alt+c' -BriefDescription 'PSFzf directory picker (lazy load)' -ScriptBlock { Invoke-DotLoadPSFzf -Action SetLocation }
+    }
     $global:DotfilesInit.Fzf = $true
 }
 __lap 'fzf/PSFzf'
@@ -591,25 +612,28 @@ if ((Test-Cmd atuin) -and -not $global:DotfilesInit.Atuin) {
     # atuin's pwsh module ignores ATUIN_NOBIND and seizes Ctrl+R + Up/Down on init. For
     # cross-shell parity (PARITY.md: Ctrl+E = atuin TUI, Ctrl+R = quick history, arrows =
     # prefix search), move atuin's interactive search to Ctrl+E and hand the rest back.
-    # Invoke-AtuinSearch is the function atuin's init defines for the TUI.
-    Set-PSReadLineKeyHandler -Chord 'Ctrl+e' -BriefDescription 'Atuin search' -ScriptBlock { Invoke-AtuinSearch }
-    Set-PSReadLineKeyHandler -Key UpArrow   -Function HistorySearchBackward
-    Set-PSReadLineKeyHandler -Key DownArrow -Function HistorySearchForward
-    # Re-assert Ctrl+R AFTER atuin's init seized it. Three cases:
-    #   • PSFzf already imported (rare — only if Ctrl+T was pressed mid-load): hand
-    #     Ctrl+R straight to PSFzf's real handler.
-    #   • PSFzf deferred (the normal path — the lazy block above ran): re-bind the
-    #     SAME lazy stub, so atuin's grab is undone and the first Ctrl+R press loads
-    #     PSFzf + the fzf history UI.
-    #   • PSFzf not installed: hand Ctrl+R to PSReadLine's built-in reverse search so
-    #     atuin still ends up on Ctrl+E ONLY (else atuin's init keeps Ctrl+R and the
-    #     advertised parity — Ctrl+E atuin, Ctrl+R quick history — silently breaks).
-    if (Get-Module PSFzf) {
-        Set-PsFzfOption -PSReadlineChordReverseHistory 'Ctrl+r'
-    } elseif ($global:DotfilesInit.Fzf) {
-        Set-PSReadLineKeyHandler -Chord 'Ctrl+r' -BriefDescription 'PSFzf history (lazy load)' -ScriptBlock { Invoke-DotLoadPSFzf -Action History }
-    } else {
-        Set-PSReadLineKeyHandler -Key 'Ctrl+r' -Function ReverseSearchHistory
+    # Invoke-AtuinSearch is the function atuin's init defines for the TUI. (Gated on
+    # $script:DotPsrl: without PSReadLine there is nothing for atuin to have seized.)
+    if ($script:DotPsrl) {
+        Set-PSReadLineKeyHandler -Chord 'Ctrl+e' -BriefDescription 'Atuin search' -ScriptBlock { Invoke-AtuinSearch }
+        Set-PSReadLineKeyHandler -Key UpArrow   -Function HistorySearchBackward
+        Set-PSReadLineKeyHandler -Key DownArrow -Function HistorySearchForward
+        # Re-assert Ctrl+R AFTER atuin's init seized it. Three cases:
+        #   • PSFzf already imported (rare — only if Ctrl+T was pressed mid-load): hand
+        #     Ctrl+R straight to PSFzf's real handler.
+        #   • PSFzf deferred (the normal path — the lazy block above ran): re-bind the
+        #     SAME lazy stub, so atuin's grab is undone and the first Ctrl+R press loads
+        #     PSFzf + the fzf history UI.
+        #   • PSFzf not installed: hand Ctrl+R to PSReadLine's built-in reverse search so
+        #     atuin still ends up on Ctrl+E ONLY (else atuin's init keeps Ctrl+R and the
+        #     advertised parity — Ctrl+E atuin, Ctrl+R quick history — silently breaks).
+        if (Get-Module PSFzf) {
+            Set-PsFzfOption -PSReadlineChordReverseHistory 'Ctrl+r'
+        } elseif ($global:DotfilesInit.Fzf) {
+            Set-PSReadLineKeyHandler -Chord 'Ctrl+r' -BriefDescription 'PSFzf history (lazy load)' -ScriptBlock { Invoke-DotLoadPSFzf -Action History }
+        } else {
+            Set-PSReadLineKeyHandler -Key 'Ctrl+r' -Function ReverseSearchHistory
+        }
     }
     $global:DotfilesInit.Atuin = $true
 }
@@ -668,15 +692,17 @@ if (Test-Cmd fzf) {
         Set-Location -LiteralPath $pick
         psmux new-session -A -s $name   # attach-or-create (the `mux` verb, inlined)
     }
-    Set-PSReadLineKeyHandler -Chord 'Ctrl+g' -BriefDescription 'Sessionizer (dir -> psmux session)' -ScriptBlock {
-        [Microsoft.PowerShell.PSConsoleReadLine]::RevertLine()
-        [Microsoft.PowerShell.PSConsoleReadLine]::Insert('Invoke-DotfilesSessionizer')
-        [Microsoft.PowerShell.PSConsoleReadLine]::AcceptLine()
+    if ($script:DotPsrl) {
+        Set-PSReadLineKeyHandler -Chord 'Ctrl+g' -BriefDescription 'Sessionizer (dir -> psmux session)' -ScriptBlock {
+            [Microsoft.PowerShell.PSConsoleReadLine]::RevertLine()
+            [Microsoft.PowerShell.PSConsoleReadLine]::Insert('Invoke-DotfilesSessionizer')
+            [Microsoft.PowerShell.PSConsoleReadLine]::AcceptLine()
+        }
     }
 }
 # Alt+Z = zoxide frecency jump (matches zsh's Alt+Z). zoxide's own `zi` already drives
 # the fzf picker, so just run it.
-if (Test-Cmd zoxide) {
+if ((Test-Cmd zoxide) -and $script:DotPsrl) {
     Set-PSReadLineKeyHandler -Chord 'Alt+z' -BriefDescription 'zoxide interactive jump' -ScriptBlock {
         [Microsoft.PowerShell.PSConsoleReadLine]::RevertLine()
         [Microsoft.PowerShell.PSConsoleReadLine]::Insert('zi')

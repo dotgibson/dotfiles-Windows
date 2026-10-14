@@ -297,7 +297,11 @@ importing modules from there can add **several seconds to every shell start**
 (`%LOCALAPPDATA%\PowerShell\Modules`) to `$env:PSModulePath`; the installer and
 maintenance runner `Save-Module` managed modules there. To migrate an existing
 machine, run `modules-localize` once (ideally from `pwsh -NoProfile` so no module
-DLLs are locked), then open a new shell.
+DLLs are locked), then open a new shell. PSReadLine is the exception: the console
+host loads its own copy (in-box under `$PSHOME\Modules`, or the OneDrive-prone
+`Documents\PowerShell\Modules`) before any profile runs, so the installer skips the
+pin when the host already ships at or above it, and `10-tools.ps1` never imports a
+second copy next to it (#286).
 
 The scheduled runner (`maint/Maintenance.ps1`) updates the **user-space** stack
 automatically (scoop, mise, nvim plugins/parsers, PowerShell modules) and re-creates
