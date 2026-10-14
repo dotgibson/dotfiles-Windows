@@ -6,6 +6,8 @@ so entries are grouped by theme rather than strict semver releases.
 
 ## [Unreleased]
 
+## [v1.8.1] - 2026-10-14
+
 ### Fixed
 
 - **A tool that prints no shell init no longer takes `core/10-tools.ps1` down with it**
@@ -60,17 +62,6 @@ so entries are grouped by theme rather than strict semver releases.
   interleave with it nor leave a leaked handle behind. New `tests/InitCache.Tests.ps1`
   lifts both functions out of their fragments and pins all of it.
 
-### Security
-
-- **CI refuses a `pull_request_target` trigger.** That trigger runs a fork's pull request
-  with this repo's secrets and a write-capable token. The new `ci-floor.yml` workflow
-  checks out `dotfiles-core@v7` and runs its `check-modern.sh --banned-triggers` over this
-  repo's workflows, the same rule the OS repos get through Core's `lint-call.yml`
-  (dotgibson/dotfiles-core#1215). Nothing here uses the trigger today. The check passes
-  with a warning until the Core release that ships the mode moves the `v7` tag.
-
-### Fixed
-
 - **`configuration.dsc.yaml` stopped a fresh box at its first assertion** (#285). Every unit
   said `allowPrerequisites: true`, a directive winget's configuration schema does not have;
   the real one is `allowPrerelease`. Nothing noticed since #109 wrote it in July, because
@@ -86,6 +77,15 @@ so entries are grouped by theme rather than strict semver releases.
   prereleases would only loosen reproducibility. `tests/Packages.Tests.ps1` gains the gate
   the schema cannot be: an allowlist of the four directive keys the schema defines, and a
   check that every `Microsoft.Windows.Developer` unit allows prerelease.
+
+### Security
+
+- **CI refuses a `pull_request_target` trigger.** That trigger runs a fork's pull request
+  with this repo's secrets and a write-capable token. The new `ci-floor.yml` workflow
+  checks out `dotfiles-core@v7` and runs its `check-modern.sh --banned-triggers` over this
+  repo's workflows, the same rule the OS repos get through Core's `lint-call.yml`
+  (dotgibson/dotfiles-core#1215). Nothing here uses the trigger today. The check passes
+  with a warning until the Core release that ships the mode moves the `v7` tag.
 
 ### Docs
 
