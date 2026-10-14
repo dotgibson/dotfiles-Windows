@@ -8,6 +8,20 @@ so entries are grouped by theme rather than strict semver releases.
 
 ### Fixed
 
+- **A tool that prints no shell init no longer takes `core/10-tools.ps1` down with it**
+  (#294). Every cached init (starship, zoxide, mise, atuin, carapace) carried a live
+  fallback for a cache miss: re-spawn the tool and hand the output to `Invoke-Expression`.
+  When the tool prints nothing — a scoop shim that resolves on PATH but cannot launch its
+  target is the everyday case — that is `Invoke-Expression ''`, which throws, and the
+  loader reported the whole fragment as failed: no atuin, no carapace, no sessionizer, no
+  Alt+Z for that shell. `Get-InitCache` now owns the fallback. A blank generator is one
+  `Write-DotWarn` naming the tool (`run dotfiles-doctor`) and `$null`, so the call site
+  simply skips it; a publish that loses to a sibling with nothing current to serve
+  sources the output it already generated from a per-process `<name>.<pid>.ps1` (swept
+  by `init-cache-clear`) instead of spawning again; and a generator that throws, or an
+  unwritable cache dir, warns with the reason. The six call sites drop to
+  `if ($cf) { . $cf }` and no longer carry a second copy of each recipe.
+
 - **`core/10-tools.ps1` no longer fails to load on PowerShell 7.6** (#286). The console
   host imports its own PSReadLine before any profile runs; pwsh 7.6 ships 2.4.5 in-box,
   `packages/modules.ps1` pinned 2.3.6 into the local module dir, and that dir is first on

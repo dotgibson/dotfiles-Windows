@@ -44,6 +44,9 @@ Describe 'Get-InitCache (lifted from core/10-tools.ps1)' {
         }
         function Get-Marker { param([scriptblock]$Gen) "# initcache-hash: $(Get-DotStringSha256 $Gen.ToString())" }
         function Get-TempFiles { @(Get-ChildItem -LiteralPath $global:DotfilesInitCacheDir -Filter '*.tmp' -ErrorAction Ignore) }
+        # Warnings are collected, not printed: a test asserts on them (#294).
+        $script:Warns = [System.Collections.Generic.List[string]]::new()
+        function Write-DotWarn { param([string]$Message, [string]$Hint) $script:Warns.Add($Message) }
 
         $script:SavedDir = $global:DotfilesInitCacheDir
     }
@@ -54,6 +57,53 @@ Describe 'Get-InitCache (lifted from core/10-tools.ps1)' {
         $global:DotfilesInitCacheDir = Join-Path $TestDrive "ic-$([guid]::NewGuid().ToString('N'))"
         $script:MiseExe = $null
         $script:Calls   = 0
+        $script:Warns.Clear()
+    }
+
+    Describe 'Get-InitCache: a tool with no init to source (#294)' {
+        It 'returns $null and warns once, naming the tool, when the generator prints nothing' {
+            # A scoop shim that resolves on PATH but cannot launch its target prints nothing
+            # (its complaint goes to stderr). The callers used to re-spawn and feed the empty
+            # result to Invoke-Expression, which throws on '' and failed the whole fragment.
+            $res = @(Get-InitCache -Name mise-shims -Generate { $null } 2>&1)
+            @($res | Where-Object { $_ -is [System.Management.Automation.ErrorRecord] }) | Should -HaveCount 0
+            @($res | Where-Object { $_ -isnot [System.Management.Automation.ErrorRecord] -and $null -ne $_ }) | Should -HaveCount 0
+            $script:Warns | Should -HaveCount 1
+            $script:Warns[0] | Should -Match '^mise-shims printed no shell init'
+            Test-Path -LiteralPath (Join-Path $global:DotfilesInitCacheDir 'mise-shims.ps1') | Should -BeFalse
+            Get-TempFiles | Should -HaveCount 0
+        }
+
+        It 'returns $null and warns, with the reason, when the generator throws' {
+            $res = @(Get-InitCache -Name zoxide -Generate { throw 'boom' } 2>&1)
+            @($res | Where-Object { $_ -is [System.Management.Automation.ErrorRecord] }) | Should -HaveCount 0
+            @($res | Where-Object { $_ -isnot [System.Management.Automation.ErrorRecord] -and $null -ne $_ }) | Should -HaveCount 0
+            $script:Warns | Should -HaveCount 1
+            $script:Warns[0] | Should -Match '^zoxide init could not be cached: boom'
+            Get-TempFiles | Should -HaveCount 0
+        }
+
+        It 'a healthy generator produces no warning' {
+            Get-InitCache -Name demo -Generate { 'ok' } | Out-Null
+            $script:Warns | Should -HaveCount 0
+        }
+
+        It 'a regeneration sweeps per-process leftovers of the same name that are old enough to have been sourced' {
+            # A per-process file is only needed until its shell dot-sources it, moments
+            # after it is returned. Anything older is an orphan from a shell that was
+            # killed in between; the next regeneration of that tool removes it.
+            New-Item -ItemType Directory -Force -Path $global:DotfilesInitCacheDir | Out-Null
+            $old   = Join-Path $global:DotfilesInitCacheDir 'demo.4242.ps1'
+            $fresh = Join-Path $global:DotfilesInitCacheDir 'demo.4243.ps1'
+            $other = Join-Path $global:DotfilesInitCacheDir 'zoxide.4242.ps1'
+            foreach ($f in $old, $fresh, $other) { Set-Content -LiteralPath $f -Value 'x' }
+            (Get-Item -LiteralPath $old).LastWriteTimeUtc   = (Get-Date).ToUniversalTime().AddMinutes(-10)
+            (Get-Item -LiteralPath $other).LastWriteTimeUtc = (Get-Date).ToUniversalTime().AddMinutes(-10)
+            Get-InitCache -Name demo -Generate { 'ok' } | Out-Null
+            Test-Path -LiteralPath $old   | Should -BeFalse
+            Test-Path -LiteralPath $fresh | Should -BeTrue    # too new: its shell may still be about to source it
+            Test-Path -LiteralPath $other | Should -BeTrue    # another tool's: not this call's business
+        }
     }
 
     Describe 'Get-InitCache: atomic publish (#287)' {
@@ -67,7 +117,7 @@ Describe 'Get-InitCache (lifted from core/10-tools.ps1)' {
             Get-TempFiles | Should -HaveCount 0
         }
 
-        It 'a target another writer holds open (<Label>) is skipped silently: null, no error record, no temp, no leaked handle' -Skip:(-not $IsWindows) -ForEach @(
+        It 'a target another writer holds open (<Label>) is left alone: our output is sourced from a per-process file, no error record, no temp, no leaked handle' -Skip:(-not $IsWindows) -ForEach @(
             @{ Label = 'exclusive';    Share = [System.IO.FileShare]::None }
             # What a concurrent Set-Content holds once its own open has hit an IOException and
             # it retried write-only (PowerShell/PowerShell#27947, #24774). Against the old
@@ -87,7 +137,12 @@ Describe 'Get-InitCache (lifted from core/10-tools.ps1)' {
             try   { $res = @(Get-InitCache -Name mise-shims -Generate { 'from-me' } 2>&1) }
             finally { $h.Dispose() }
             @($res | Where-Object { $_ -is [System.Management.Automation.ErrorRecord] }) | Should -HaveCount 0
-            @($res | Where-Object { $_ -isnot [System.Management.Automation.ErrorRecord] -and $null -ne $_ }) | Should -HaveCount 0
+            # The holder's file is not ours to replace and carries no marker, so what we
+            # generated is kept under a per-process name and THAT is returned (#294).
+            $mine = Join-Path $global:DotfilesInitCacheDir "mise-shims.$PID.ps1"
+            @($res | Where-Object { $_ -isnot [System.Management.Automation.ErrorRecord] }) | Should -Be @($mine)
+            @(Get-Content -LiteralPath $mine)[1] | Should -Be 'from-me'
+            $script:Warns | Should -HaveCount 0
             Get-TempFiles | Should -HaveCount 0
             # The holder is gone, so nothing of OURS may still have the file open: an
             # exclusive open must succeed. (The old code leaked a stream here.)
@@ -145,19 +200,23 @@ Describe 'Get-InitCache (lifted from core/10-tools.ps1)' {
             @(Get-Content -LiteralPath $script:Target)[1] | Should -Be 'regen'
         }
 
-        It 'after a tool upgrade, a same-marker cache a sibling is still reading is NOT served' -Skip:(-not $IsWindows) {
+        It 'after a tool upgrade, a same-marker cache a sibling is still reading is NOT served: the fresh output is, from a per-process file' -Skip:(-not $IsWindows) {
             # The rename-lost fallback must apply the same two-key check as a hit. The
             # marker still matches (same recipe) but the binary is now NEWER than the file,
             # so the file is the stale output we were replacing: regenerate, and when the
-            # publish loses to the reader, return $null so the live fallback runs.
+            # publish loses to the reader, source what we just generated from a
+            # per-process file (#294) — not the stale file, and not a second spawn.
             (Get-Item -LiteralPath $script:MiseExe).LastWriteTimeUtc = (Get-Date).ToUniversalTime().AddMinutes(5)
             $h = [System.IO.File]::Open($script:Target, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::Read)
             try   { $res = @(Get-InitCache -Name mise-shims -Tool mise -Generate $script:Gen 2>&1) }
             finally { $h.Dispose() }
             $script:Calls | Should -Be 1
             @($res | Where-Object { $_ -is [System.Management.Automation.ErrorRecord] }) | Should -HaveCount 0
-            @($res | Where-Object { $_ -isnot [System.Management.Automation.ErrorRecord] -and $null -ne $_ }) | Should -HaveCount 0
+            $mine = Join-Path $global:DotfilesInitCacheDir "mise-shims.$PID.ps1"
+            @($res | Where-Object { $_ -isnot [System.Management.Automation.ErrorRecord] }) | Should -Be @($mine)
+            @(Get-Content -LiteralPath $mine)[1] | Should -Be 'regen'
             @(Get-Content -LiteralPath $script:Target)[1] | Should -Be 'seed'
+            $script:Warns | Should -HaveCount 0
             Get-TempFiles | Should -HaveCount 0
         }
     }
