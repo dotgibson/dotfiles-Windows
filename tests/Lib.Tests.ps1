@@ -782,7 +782,17 @@ Describe 'Test-StubDirIntoRepo' {
     It 'is false for a directory SYMLINK - the shape being migrated away from' {
         $link = Join-Path $script:DirRoot 'home\linked'
         New-Item -ItemType SymbolicLink -Path $link -Target $script:DirSrc | Out-Null
-        Test-StubDirIntoRepo -Link $link -Target $script:DirSrc -Root $script:DirRepo | Should -BeFalse
+        try {
+            Test-StubDirIntoRepo -Link $link -Target $script:DirSrc -Root $script:DirRepo | Should -BeFalse
+        } finally {
+            # Remove the link ourselves rather than leaving it for Pester. On .NET 10
+            # (pwsh 7.6, Windows 11 26300) a recursive GetFileSystemEntries refuses to
+            # traverse a directory symlink or junction under %TEMP% ("untrusted mount
+            # point"), so Clear-TestDrive throws and takes the whole container down with
+            # it — every Describe after this one reads as failed. Directory.Delete on
+            # the link removes only the reparse point; the target stays intact.
+            if (Test-Path -LiteralPath $link) { [System.IO.Directory]::Delete($link) }
+        }
     }
     It 'is false for a missing link, an empty source, and a blank root' {
         Test-StubDirIntoRepo -Link (Join-Path $script:DirRoot 'nope') -Target $script:DirSrc -Root $script:DirRepo | Should -BeFalse
