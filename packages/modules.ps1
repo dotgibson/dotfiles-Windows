@@ -12,17 +12,28 @@
 # dependency-free validator (tests/Invoke-Validation.ps1) gates against a floor
 # or range sneaking back in.
 #
+# One exception to "installs precisely these": a module the host already ships
+# in-box ($PSHOME\Modules) at or above its pin is skipped, so the pin acts as the
+# floor the host must meet (#286). That only ever applies to PSReadLine today.
+#
 # To add a module: add one line here (exact version).
 # PSReadLine MUST stay >= 2.2.0: that's the first release with bracketed-paste
 # support, which is what makes a multi-line paste land as literal text under our
 # `Set-PSReadLineOption -EditMode Vi` (core/10-tools.ps1). Below 2.2.0, Vi mode
 # interprets a pasted block keystroke-by-keystroke (`:`/`d`/`i`/`Esc` act as Vi
 # commands), so paste "switches modes / reorganizes text / runs vim commands".
-# 2.3.6 is the current gallery release; the in-box PSReadLine on some hosts still
-# predates 2.2.0, so pinning a recent version here is the fix. The same minimum
-# is asserted by tests/Repo.Tests.ps1.
+# The same minimum is asserted by tests/Repo.Tests.ps1.
+#
+# What this pin can and cannot do for PSReadLine: the console host imports its own
+# copy (in-box, or Documents\PowerShell\Modules) BEFORE any profile runs, and a
+# second copy — older or newer — fails to import next to it, so core/10-tools.ps1
+# never imports over a loaded PSReadLine (#286). The local copy therefore only
+# serves hosts that do not preload one. Every supported pwsh ships >= 2.3.4 in-box;
+# raising a stale host copy means `Install-Module PSReadLine -Scope CurrentUser`
+# (on the default path the host reads), not a change here. 2.4.5 is the current
+# gallery release, matching what pwsh 7.6 ships.
 $script:MaintModulePins = [ordered]@{
-    PSReadLine          = '2.3.6'
+    PSReadLine          = '2.4.5'
     'Terminal-Icons'    = '0.10.0'
     PSFzf               = '2.4.0'
     CompletionPredictor = '0.1.0'

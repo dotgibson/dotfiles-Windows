@@ -293,12 +293,22 @@ try {
     # Find-Module failing (offline, gallery down) falls THROUGH to Save-Module rather
     # than skipping: an unknown latest version must not read as "up to date", or the
     # step would go quiet on exactly the days it cannot check.
+    #
+    # The host's in-box copy ($PSHOME\Modules\<Name>\<Name>.psd1 — PSReadLine ships
+    # there, with no version subfolder) counts as installed too (#286). The console
+    # host loads that copy before any profile runs and core/10-tools.ps1 never imports
+    # over it, so for PSReadLine the local store is inert in an interactive shell: a
+    # gallery release the in-box copy already matches is nothing to save.
     $localModules = Join-Path $env:LOCALAPPDATA 'PowerShell\Modules'
     New-Item -ItemType Directory -Force -Path $localModules | Out-Null
     foreach ($m in $script:MaintModuleNames) {
         Step "module update: $m" {
             $installed = @(Get-ChildItem -LiteralPath (Join-Path $localModules $m) -Directory -Force -ErrorAction SilentlyContinue |
                 ForEach-Object Name)
+            $inboxManifest = Join-Path $PSHOME "Modules\$m\$m.psd1"
+            if (Test-Path -LiteralPath $inboxManifest) {
+                try { $installed += [string](Import-PowerShellDataFile $inboxManifest).ModuleVersion } catch { }
+            }
             $latest = try { [string](Find-Module -Name $m -ErrorAction Stop).Version } catch { '' }
             if (Test-DotModuleUpToDate -InstalledVersions $installed -LatestVersion $latest) {
                 "module $m already at $latest — nothing to save"
