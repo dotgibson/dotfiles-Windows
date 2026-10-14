@@ -114,4 +114,11 @@ Describe 'Test-DotModuleUpToDate' {
     It 'ignores unparseable versions alongside a good one' {
         Test-DotModuleUpToDate -InstalledVersions @('junk', '2.4.5') -LatestVersion '2.4.5' | Should -BeTrue
     }
+    It 'treats a pin as satisfied by a newer in-box copy (#286: the installer skip)' {
+        # Install-Packages.ps1 feeds the host's in-box version as "installed" and the
+        # pin as "latest": pwsh 7.6 ships 2.4.5, so a 2.3.6 pin is already met and
+        # nothing is saved; a host still below the pin gets the pinned copy.
+        Test-DotModuleUpToDate -InstalledVersions @('2.4.5') -LatestVersion '2.3.6' | Should -BeTrue
+        Test-DotModuleUpToDate -InstalledVersions @('2.1.0') -LatestVersion '2.3.6' | Should -BeFalse
+    }
 }

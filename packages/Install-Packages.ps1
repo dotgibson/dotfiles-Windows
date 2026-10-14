@@ -67,6 +67,16 @@ $failed = [System.Collections.Generic.List[string]]::new()
 $lib = Join-Path $here '../powershell/core/05-lib.ps1'
 if (Test-Path $lib) { . $lib }
 
+# Pure module-version logic (Test-DotModuleUpToDate), shared with maint/Maintenance.ps1.
+# The in-box skip in the module loop (#286) reuses it rather than growing a second
+# comparer. A partial checkout without it degrades to the pre-#286 behaviour: always
+# save the pin.
+$modHelpers = Join-Path $here '../powershell/Dotfiles/Modules.Helpers.ps1'
+if (Test-Path $modHelpers) { . $modHelpers }
+if (-not (Get-Command Test-DotModuleUpToDate -ErrorAction SilentlyContinue)) {
+    function Test-DotModuleUpToDate { $false }   # named args land in $args; always "save"
+}
+
 # Make "best-effort if the lib is missing" actually true: if 05-lib didn't load
 # (older/partial checkout), define minimal shims for the helpers this script uses
 # so it degrades to plain output instead of erroring on an undefined command.
@@ -573,6 +583,23 @@ $k = 0
 foreach ($m in $mods) {
     $k++
     try {
+        # pwsh ships PSReadLine in-box ($PSHOME\Modules\<Name>\<Name>.psd1 — no version
+        # subfolder, so read the manifest) and the console host loads THAT copy before
+        # any profile runs. A local copy at or below it is dead weight — and before #286
+        # it was a trap: first on PSModulePath, it got imported next to the host's copy
+        # and killed core/10-tools.ps1. The pin is the floor the host must meet; when
+        # the in-box copy already does, save nothing. Checked before the "already
+        # local" skip so a box carrying a stale local copy sees the real reason.
+        $pin = $script:MaintModulePins[$m]
+        $inboxManifest = Join-Path $PSHOME "Modules\$m\$m.psd1"
+        $inbox = @()
+        if (Test-Path -LiteralPath $inboxManifest) {
+            try { $inbox = @([string](Import-PowerShellDataFile $inboxManifest).ModuleVersion) } catch { }
+        }
+        if (Test-DotModuleUpToDate -InstalledVersions $inbox -LatestVersion $pin) {
+            Write-Host "  [$k/$($mods.Count)] = $m (host ships $($inbox[0]), pin $pin)" -ForegroundColor DarkGray
+            continue
+        }
         if (Test-Path (Join-Path $localModules $m)) {
             Write-Host "  [$k/$($mods.Count)] = $m (already local)" -ForegroundColor DarkGray
             continue
@@ -582,7 +609,7 @@ foreach ($m in $mods) {
         # so a fresh bootstrap is reproducible; the daily maint runner rolls it forward.
         # Save-Module is silent and slow, so animate a spinner while it downloads (the
         # job returns 'ok' or 'fail: ...' so failure handling is preserved; inline on CI).
-        $ver = $script:MaintModulePins[$m]
+        $ver = $pin
         $res = Invoke-DotSpinner -Label "downloading $m $ver" -ArgumentList @($m, $localModules, $ver) -Script {
             param($name, $path, $version)
             try { Save-Module -Name $name -Path $path -RequiredVersion $version -Force -ErrorAction Stop; 'ok' }
