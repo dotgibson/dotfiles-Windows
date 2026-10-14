@@ -506,7 +506,10 @@ Describe 'configuration.dsc.yaml and winget.json' {
 #
 # Same dependency-free parse as the Describe above: split on `- resource:` so each
 # unit is its own block, then read the 8-space-indented `key: value` children of
-# its `directives:` line.
+# its `directives:` line. The key pattern is deliberately loose (anything up to the
+# first colon): a stricter `\w+` would let a punctuated unknown key such as
+# `allow-prerelease` drop out of the block unparsed -- the same silent ignore this
+# gate exists to catch.
 Describe 'configuration.dsc.yaml directives (#285)' {
     BeforeAll {
         $RepoRoot = Split-Path -Parent $PSScriptRoot
@@ -519,7 +522,7 @@ Describe 'configuration.dsc.yaml directives (#285)' {
             foreach ($line in $lines) {
                 if ($line -match '^ {6}directives:\s*$') { $inDirectives = $true; continue }
                 if ($inDirectives) {
-                    if ($line -match '^ {8}([A-Za-z]\w*):\s*(.*?)\s*$') { $dirs[$Matches[1]] = $Matches[2]; continue }
+                    if ($line -match '^ {8}(\S[^:]*?):\s*(.*?)\s*$') { $dirs[$Matches[1].Trim()] = $Matches[2]; continue }
                     $inDirectives = $false
                 }
             }
@@ -555,16 +558,23 @@ Describe 'configuration.dsc.yaml directives (#285)' {
         }
     }
 
-    It 'README and bootstrap.ps1 both enable winget configure before running it' {
+    It 'README and bootstrap.ps1 enable winget configure before every run of it' {
         # `winget configure` ships switched off, so the documented recipe has to turn
-        # it on before the configure line -- in both places the recipe lives.
+        # it on before the configure line -- in both places the recipe lives, and for
+        # EVERY recipe: bootstrap.ps1 prints two (with and without the clone), so a
+        # first-occurrence check would miss the second one losing its --enable. Walk
+        # the configure commands in order and require an --enable since the last run.
         foreach ($rel in 'README.md', 'bootstrap.ps1') {
-            $text   = Get-Content (Join-Path $RepoRoot $rel) -Raw
-            $enable = $text.IndexOf('winget configure --enable', [StringComparison]::Ordinal)
-            $run    = $text.IndexOf('winget configure -f configuration.dsc.yaml', [StringComparison]::Ordinal)
-            $enable | Should -BeGreaterThan -1 -Because "$rel should tell the user to run 'winget configure --enable'"
-            $run    | Should -BeGreaterThan -1 -Because "$rel should carry the configure command"
-            $enable | Should -BeLessThan $run -Because "$rel should enable configuration before running it"
+            $text = Get-Content (Join-Path $RepoRoot $rel) -Raw
+            $cmds = [regex]::Matches($text, 'winget configure (--enable|-f configuration\.dsc\.yaml)')
+            $runs = @($cmds | Where-Object { $_.Groups[1].Value -ne '--enable' })
+            $runs.Count | Should -BeGreaterThan 0 -Because "$rel should carry the configure command"
+            $enabled = $false
+            foreach ($m in $cmds) {
+                if ($m.Groups[1].Value -eq '--enable') { $enabled = $true; continue }
+                $enabled | Should -BeTrue -Because "$rel runs 'winget configure -f configuration.dsc.yaml' at offset $($m.Index) without a 'winget configure --enable' since the previous run"
+                $enabled = $false
+            }
         }
     }
 }
