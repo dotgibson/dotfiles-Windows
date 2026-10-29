@@ -118,6 +118,24 @@ if (Test-Path $DotfilesModule) {
     }
 }
 
+# --- Heal a stale inherited PATH ----------------------------------------------
+# A shell's PATH is a copy of its parent's, and some parents live for weeks: the
+# psmux __warm__ pool re-spawns itself from its own env (see psmux.conf's `warm on`
+# note), so every pane carried the PATH of whichever shell first started the pool.
+# A tool installed since via a registry PATH entry rather than a shim — scoop's
+# `env_add_path`, which starship >= 1.27 uses — was then missing in every pane,
+# and 10-tools silently skipped starship. Append whatever the registry's Machine +
+# User PATH has that this process lacks (Merge-DotPathList, core/05-lib.ps1).
+# Two registry reads, no spawn. Must run BEFORE the layers: 00-aliases fingerprints
+# PATH for the command cache. Needs the module; a degraded load just skips it.
+if (Get-Command Merge-DotPathList -ErrorAction SilentlyContinue) {
+    try {
+        $env:Path = Merge-DotPathList $env:Path @(
+            [Environment]::GetEnvironmentVariable('Path', 'Machine'),
+            [Environment]::GetEnvironmentVariable('Path', 'User'))
+    } catch { }
+}
+
 foreach ($layer in @('core', 'os')) {
     $dir = Join-Path $ProfileDir $layer
     if (Test-Path $dir) {

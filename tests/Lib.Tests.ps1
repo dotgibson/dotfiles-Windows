@@ -81,6 +81,31 @@ Describe 'Test-InMux' {
     It 'is $true when PSMUX_SESSION is set'    { $env:PSMUX_SESSION = 'main'; Test-InMux | Should -BeTrue }
 }
 
+Describe 'Merge-DotPathList' {
+    It 'appends a registry entry the process PATH lacks' {
+        Merge-DotPathList 'C:\a;C:\b' @('C:\b;C:\new') | Should -Be 'C:\a;C:\b;C:\new'
+    }
+    It 'keeps the original order (process-local prepends win)' {
+        Merge-DotPathList 'C:\mise\shims;C:\b' @('C:\b;C:\mise\shims') | Should -Be 'C:\mise\shims;C:\b'
+    }
+    It 'matches case-insensitively and ignores a trailing backslash' {
+        Merge-DotPathList 'C:\Scoop\Shims\' @('c:\scoop\shims') | Should -Be 'C:\Scoop\Shims\'
+    }
+    It 'compares and appends %VAR% entries expanded' {
+        $expanded = [Environment]::ExpandEnvironmentVariables('%SystemRoot%\x')
+        Merge-DotPathList $expanded @('%SystemRoot%\x;%SystemRoot%\y') |
+            Should -Be "$expanded;$([Environment]::ExpandEnvironmentVariables('%SystemRoot%\y'))"
+    }
+    It 'is a no-op on a second run' {
+        $once = Merge-DotPathList 'C:\a' @('C:\b', 'C:\c')
+        Merge-DotPathList $once @('C:\b', 'C:\c') | Should -Be $once
+    }
+    It 'drops empty segments and tolerates null inputs' {
+        Merge-DotPathList 'C:\a;;' @($null, ';C:\b;') | Should -Be 'C:\a;C:\b'
+        Merge-DotPathList $null $null | Should -Be ''
+    }
+}
+
 Describe 'Test-DotColor' {
     It 'enables colour by default'        { Test-DotColor -NoColor '' -Term 'xterm' | Should -BeTrue }
     It 'disables colour when NO_COLOR set' { Test-DotColor -NoColor '1' -Term 'xterm' | Should -BeFalse }
