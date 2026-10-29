@@ -17,7 +17,7 @@
 # ============================================================================
 
 # --- load contract (checked by tests/LoadContract.Tests.ps1) ------------------
-# provides: Test-SensitiveHistoryLine, Get-DotConfirmAnswer, Test-DotGum, Read-DotConfirm, Get-DotStringSha256, Get-DotSpinnerFrame, Invoke-DotSpinner, Test-DotEmailish, Get-DotToolNudge, Test-DotNonInteractiveArg, Test-InteractiveShell, Test-InMux, Get-DotfilesLinkPlan, Get-DotfilesRetiredLinkPlan, Get-DotfilesEnvPlan, Get-DotfilesStubContent, Get-DotfilesForwarderContent, Test-StubIntoRepo, Test-StubDirIntoRepo, Test-DotStubParentStale, Test-DotColor, Test-DotUnicode, Get-DotGlyph, Write-DotHost, Write-DotBanner, Get-DotConsoleWidth, Format-DotWrap, Write-DotRule, Write-DotErr, Write-DotOk, Write-DotWarn
+# provides: Test-SensitiveHistoryLine, Get-DotConfirmAnswer, Test-DotGum, Read-DotConfirm, Get-DotStringSha256, Get-DotSpinnerFrame, Invoke-DotSpinner, Test-DotEmailish, Get-DotToolNudge, Test-DotNonInteractiveArg, Test-InteractiveShell, Test-InMux, Merge-DotPathList, Get-DotfilesLinkPlan, Get-DotfilesRetiredLinkPlan, Get-DotfilesEnvPlan, Get-DotfilesStubContent, Get-DotfilesForwarderContent, Test-StubIntoRepo, Test-StubDirIntoRepo, Test-DotStubParentStale, Test-DotColor, Test-DotUnicode, Get-DotGlyph, Write-DotHost, Write-DotBanner, Get-DotConsoleWidth, Format-DotWrap, Write-DotRule, Write-DotErr, Write-DotOk, Write-DotWarn
 # requires: (none)
 
 # --- Test-SensitiveHistoryLine ------------------------------------------------
@@ -368,6 +368,39 @@ function Test-InMux {
     [OutputType([bool])]
     param()
     [bool]($env:TMUX -or $env:PSMUX_SESSION)
+}
+
+# --- Merge-DotPathList --------------------------------------------------------
+# Append to a PATH string every entry from -Add that it doesn't already carry, and
+# return the result. profile.ps1 feeds it the registry's Machine + User PATH so a
+# shell whose env was INHERITED from a stale parent still sees tools added since —
+# the psmux __warm__ pool re-spawns itself from its own env, so pane shells kept a
+# PATH from weeks ago, and scoop apps installed via `env_add_path` (no shim, e.g.
+# starship >= 1.27) silently vanished from every pane. Append-only on purpose:
+# nothing is reordered or removed, so process-local prepends (mise shims) keep
+# their priority and a second run is a no-op. Matching ignores case and a
+# trailing '\'; %VAR% entries are compared expanded.
+function Merge-DotPathList {
+    [OutputType([string])]
+    param(
+        [AllowEmptyString()][AllowNull()][string]$Current,
+        [AllowEmptyCollection()][AllowNull()][string[]]$Add
+    )
+    $norm = { param($p) [Environment]::ExpandEnvironmentVariables($p).TrimEnd('\').ToLowerInvariant() }
+    $parts = [System.Collections.Generic.List[string]]::new()
+    $seen  = [System.Collections.Generic.HashSet[string]]::new()
+    foreach ($p in ([string]$Current -split ';')) {
+        if (-not $p) { continue }
+        $parts.Add($p)
+        [void]$seen.Add((& $norm $p))
+    }
+    foreach ($chunk in @($Add)) {
+        foreach ($p in ([string]$chunk -split ';')) {
+            if (-not $p) { continue }
+            if ($seen.Add((& $norm $p))) { $parts.Add([Environment]::ExpandEnvironmentVariables($p)) }
+        }
+    }
+    $parts -join ';'
 }
 
 # --- Get-DotfilesLinkPlan -----------------------------------------------------

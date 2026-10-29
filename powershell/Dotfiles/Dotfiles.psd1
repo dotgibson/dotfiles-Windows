@@ -42,6 +42,7 @@
         'Test-DotNonInteractiveArg'
         'Test-InteractiveShell'
         'Test-InMux'
+        'Merge-DotPathList'
         'Get-DotfilesLinkPlan'
         'Get-DotfilesRetiredLinkPlan'
         'Get-DotfilesEnvPlan'
