@@ -6,6 +6,17 @@ so entries are grouped by theme rather than strict semver releases.
 
 ## [Unreleased]
 
+### Fixed
+
+- **The three sync bots go red when they cannot mint the fleet App token.** `nvim-sync`,
+  `starship-sync` and `theme-sync` already warned (#269) when the mint was skipped or
+  failed, but a warning on a green scheduled run reaches nobody: the PR they then open
+  with `GITHUB_TOKEN` gets no CI and sits `BLOCKED`, as #265 did. Each bot now ends with a
+  step that fails the run in that case, after the PR step, so the PR still opens for a
+  manual nudge. The error says whether the org secret/variable is not shared with this
+  repo or the App is not installed on it. The same step closes dotfiles-core's and
+  dotfiles-nvim's `freshness.yml`.
+
 ## [v1.8.1] - 2026-10-14
 
 ### Fixed

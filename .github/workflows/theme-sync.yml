@@ -169,3 +169,26 @@ jobs:
               --body "Automated by the theme-sync bot. Core's \`theme/palette.toml\` moved ahead of the vendored copy here; this re-runs \`theme-sync.ps1\` and then \`gen-theme.ps1\`, so the palette and every block rendered from it move together. Review the colour diff, let CI run, then merge."
           fi
           echo "🎨 opened/updated PR on \`$BRANCH\`" >> "$GITHUB_STEP_SUMMARY"
+
+      # The warning above says it; this makes the run SAY it in red. #269 kept that step a
+      # warning so a real drift still lands, and this one keeps that: it runs AFTER the PR
+      # step, so the PR is already open and can be nudged by hand. What a warning could not
+      # do is reach anyone — a green scheduled run is read by nobody, and #265 and
+      # dotgibson/dotfiles-nvim#16 both sat BLOCKED behind one. The fork concern #269 also
+      # raised does not apply: the job-level `if:` already keeps this to the canonical repo.
+      # Same step as dotfiles-core's and dotfiles-nvim's freshness.yml (dotfiles-core's
+      # GITHUB-APP-AUTH.md, "A self-PR repo has a third registration").
+      - name: Fail if no App token was minted
+        if: steps.app.outputs.token == ''
+        shell: bash
+        env:
+          MINT: ${{ steps.app.outcome }}
+          HAS_CLIENT_ID: ${{ vars.FLEET_APP_CLIENT_ID != '' }}
+        run: |
+          if [ "$HAS_APP_KEY" != true ] || [ "$HAS_CLIENT_ID" != true ]; then
+            why="FLEET_APP_PRIVATE_KEY visible: $HAS_APP_KEY, FLEET_APP_CLIENT_ID visible: $HAS_CLIENT_ID — share the org secret/variable with ${GITHUB_REPOSITORY}"
+          else
+            why="the mint ran and ended '${MINT:-unknown}' — is dotgibson-fleet-sync installed on ${GITHUB_REPOSITORY}?"
+          fi
+          echo "::error title=PR not App-authored::No App token was minted, so any PR this run opened is GITHUB_TOKEN-authored and its CI will not start: $why"
+          exit 1
